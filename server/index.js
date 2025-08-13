@@ -5,6 +5,9 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const cookieParser = require("cookie-parser");
 const connectDB = require("./config/db");
+const helmet = require("helmet");
+const morgan = require("morgan");
+
 
 // Load environment variables
 dotenv.config();
@@ -14,10 +17,23 @@ const app = express();
 // Apply Middlewares
 app.use(express.json());
 app.use(cookieParser());
-
+app.use(helmet()); // Security headers
+app.use(morgan("dev")); // Request logging
 // CORS Configuration
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  process.env.ADMIN_URL,
+  "http://localhost:5173",
+];
+
 const corsOptions = {
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],

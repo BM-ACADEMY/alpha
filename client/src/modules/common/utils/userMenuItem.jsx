@@ -1,90 +1,121 @@
-import * as React from "react"
 import {
-  IconChartBar,
-  IconDashboard,
-  IconLogout,
-  IconUser,
-  IconWallet,
-} from "@tabler/icons-react"
+  LayoutDashboard,
+  BarChart,
+  List,
+  CreditCard,
+  User,
+  LogOut,
+  Camera,
+  FileText,
+  File,
+  Database,
+  FileBarChart,
+  FilePen,
+} from 'lucide-react';
 
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar"
-
-const data = {
+export const userMenuItems = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+    name: 'User',
+    email: 'user@example.com',
+    avatar: '/avatars/user.jpg',
   },
   navMain: [
     {
-      title: "Dashboard",
-      url: "#",
-      icon: IconDashboard,
+      title: 'Dashboard',
+      url: '/user-dashboard',
+      icon: LayoutDashboard,
     },
     {
-      title: "Earnings",
-      url: "#",
-      icon: IconChartBar,
+      title: 'Earnings',
+      url: '/user-dashboard/earnings',
+      icon: BarChart,
     },
     {
-      title: "Plans",
-      url: "#",
-      icon: IconChartBar,
+      title: 'Plans',
+      url: '/user-dashboard/plans',
+      icon: List,
     },
     {
-      title: "Wallet",
-      url: "#",
-      icon: IconWallet,
+      title: 'Wallet',
+      url: '/user-dashboard/wallet',
+      icon: CreditCard,
     },
     {
-      title: "Profile",
-      url: "#",
-      icon: IconUser,
+      title: 'Profile',
+      url: '/user-dashboard/profile',
+      icon: User,
     },
   ],
   navSecondary: [
     {
-      title: "Logout",
-      url: "#",
-      icon: IconLogout,
+      title: 'Logout',
+      url: '#',
+      icon: LogOut,
     },
   ],
-}
-
-export function AppSidebar({
-  ...props
-}) {
-  return (
-    <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
-              <a href="#">
-                <span className="text-base font-semibold">Acme Inc.</span>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-      <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
-      </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={data.user} />
-      </SidebarFooter>
-    </Sidebar>
-  );
-}
+  navClouds: [
+    {
+      title: 'Capture',
+      icon: Camera,
+      isActive: true,
+      url: '/user-dashboard/capture',
+      items: [
+        {
+          title: 'Active Proposals',
+          url: '/user-dashboard/capture/active',
+        },
+        {
+          title: 'Archived',
+          url: '/user-dashboard/capture/archived',
+        },
+      ],
+    },
+    {
+      title: 'Proposal',
+      icon: FileText,
+      url: '/user-dashboard/proposal',
+      items: [
+        {
+          title: 'Active Proposals',
+          url: '/user-dashboard/proposal/active',
+        },
+        {
+          title: 'Archived',
+          url: '/user-dashboard/proposal/archived',
+        },
+      ],
+    },
+    {
+      title: 'Prompts',
+      icon: File,
+      url: '/user-dashboard/prompts',
+      items: [
+        {
+          title: 'Active Proposals',
+          url: '/user-dashboard/prompts/active',
+        },
+        {
+          title: 'Archived',
+          url: '/user-dashboard/prompts/archived',
+        },
+      ],
+    },
+  ],
+  documents: [
+    {
+      name: 'Data Library',
+      url: '/user-dashboard/data-library',
+      icon: Database,
+    },
+    {
+      name: 'Reports',
+      url: '/user-dashboard/reports',
+      icon: FileBarChart,
+    },
+    {
+      name: 'Word Assistant',
+      url: '/user-dashboard/word-assistant',
+      icon: FilePen,
+    },
+  ],
+};
