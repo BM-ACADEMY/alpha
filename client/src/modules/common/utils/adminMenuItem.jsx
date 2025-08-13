@@ -1,77 +1,63 @@
-import * as React from "react"
 import {
-  IconDashboard,
-  IconUsers,
-  IconCreditCard,
-  IconStar,
-  IconReport,
-  IconList,
-  IconUser,
-  IconLogout,
-} from "@tabler/icons-react"
+  LayoutDashboard,
+  Users,
+  CreditCard,
+  Star,
+  FileBarChart,
+  List,
+  User,
+  LogOut,
+} from 'lucide-react';
 
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar"
-
-const data = {
+export const adminMenuItems = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+    name: 'Admin User',
+    email: 'admin@example.com',
+    avatar: '/avatars/admin.jpg',
   },
   navMain: [
     {
-      title: "Dashboard",
-      url: "#",
-      icon: IconDashboard,
+      title: 'Dashboard',
+      url: '/admin-dashboard',
+      icon: LayoutDashboard,
     },
     {
-      title: "Users",
-      url: "#",
-      icon: IconUsers,
+      title: 'Users',
+      url: '/admin-dashboard/users',
+      icon: Users,
     },
     {
-      title: "Payments",
-      url: "#",
-      icon: IconCreditCard,
+      title: 'Payments',
+      url: '/admin-dashboard/payments',
+      icon: CreditCard,
     },
     {
-      title: "Points",
-      url: "#",
-      icon: IconStar,
+      title: 'Points',
+      url: '/admin-dashboard/points',
+      icon: Star,
     },
     {
-      title: "Reports",
-      url: "#",
-      icon: IconReport,
+      title: 'Reports',
+      url: '/admin-dashboard/reports',
+      icon: FileBarChart,
     },
     {
-      title: "Plans",
-      url: "#",
-      icon: IconList,
+      title: 'Plans',
+      url: '/admin-dashboard/plans',
+      icon: List,
     },
   ],
   navSecondary: [
-    {
-      title: "Profile",
-      url: "#",
-      icon: IconUser,
-    },
-    {
-      title: "Logout",
-      url: "#",
-      icon: IconLogout,
-    },
+    // {
+    //   title: 'Profile',
+    //   url: '/admin-dashboard/profile',
+    //   icon: User,
+    // },
+    // {
+    //   title: 'Logout',
+    //   url: '#',
+    //   icon: LogOut,
+    // },
   ],
 }
 
@@ -99,4 +85,5 @@ export function AppSidebar({ ...props }) {
       </SidebarFooter>
     </Sidebar>
   );
-}
+
+};

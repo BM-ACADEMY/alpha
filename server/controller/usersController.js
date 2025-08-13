@@ -236,41 +236,20 @@ exports.verifyEmail = async (req, res) => {
 
 exports.getUserInfo = async (req, res) => {
   try {
-    const token = req.cookies.token;
-    console.log('getUserInfo - Token:', token || 'No token found');
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
+    const user = await User.findById(req.user.id)
+      .populate({
+        path: 'role_id',
+        select: 'role_id role_name',
+      })
+      .select('-password');
 
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('getUserInfo - Decoded:', decoded);
-    } catch (error) {
-      console.error('getUserInfo - JWT verification failed:', error.message);
-      return res.status(401).json({ message: 'Invalid or expired token', error: error.message });
-    }
-
-    const user = await User.findById(decoded.id).populate({
-      path: 'role_id',
-      select: 'role_id role_name',
-    }).select('-password');
     if (!user) {
-      console.error('getUserInfo - User not found for ID:', decoded.id);
       return res.status(404).json({ message: 'User not found' });
     }
 
     if (!user.role_id) {
-      console.error('getUserInfo - Role not populated for user ID:', decoded.id);
       return res.status(500).json({ message: 'Role not found for user' });
     }
-
-    console.log('getUserInfo - User found:', {
-      id: user._id.toString(),
-      username: user.username,
-      email: user.email,
-      role_id: user.role_id,
-    });
 
     res.status(200).json({
       user: {
@@ -285,6 +264,7 @@ exports.getUserInfo = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 exports.loginUser = async (req, res) => {
   const { email, password, access } = req.body;
@@ -344,7 +324,7 @@ exports.loginUser = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 24 * 60 * 60 * 1000,
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
     });
 
     res.status(200).json({

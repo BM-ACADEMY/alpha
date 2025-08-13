@@ -37,7 +37,7 @@ function UserLogin({ setIsAuthenticated }) {
       const response = await axiosInstance.post("users/login", credentials);
       if (response.data?.success) {
         setIsAuthenticated({ user: true, admin: false });
-        showToast("success", "Welcome back!");
+        showToast("Welcome Back!", "success");
         navigate("/user-dashboard");
       } else {
         showToast("error", response.data?.message || "Invalid credentials");
