@@ -5,7 +5,12 @@ const PercentageSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ["basic", "standard", "premium"], // <-- Replace with actual values from percentages_category_enum
+      enum: ["starter", "advanced", "premium", "elite"], 
+    },
+    amount_type: {
+      type: String,
+      required: true,
+      enum:["INR","USDT"]
     },
     profit_percentage: {
       type: mongoose.Types.Decimal128,

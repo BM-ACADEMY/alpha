@@ -7,6 +7,7 @@ import {
   List,
   User,
   LogOut,
+  Percent 
 } from 'lucide-react';
 
 export const adminMenuItems = {
@@ -35,6 +36,11 @@ export const adminMenuItems = {
       title: 'Points',
       url: '/admin-dashboard/points',
       icon: Star,
+    },
+    {
+      title: 'Profit percentage',
+      url: '/admin-dashboard/profit-percentage',
+      icon: Percent ,
     },
     {
       title: 'Reports',
