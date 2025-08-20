@@ -11,7 +11,7 @@ import { AuthContext } from "../context/AuthContext";
 
 function UserLogin() {
   const navigate = useNavigate();
-  const {login}=useContext(AuthContext);
+  const { login } = useContext(AuthContext);
   const [credentials, setCredentials] = useState({
     email: "",
     password: "",
@@ -29,15 +29,16 @@ function UserLogin() {
   };
 
 
-    const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-
+    setLoading(true);
     try {
-      await login(credentials, false); // isAdmin = true
+      await login(credentials, false);
+      setLoading(false);
     } catch (error) {
       console.log(error);
-      
+
     }
   };
   return (

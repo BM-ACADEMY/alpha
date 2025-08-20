@@ -10,20 +10,23 @@ const PlanSchema = new mongoose.Schema(
     amount_type: {
       type: String,
       required: true,
-      enum: ["INR", "USDT"], // <-- Replace with actual enum values from `plans_amount_type_enum`
+      enum: ["INR", "USDT"],
     },
     min_investment: {
       type: mongoose.Types.Decimal128,
     },
     capital_lockin: {
-      type: Number, // assuming in days or months (integer)
+      type: Number,
     },
     profit_withdrawal: {
       type: String,
-      enum: ["daily", "weekly", "monthly"], // <-- Replace with actual enum from `plans_profit_withdrawal_enum`
+      enum: ["daily", "weekly", "monthly"],
       default: "daily",
     },
     profit_percentage: {
+      type: mongoose.Types.Decimal128,
+    },
+    profit_percentage_day_week_month: {
       type: mongoose.Types.Decimal128,
     },
     total_return_percentage: {
