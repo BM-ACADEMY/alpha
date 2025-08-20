@@ -60,9 +60,9 @@ export function AppSidebar({ ...props }) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={menuData.navMain} />
-        {role === 'user' && <NavDocuments items={menuData.navClouds} />}
-        {role === 'user' && <NavDocuments items={menuData.documents} />}
-        <NavSecondary items={navSecondaryWithLogout} className="mt-auto" />
+       
+       
+
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={{ ...menuData.user, handleLogout, role }} />
