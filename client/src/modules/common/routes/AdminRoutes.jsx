@@ -6,6 +6,7 @@ import AdminPoints from '@/modules/admin/pages/points/Points';
 import AdminReports from '@/modules/admin/pages/reports/Reports';
 import AdminPlans from '@/modules/admin/pages/plans/Plans';
 import AdminProfile from '@/modules/admin/pages/settings/Profile';
+import PercentageManager from '@/modules/admin/pages/profit-percentage/PercentageManager';
 
 export const adminRoutes = [
   {
@@ -37,6 +38,14 @@ export const adminRoutes = [
     element: (
       <PrivateRoute allowedRole="admin">
         <AdminPoints />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: '/admin-dashboard/profit-percentage',
+    element: (
+      <PrivateRoute allowedRole="admin">
+        <PercentageManager />
       </PrivateRoute>
     ),
   },

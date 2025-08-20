@@ -12,6 +12,7 @@ import ResetPassword from '@/modules/common/pages/verify/ResetPassword';
 import { userRoutes } from '@/modules/common/routes/UserRoutes';
 import { adminRoutes } from '@/modules/common/routes/AdminRoutes';
 import Page from './modules/admin/page';
+import './app.css'
 
 function App() {
   return (
