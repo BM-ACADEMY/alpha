@@ -1,9 +1,10 @@
 import React from 'react'
+import AdminPurchasePlan from './AdminPurchasePlan';
 
 const Payments = () => {
   return (
     <div>
-      welcome to payments
+      <AdminPurchasePlan />
     </div>
   )
 }
