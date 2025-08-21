@@ -543,6 +543,7 @@ const AdminPurchasePlan = () => {
                 <TableHead>Amount</TableHead>
                 <TableHead>Profit %</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Plan Status</TableHead>
                 <TableHead>Purchased At</TableHead>
                 <TableHead>Expires At</TableHead>
                 <TableHead>Actions</TableHead>
@@ -590,6 +591,7 @@ const AdminPurchasePlan = () => {
                       {" "}
                       {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
                     </TableCell>
+                    <TableCell>{sub.planStatus}</TableCell>
                     <TableCell>{new Date(sub.purchased_at).toLocaleDateString()}</TableCell>
                     <TableCell>{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString() : "N/A"}</TableCell>
                     <TableCell>
@@ -640,7 +642,7 @@ const AdminPurchasePlan = () => {
                             </Dialog>
                           </>
                         )}
-                        <Dialog className="h-[300px]">
+                        <Dialog>
                           <DialogTrigger asChild>
                             <Button
                               variant="outline"
@@ -650,7 +652,7 @@ const AdminPurchasePlan = () => {
                               <Eye className="mr-2 h-4 w-4" /> View Details
                             </Button>
                           </DialogTrigger>
-                          <DialogContent>
+                          <DialogContent className="h-[500px] overflow-auto">
                             <DialogHeader>
                               <DialogTitle>Subscription Details</DialogTitle>
                             </DialogHeader>
@@ -665,6 +667,7 @@ const AdminPurchasePlan = () => {
                                 <p><strong>Profit Amount ({selectedSubscription.plan_id.profit_withdrawal}):</strong> {profitAmount.toFixed(2)} {selectedSubscription.plan_id.amount_type}</p>
                                 <p><strong>Total Return:</strong> {totalReturn.toFixed(2)} {selectedSubscription.plan_id.amount_type}</p>
                                 <p><strong>Status:</strong> {selectedSubscription.status.charAt(0).toUpperCase() + selectedSubscription.status.slice(1)}</p>
+                                <p><strong>Plan Status:</strong> {selectedSubscription.planStatus}</p>
                                 <p><strong>Purchased At:</strong> {new Date(selectedSubscription.purchased_at).toLocaleString()}</p>
                                 <p><strong>Expires At:</strong> {selectedSubscription.expires_at ? new Date(selectedSubscription.expires_at).toLocaleString() : "N/A"}</p>
                                 {selectedSubscription.rejected_reason && (
