@@ -1,20 +1,16 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, CreditCard, Upload, CheckCircle, XCircle, Clock, Eye } from "lucide-react";
+import { CreditCard, Upload } from "lucide-react";
 import axiosInstance from "@/modules/common/lib/axios";
+import { Input } from "@/components/ui/input";
 import { AuthContext } from "@/modules/common/context/AuthContext";
 
 const AdminPurchasePlan = () => {
   const { user } = useContext(AuthContext);
   const role_id = user?.role_id?._id;
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState(null);
   const [plans, setPlans] = useState([]);
   const [adminAccount, setAdminAccount] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -22,14 +18,8 @@ const AdminPurchasePlan = () => {
   const [paymentScreenshot, setPaymentScreenshot] = useState(null);
   const [amount, setAmount] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
-  const [purchasedPlans, setPurchasedPlans] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [rejectReason, setRejectReason] = useState("");
-  const [selectedSubscription, setSelectedSubscription] = useState(null);
-  const [imageUrl, setImageUrl] = useState("");
   const [profitCalculations, setProfitCalculations] = useState({});
   const [showProfitDialog, setShowProfitDialog] = useState(false);
   const debounceTimer = useRef(null);
@@ -54,7 +44,7 @@ const AdminPurchasePlan = () => {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isLoading]);
 
-  // Fetch plans and purchased plans
+  // Fetch plans
   useEffect(() => {
     let isMounted = true;
     axiosInstance
@@ -103,60 +93,10 @@ const AdminPurchasePlan = () => {
           setStatusMessage("Failed to fetch plans");
         }
       });
-    fetchPurchasedPlans(currentPage);
     return () => {
       isMounted = false;
     };
-  }, [currentPage]);
-
-  // Load image for selected subscription
-  useEffect(() => {
-    const loadImage = async () => {
-      if (selectedSubscription?.payment_screenshot) {
-        const url = await getImageUrl(selectedSubscription.payment_screenshot);
-        setImageUrl(url);
-      }
-    };
-    loadImage();
-  }, [selectedSubscription]);
-
-  const getImageUrl = async (filePath) => {
-    if (!filePath) return "";
-    const parts = filePath.split("/");
-    const folder = parts[parts.length - 2];
-    const filename = parts[parts.length - 1];
-    try {
-      const res = await axiosInstance.get(
-        `/user-subscription-plan/images/${folder}/${filename}`,
-        { responseType: "blob", withCredentials: true }
-      );
-      const blob = new Blob([res.data], { type: res.headers["content-type"] });
-      return URL.createObjectURL(blob);
-    } catch (err) {
-      console.error("Image fetch failed:", err);
-      return "";
-    }
-  };
-
-  // Debounce search
-  const handleSearch = (e) => {
-    setSearchQuery(e.target.value);
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
-      if (e.target.value) {
-        axiosInstance
-          .get(`/user-subscription-plan/search-user?query=${e.target.value}`)
-          .then((res) => setSelectedUser(res.data))
-          .catch((error) => {
-            console.error("Search user error:", error.message, error.response?.data);
-            setSelectedUser(null);
-            setStatusMessage("User not found");
-          });
-      } else {
-        setSelectedUser(null);
-      }
-    }, 1000);
-  };
+  }, []);
 
   // Fetch admin account
   const fetchAdminAccount = () => {
@@ -179,8 +119,8 @@ const AdminPurchasePlan = () => {
 
   // Initiate purchase
   const handlePurchase = (plan) => {
-    if (!selectedUser) {
-      setStatusMessage("Please select a user");
+    if (!user) {
+      setStatusMessage("User not logged in");
       return;
     }
     setSelectedPlan(plan);
@@ -190,16 +130,16 @@ const AdminPurchasePlan = () => {
 
   // Proceed with subscription
   const handleProceed = () => {
-    if (!selectedUser || !selectedPlan) {
-      setStatusMessage("Please select a user and plan");
+    if (!user || !selectedPlan) {
+      setStatusMessage("Please ensure you are logged in and a plan is selected");
       return;
     }
     setIsLoading(true);
     axiosInstance
       .post("/user-subscription-plan/subscribe", {
-        user_id: selectedUser._id,
+        user_id: user._id,
         plan_id: selectedPlan._id,
-        username: selectedUser.username,
+        username: user.username,
         amount: Number(amount || 0),
       })
       .then((res) => {
@@ -237,11 +177,11 @@ const AdminPurchasePlan = () => {
 
   // Submit screenshot
   const handleSubmit = async () => {
-    if (!paymentScreenshot || !subscriptionId || !selectedUser?.username || !amount) {
+    if (!paymentScreenshot || !subscriptionId || !user?.username || !amount) {
       console.error("Missing required fields:", {
         hasPaymentScreenshot: !!paymentScreenshot,
         subscriptionId,
-        username: selectedUser?.username,
+        username: user?.username,
         amount,
       });
       setStatusMessage("Please provide all required fields");
@@ -252,7 +192,7 @@ const AdminPurchasePlan = () => {
     const formData = new FormData();
     formData.append("payment_screenshot", paymentScreenshot);
     formData.append("subscription_id", subscriptionId);
-    formData.append("username", selectedUser.username);
+    formData.append("username", user.username);
     formData.append("amount", amount);
 
     for (let [key, value] of formData.entries()) {
@@ -275,7 +215,6 @@ const AdminPurchasePlan = () => {
       setSubscriptionId(null);
       setAmount("");
       setUploadProgress(0);
-      fetchPurchasedPlans(currentPage);
     } catch (error) {
       console.error("Upload error:", {
         message: error.message,
@@ -289,92 +228,8 @@ const AdminPurchasePlan = () => {
     }
   };
 
-  // Approve subscription
-  const handleApprove = async (subscriptionId) => {
-    setIsLoading(true);
-    try {
-      const res = await axiosInstance.patch(`/user-subscription-plan/verify/${subscriptionId}`);
-      console.log("Subscription approved:", res.data);
-      setStatusMessage(res.data.message);
-      fetchPurchasedPlans(currentPage);
-    } catch (error) {
-      console.error("Approve subscription error:", error.message, error.response?.data);
-      setStatusMessage(error.response?.data?.message || "Failed to approve subscription");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Reject subscription
-  const handleReject = async (subscriptionId) => {
-    if (!rejectReason) {
-      setStatusMessage("Please provide a rejection reason");
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const res = await axiosInstance.patch(`/user-subscription-plan/reject/${subscriptionId}`, {
-        rejected_reason: rejectReason,
-      });
-      console.log("Subscription rejected:", res.data);
-      setStatusMessage(res.data.message);
-      setRejectReason("");
-      fetchPurchasedPlans(currentPage);
-    } catch (error) {
-      console.error("Reject subscription error:", error.message, error.response?.data);
-      setStatusMessage(error.response?.data?.message || "Failed to reject subscription");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fetch purchased plans
-  const fetchPurchasedPlans = (page) => {
-    axiosInstance
-      .get(`/user-subscription-plan/purchased-plans?page=${page}`)
-      .then((res) => {
-        setPurchasedPlans(res.data.subscriptions);
-        setTotalPages(res.data.totalPages);
-      })
-      .catch((error) => {
-        console.error("Fetch purchased plans error:", error.message, error.response?.data);
-        setStatusMessage("Failed to fetch purchased plans");
-      });
-  };
-
-  // Pagination handlers
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-  };
-
   return (
     <div className="p-6 space-y-8">
-      {/* Search User */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Search User</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-2">
-            <Input placeholder="Email or Phone Number" value={searchQuery} onChange={handleSearch} />
-            <Search className="h-5 w-5 text-muted-foreground" />
-          </div>
-          {selectedUser && (
-            <div className="mt-4 flex items-center space-x-4">
-              <Avatar>
-                <AvatarFallback>{selectedUser.username[0]}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="font-semibold">{selectedUser.username}</p>
-                <p className="text-sm text-muted-foreground">
-                  {selectedUser.email} | {selectedUser.phone_number}
-                </p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Plans List */}
       <Card>
         <CardHeader>
@@ -413,7 +268,7 @@ const AdminPurchasePlan = () => {
                       <DialogTrigger asChild>
                         <Button
                           onClick={() => handlePurchase(plan)}
-                          disabled={!selectedUser || isLoading}
+                          disabled={isLoading}
                           variant="outline"
                         >
                           <CreditCard className="mr-2 h-4 w-4" /> Purchase
@@ -422,7 +277,7 @@ const AdminPurchasePlan = () => {
                       <DialogContent>
                         <DialogHeader>
                           <DialogTitle>
-                            Confirm Purchase: {selectedPlan?.plan_name} for {selectedUser?.username}
+                            Confirm Purchase: {selectedPlan?.plan_name} for {user?.username}
                           </DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4">
@@ -450,7 +305,7 @@ const AdminPurchasePlan = () => {
                             setSelectedPlan(plan);
                             setShowProfitDialog(false);
                           }}
-                          disabled={!selectedUser || isLoading}
+                          disabled={isLoading}
                           variant="outline"
                           className="ml-2"
                         >
@@ -526,196 +381,6 @@ const AdminPurchasePlan = () => {
               ))}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-
-      {/* Purchased Plans Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Purchased Plans</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Profit %</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Purchased At</TableHead>
-                <TableHead>Expires At</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {purchasedPlans.map((sub) => {
-                // Calculate profit for display in View Details
-                const minInvestment = sub.amount;
-                const profitPercentage = parseFloat(sub.profit_percentage?.$numberDecimal || 0);
-                const capitalLockin = sub.plan_id.capital_lockin || 30;
-                const profitWithdrawal = sub.plan_id.profit_withdrawal || "daily";
-
-                const totalProfit = (minInvestment * profitPercentage) / 100;
-                const dailyProfit = totalProfit / capitalLockin;
-
-                let profitAmount = 0;
-                if (profitWithdrawal === "daily") {
-                  profitAmount = dailyProfit;
-                } else if (profitWithdrawal === "weekly") {
-                  profitAmount = dailyProfit * 7;
-                } else if (profitWithdrawal === "monthly") {
-                  const now = new Date();
-                  const nextMonth = new Date(now);
-                  nextMonth.setMonth(nextMonth.getMonth() + 1);
-                  const diffTime = Math.abs(nextMonth - now);
-                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                  profitAmount = dailyProfit * diffDays;
-                }
-
-                const totalReturn = minInvestment + totalProfit;
-
-                return (
-                  <TableRow key={sub._id}>
-                    <TableCell>
-                      {sub.user_id.username} ({sub.user_id.email})
-                    </TableCell>
-                    <TableCell>{sub.plan_id.plan_name}</TableCell>
-                    <TableCell>{sub.amount} {sub.plan_id.amount_type}</TableCell>
-                    <TableCell>{sub.profit_percentage?.$numberDecimal}%</TableCell>
-                    <TableCell>
-                      {sub.status === "pending" && <Clock className="inline h-4 w-4 text-yellow-500" />}
-                      {sub.status === "verified" && <CheckCircle className="inline h-4 w-4 text-green-500" />}
-                      {sub.status === "rejected" && <XCircle className="inline h-4 w-4 text-red-500" />}
-                      {" "}
-                      {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
-                    </TableCell>
-                    <TableCell>{new Date(sub.purchased_at).toLocaleDateString()}</TableCell>
-                    <TableCell>{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString() : "N/A"}</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        {sub.status === "pending" && (
-                          <>
-                            <Button
-                              onClick={() => handleApprove(sub._id)}
-                              disabled={isLoading}
-                              variant="outline"
-                              size="sm"
-                            >
-                              <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Approve
-                            </Button>
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={isLoading}
-                                >
-                                  <XCircle className="mr-2 h-4 w-4 text-red-500" /> Reject
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Reject Subscription</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <Input
-                                    placeholder="Enter rejection reason"
-                                    value={rejectReason}
-                                    onChange={(e) => setRejectReason(e.target.value)}
-                                  />
-                                  <Button
-                                    onClick={() => handleReject(sub._id)}
-                                    disabled={isLoading || !rejectReason}
-                                  >
-                                    Submit Rejection
-                                  </Button>
-                                  {statusMessage && (
-                                    <p className={statusMessage.includes("Failed") ? "text-red-600" : "text-green-600"}>
-                                      {statusMessage}
-                                    </p>
-                                  )}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          </>
-                        )}
-                        <Dialog className="h-[300px]">
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedSubscription(sub)}
-                            >
-                              <Eye className="mr-2 h-4 w-4" /> View Details
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Subscription Details</DialogTitle>
-                            </DialogHeader>
-                            {selectedSubscription && (
-                              <div className="space-y-4">
-                                <p><strong>Subscription ID:</strong> {selectedSubscription._id}</p>
-                                <p><strong>User:</strong> {selectedSubscription.user_id.username} ({selectedSubscription.user_id.email})</p>
-                                <p><strong>Phone Number:</strong> {selectedSubscription.user_id.phone_number}</p>
-                                <p><strong>Plan:</strong> {selectedSubscription.plan_id.plan_name}</p>
-                                <p><strong>Amount:</strong> {selectedSubscription.amount} {selectedSubscription.plan_id.amount_type}</p>
-                                <p><strong>Profit Percentage:</strong> {selectedSubscription.profit_percentage?.$numberDecimal}%</p>
-                                <p><strong>Profit Amount ({selectedSubscription.plan_id.profit_withdrawal}):</strong> {profitAmount.toFixed(2)} {selectedSubscription.plan_id.amount_type}</p>
-                                <p><strong>Total Return:</strong> {totalReturn.toFixed(2)} {selectedSubscription.plan_id.amount_type}</p>
-                                <p><strong>Status:</strong> {selectedSubscription.status.charAt(0).toUpperCase() + selectedSubscription.status.slice(1)}</p>
-                                <p><strong>Purchased At:</strong> {new Date(selectedSubscription.purchased_at).toLocaleString()}</p>
-                                <p><strong>Expires At:</strong> {selectedSubscription.expires_at ? new Date(selectedSubscription.expires_at).toLocaleString() : "N/A"}</p>
-                                {selectedSubscription.rejected_reason && (
-                                  <p><strong>Rejection Reason:</strong> {selectedSubscription.rejected_reason}</p>
-                                )}
-                                {imageUrl && (
-                                  <div>
-                                    <p><strong>Payment Screenshot:</strong></p>
-                                    <img src={imageUrl} alt="Payment Screenshot" className="w-full max-w-md" />
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  href="#"
-                  onClick={() => handlePageChange(currentPage > 1 ? currentPage - 1 : 1)}
-                  disabled={currentPage === 1}
-                />
-              </PaginationItem>
-              {[...Array(totalPages)].map((_, i) => (
-                <PaginationItem key={i}>
-                  <PaginationLink
-                    href="#"
-                    onClick={() => handlePageChange(i + 1)}
-                    isActive={currentPage === i + 1}
-                  >
-                    {i + 1}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext
-                  href="#"
-                  onClick={() => handlePageChange(currentPage < totalPages ? currentPage + 1 : totalPages)}
-                  disabled={currentPage === totalPages}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
         </CardContent>
       </Card>
     </div>
