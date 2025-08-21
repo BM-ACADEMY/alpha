@@ -1,17 +1,33 @@
 const express = require('express');
 const router = express.Router();
 const complaintController = require('../controller/complaintController');
+const { upload } = require('../utils/FileUpload');
 
 // POST /complaints - Create
-router.post('/', complaintController.createComplaint);
+router.post('/', upload.array('images', 5), complaintController.createComplaint);
 
-// GET /complaints - Get all
-router.get('/', complaintController.getAllComplaints);
+// GET /complaints - Get all with pagination
+router.get('/fetch-all-complaints', complaintController.getAllComplaints);
 
 // GET /complaints/:id - Get by ID
-router.get('/:id', complaintController.getComplaintById);
+router.get('/fetch-by-id/:id', complaintController.getComplaintById);
+
+// PATCH /complaints/:id/read - Mark as read
+router.patch('/mark-as-read/:id', complaintController.markAsRead);
+
+// POST /complaints/:id/reply - Send reply
+router.post('/reply-to-customer/:id/reply', complaintController.sendReply);
+
+// POST /complaints/upload/image - Upload image
+router.post('/upload/image', upload.array('images', 5), complaintController.uploadImage);
+
+// DELETE /complaints/:id/images/:filename - Delete image
+router.delete('/delete-complaint-images/:id/images/:filename', complaintController.deleteImage);
+
+// GET /complaints/images/:filename - Get image
+router.get('/images/:filename', complaintController.getImage);
 
 // DELETE /complaints/:id - Delete
-router.delete('/:id', complaintController.deleteComplaint);
+router.delete('/delete-complaint/:id', complaintController.deleteComplaint);
 
 module.exports = router;
