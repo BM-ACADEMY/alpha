@@ -68,6 +68,7 @@ const rolesRoutes = require("./route/rolesRoute");
 const accountRoutes = require("./route/accountRoute");
 const addressRoutes = require("./route/addressRoute");
 const userSubscriptionPlanRoute = require("./route/userSubscriptionPlanRoute");
+const walletRoute = require("./route/walletRoute");
 
 // Register Routes with Prefix
 app.use("/api/plans", planRoutes);
@@ -81,6 +82,7 @@ app.use("/api/address", addressRoutes);
 app.use('/Uploads', express.static('Uploads'));
 // Connect to DB and then Start Server
 app.use("/api/user-subscription-plan", userSubscriptionPlanRoute);
+app.use("/api/wallet-point", walletRoute);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

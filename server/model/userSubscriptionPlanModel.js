@@ -25,6 +25,11 @@ const UserPlanSubscriptionSchema = new mongoose.Schema({
     enum: ['pending', 'verified', 'rejected'],
     default: 'pending',
   },
+  planStatus: {
+    type: String,
+    enum: ['Active', 'Inactive'],
+    default: 'Inactive',
+  },
   payment_screenshot: {
     type: String,
   },

@@ -71,7 +71,8 @@ const handleUploadScreenshot = async (req, res) => {
     console.log("Saving file path:", filePath);
     subscription.payment_screenshot = filePath;
     subscription.status = "pending";
-    subscription.amount = Number(amount);
+
+subscription.amount = Number(amount);
 
     await subscription.save();
     console.log("Subscription saved:", {
@@ -194,7 +195,7 @@ const createSubscription = async (req, res) => {
     // Check for active subscriptions
     const activeSubscription = await UserPlanSubscription.findOne({
       user_id,
-      status: { $in: ['pending', 'verified'] },
+      planStatus: 'Active',
       expires_at: { $gt: new Date() },
     });
     if (activeSubscription) {
@@ -261,6 +262,7 @@ const verifySubscription = async (req, res) => {
       return res.status(404).json({ message: "Subscription not found" });
     }
     subscription.status = "verified";
+    subscription.planStatus = "Active";
     subscription.verified_at = Date.now();
     await subscription.save();
     res.json({ message: "Subscription verified" });
