@@ -147,130 +147,24 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
-// Login User
-// controllers/authController.js
-// exports.loginUser = async (req, res) => {
-//   const { email, password, access } = req.body;
-//   console.log(req.body, "login body");
-
-//   if (!email || !password || !access) {
-//     return res.status(400).json({ message: "Email and password are required" });
-//   }
-//   try {
-//     const user = await User.findOne({ email: email.toLowerCase() }).populate(
-//       "role_id"
-//     );
-
-//     if (!user) {
-//       return res.status(400).json({ message: "Invalid email or password" });
-//     }
-
-//     if (!user.email_verified) {
-//       // Generate a new OTP
-//       const otp = crypto.randomInt(100000, 999999).toString();
-//       user.email_otp = otp;
-//       await user.save();
-
-//       // Resend OTP email
-//       await transporter.sendMail({
-//         from: process.env.EMAIL_USER,
-//         to: user.email,
-//         subject: "Verify Your Email",
-//         text: `Your OTP for email verification is: ${otp}`,
-//       });
-
-//       return res.status(401).json({
-//         message: "Please verify your email. A new OTP has been sent.",
-//         email: user.email,
-//       });
-//     }
-
-//     // Validate password
-//     const isMatch = await bcrypt.compare(password, user.password);
-//     if (!isMatch) {
-//       return res.status(400).json({ message: "Invalid email or password" });
-//     }
-
-//     // Role access check
-//     const userRole = user.role_id.role_name; // e.g. 'admin' or 'user'
-//     if (access === "admin" && userRole !== "admin") {
-//       return res
-//         .status(403)
-//         .json({ message: "Unauthorized: Admin access required" });
-//     }
-//     if (access === "user" && userRole !== "user") {
-//       return res
-//         .status(403)
-//         .json({ message: "Unauthorized: User access only" });
-//     }
-
-//     const token = jwt.sign(
-//       { id: user._id, role: userRole },
-//       process.env.JWT_SECRET,
-//       { expiresIn: "1d" }
-//     );
-
-//     res.cookie("token", token, {
-//       httpOnly: true,
-//       secure: process.env.NODE_ENV === "production",
-//       maxAge: 24 * 60 * 60 * 1000, // 1 day
-//     });
-
-//     res
-//       .status(200)
-//       .json({
-//         success: true,
-//         message: "Login successful",
-//         user: {
-//           id: user._id,
-//           username: user.username,
-//           email: user.email,
-//           role_id: user.role_id,
-//         },
-//       });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
 
 
 exports.getUserInfo = async (req, res) => {
   try {
-    const token = req.cookies.token;
-    console.log('getUserInfo - Token:', token || 'No token found');
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
+    const user = await User.findById(req.user.id)
+      .populate({
+        path: 'role_id',
+        select: 'role_id role_name',
+      })
+      .select('-password');
 
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('getUserInfo - Decoded:', decoded);
-    } catch (error) {
-      console.error('getUserInfo - JWT verification failed:', error.message);
-      return res.status(401).json({ message: 'Invalid or expired token', error: error.message });
-    }
-
-    const user = await User.findById(decoded.id).populate({
-      path: 'role_id',
-      select: 'role_id role_name',
-    }).select('-password');
     if (!user) {
-      console.error('getUserInfo - User not found for ID:', decoded.id);
       return res.status(404).json({ message: 'User not found' });
     }
 
     if (!user.role_id) {
-      console.error('getUserInfo - Role not populated for user ID:', decoded.id);
       return res.status(500).json({ message: 'Role not found for user' });
     }
-
-    console.log('getUserInfo - User found:', {
-      id: user._id.toString(),
-      username: user.username,
-      email: user.email,
-      role_id: user.role_id,
-    });
 
     res.status(200).json({
       user: {
@@ -285,6 +179,7 @@ exports.getUserInfo = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 exports.loginUser = async (req, res) => {
   const { email, password, access } = req.body;
@@ -344,7 +239,7 @@ exports.loginUser = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 24 * 60 * 60 * 1000,
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
     });
 
     res.status(200).json({

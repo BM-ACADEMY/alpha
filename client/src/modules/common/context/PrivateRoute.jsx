@@ -35,16 +35,6 @@ const PrivateRoute = ({ allowedRole, children }) => {
     return children;
   }
 
-  // Fallback: if token exists but user is null, keep loading to avoid redirect
-  const token = document.cookie
-    .split('; ')
-    .find((row) => row.startsWith('token='))
-    ?.split('=')[1];
-  if (token && !isAuthenticated) {
-    console.log('PrivateRoute - Token exists but user is null, keeping loading state');
-    return <div>Loading...</div>;
-  }
-
   console.log('PrivateRoute - Redirecting to:', allowedRole === 'admin' ? '/admin-login' : '/user-login');
   return <Navigate to={allowedRole === 'admin' ? '/admin-login' : '/user-login'} replace />;
 };

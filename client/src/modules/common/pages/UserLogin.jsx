@@ -1,17 +1,17 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { User } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { showToast } from "../toast/customToast";
-import axiosInstance from "../lib/axios";
 import logo from "@/assets/images/file.png";
 import bg from "@/assets/images/bg.jpg";
+import { AuthContext } from "../context/AuthContext";
 
-function UserLogin({ setIsAuthenticated }) {
+function UserLogin() {
   const navigate = useNavigate();
+  const { login } = useContext(AuthContext);
   const [credentials, setCredentials] = useState({
     email: "",
     password: "",
@@ -28,35 +28,19 @@ function UserLogin({ setIsAuthenticated }) {
     return Object.keys(newErrors).length === 0;
   };
 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-
     setLoading(true);
     try {
-      const response = await axiosInstance.post("users/login", credentials);
-      if (response.data?.success) {
-        setIsAuthenticated({ user: true, admin: false });
-        showToast("success", "Welcome back!");
-        navigate("/user-dashboard");
-      } else {
-        showToast("error", response.data?.message || "Invalid credentials");
-      }
-    } catch (error) {
-      const errMsg = error.response?.data?.message;
-      if (error.response?.status === 401 && errMsg?.includes("verify your email")) {
-        showToast("info", errMsg);
-        navigate("/verify-email", {
-          state: { email: error.response.data.email },
-        });
-      } else {
-        showToast("error", errMsg || "Login failed");
-      }
-    } finally {
+      await login(credentials, false);
       setLoading(false);
+    } catch (error) {
+      console.log(error);
+
     }
   };
-
   return (
     <div className="relative min-h-screen bg-gray-100 overflow-hidden">
       {/* Wave Background */}

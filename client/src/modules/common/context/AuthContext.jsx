@@ -11,58 +11,36 @@ const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('token='))
-        ?.split('=')[1];
-      console.log('Checking auth - Token:', token || 'No token found');
-
-      if (token && !user) {
-        let attempts = 0;
-        const maxAttempts = 3;
-        while (attempts < maxAttempts) {
-          try {
-            console.log(`Fetching user info from /users/user-info (Attempt ${attempts + 1})`);
-            const response = await axiosInstance.get(`users/user-info`, {
-              withCredentials: true,
-            });
-            console.log('User info response:', response.data);
-            if (response.data.user) {
-              setUser(response.data.user);
-              console.log('User set:', response.data.user);
-              break;
-            } else {
-              console.error('No user data in response:', response.data);
-            }
-          } catch (error) {
-            console.error(`Auth check failed (Attempt ${attempts + 1}):`, {
-              status: error.response?.status,
-              data: error.response?.data,
-              message: error.message,
-            });
-            attempts++;
-            if (attempts === maxAttempts || error.response?.status === 401 || error.response?.status === 404) {
-              console.log('Max attempts reached or critical error, setting user to null');
-              setUser(null);
-              if (error.response?.status === 401) {
-                document.cookie = 'token=; Max-Age=0; path=/';
-                showToast('error', error.response?.data?.message || 'Session expired');
-              }
-              break;
-            }
-            console.log(`Retrying after 1s (Attempt ${attempts + 1})`);
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-          }
+    const fetchUser = async () => {
+      try {
+        console.log('Fetching user info from /users/user-info');
+        const response = await axiosInstance.get(`/users/user-info`, {
+          withCredentials: true,
+        });
+        console.log('User info response:', response.data);
+        if (response.data.user) {
+          setUser(response.data.user);
+          console.log('User set:', response.data.user);
+        } else {
+          console.error('No user data in response:', response.data);
+          setUser(null);
         }
-      } else if (!token) {
-        console.log('No token found, setting user to null');
+      } catch (error) {
+        console.error('Auth check failed:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        });
         setUser(null);
+        if (error.response?.status === 401) {
+          showToast('error', error.response?.data?.message || 'Session expired');
+        }
+      } finally {
+        console.log('Setting loading to false, user:', user);
+        setLoading(false);
       }
-      console.log('Setting loading to false, user:', user);
-      setLoading(false);
     };
-    checkAuth();
+    fetchUser();
   }, []);
 
   const login = async (credentials, isAdmin = false) => {
@@ -78,7 +56,7 @@ const AuthProvider = ({ children }) => {
     try {
       console.log('Calling login API with:', { email, access: isAdmin ? 'admin' : 'user' });
       const response = await axiosInstance.post(
-        `users/login`,
+        `/users/login`,
         { email, password, access: isAdmin ? 'admin' : 'user' },
         { withCredentials: true }
       );
@@ -110,7 +88,7 @@ const AuthProvider = ({ children }) => {
   const getUserInfo = async () => {
     try {
       console.log('Fetching user info via getUserInfo');
-      const response = await axiosInstance.get(`users/user-info`, {
+      const response = await axiosInstance.get(`/users/user-info`, {
         withCredentials: true,
       });
       setUser(response.data.user);
@@ -119,16 +97,15 @@ const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Get user info failed:', error.response?.data || error.message);
       setUser(null);
-      document.cookie = 'token=; Max-Age=0; path=/';
+      showToast('error', error.response?.data?.message || 'Failed to fetch user info');
       throw new Error(error.response?.data?.message || 'Failed to fetch user info');
     }
   };
 
   const logout = async () => {
     try {
-      await axiosInstance.post(`users/logout`, {}, { withCredentials: true });
+      await axiosInstance.post(`/users/logout`, {}, { withCredentials: true });
       setUser(null);
-      document.cookie = 'token=; Max-Age=0; path=/';
       showToast('success', 'Logged out successfully');
       navigate('/');
     } catch (error) {
