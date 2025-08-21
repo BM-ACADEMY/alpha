@@ -14,8 +14,12 @@ const ComplaintSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  image_url: {
+  image_urls: [{
     type: String,
+  }],
+  is_read: {
+    type: Boolean,
+    default: false,
   },
   created_at: {
     type: Date,

@@ -7,7 +7,8 @@ import {
   List,
   User,
   LogOut,
-  Percent 
+  Percent ,
+  MessageSquareWarning
 } from 'lucide-react';
 
 export const adminMenuItems = {
@@ -51,6 +52,11 @@ export const adminMenuItems = {
       title: 'Plans',
       url: '/admin-dashboard/plans',
       icon: List,
+    },
+    {
+      title: 'Complaints',
+      url: '/admin-dashboard/complaint',
+      icon: MessageSquareWarning,
     },
   ],
   navSecondary: [
