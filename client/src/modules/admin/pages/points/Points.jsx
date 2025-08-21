@@ -1,9 +1,10 @@
 import React from 'react'
+import WalletManagement from './WalletManagement';
 
 const Points = () => {
   return (
     <div>
-      welcome to points
+      <WalletManagement />
     </div>
   )
 }
