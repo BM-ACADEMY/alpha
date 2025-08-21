@@ -35,7 +35,7 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"], // Add PATCH here
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 app.use(cors(corsOptions));
@@ -64,7 +64,7 @@ app.use("/api/users", userRoutes);         // Changed from /userRoutes
 app.use("/api/roles", rolesRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/address", addressRoutes);
-
+app.use('/Uploads', express.static('Uploads'));
 // Connect to DB and then Start Server
 const PORT = process.env.PORT || 5000;
 
