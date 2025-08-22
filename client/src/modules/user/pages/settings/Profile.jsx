@@ -45,17 +45,21 @@ import {
   Globe,
   Pin,
   Loader2,
+  Banknote,
 } from 'lucide-react';
 
 const Profile = () => {
   const { user } = useContext(AuthContext);
   const [profileData, setProfileData] = useState(null);
   const [addresses, setAddresses] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [editData, setEditData] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
+  const [selectedAccount, setSelectedAccount] = useState(null);
   const [addressFormData, setAddressFormData] = useState({
     address_line_1: '',
     address_line_2: '',
@@ -64,8 +68,20 @@ const Profile = () => {
     country: '',
     pincode: ''
   });
+  const [accountFormData, setAccountFormData] = useState({
+    bank_name: '',
+    ifsc_code: '',
+    account_holder_name: '',
+    account_number: '',
+    linked_phone_number: '',
+    upi_id: '',
+    upi_number: '',
+  });
+  const [qrFile, setQrFile] = useState(null);
   const [addressErrors, setAddressErrors] = useState({});
+  const [accountErrors, setAccountErrors] = useState({});
   const [isAddressSubmitting, setIsAddressSubmitting] = useState(false);
+  const [isAccountSubmitting, setIsAccountSubmitting] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -93,8 +109,20 @@ const Profile = () => {
         }
       };
 
+      const fetchAccounts = async () => {
+        try {
+          const response = await axiosInstance.get(`/accounts/user/${user.id}`, {
+            withCredentials: true,
+          });
+          setAccounts(response.data);
+        } catch (error) {
+          console.error('Failed to fetch accounts:', error);
+          showToast('error', 'Failed to load account details');
+        }
+      };
+
       setIsLoading(true);
-      Promise.all([fetchProfile(), fetchAddresses()]).finally(() =>
+      Promise.all([fetchProfile(), fetchAddresses(), fetchAccounts()]).finally(() =>
         setIsLoading(false)
       );
     } else {
@@ -166,32 +194,24 @@ const Profile = () => {
     }
   };
 
- const handleAddressSubmit = async (e) => {
-  e.preventDefault();
-  console.log('User:', user);
-  console.log('Selected Address ID:', selectedAddress?._id);
-  console.log('Form Data:', addressFormData);
+  const handleAddressSubmit = async (e) => {
+    e.preventDefault();
+    if (!user || !user.id) {
+      showToast('error', 'You must be logged in with a valid user ID to submit an address');
+      return;
+    }
 
-  if (!user || !user.id) {
-    showToast('error', 'You must be logged in with a valid user ID to submit an address');
-    return;
-  }
+    if (!validateAddressForm()) {
+      showToast('error', 'Please fill in all required fields correctly');
+      return;
+    }
 
-  if (!validateAddressForm()) {
-    showToast('error', 'Please fill in all required fields correctly');
-    return;
-  }
-
-  setIsAddressSubmitting(true);
-  try {
-    console.log('Sending PATCH request to:', `/address/${selectedAddress._id}`); // Updated URL
-    const response = await axiosInstance.patch(`/address/${selectedAddress._id}`, {
-      user_id: user.id,
-      ...addressFormData
-    }, { withCredentials: true });
-    console.log('Response:', response.data);
-
-    if (response.data) {
+    setIsAddressSubmitting(true);
+    try {
+      const response = await axiosInstance.patch(`/address/${selectedAddress._id}`, {
+        user_id: user.id,
+        ...addressFormData
+      }, { withCredentials: true });
       setAddresses(addresses.map(addr => addr._id === selectedAddress._id ? response.data : addr));
       setAddressOpen(false);
       showToast('success', 'Address updated successfully');
@@ -203,18 +223,16 @@ const Profile = () => {
         country: '',
         pincode: ''
       });
+    } catch (error) {
+      console.error('Address update failed:', error.response?.data || error.message);
+      const errorMessage = error.response?.data?.message || error.response?.statusText || 'Failed to update address';
+      showToast('error', errorMessage);
+    } finally {
+      setIsAddressSubmitting(false);
     }
-  } catch (error) {
-    console.error('Address update failed:', error.response?.data || error.message);
-    const errorMessage = error.response?.data?.message || error.response?.statusText || 'Failed to update address';
-    showToast('error', errorMessage);
-  } finally {
-    setIsAddressSubmitting(false);
-  }
-};
+  };
 
   const openAddressEdit = (address) => {
-    console.log('Editing Address:', address);
     setSelectedAddress(address);
     setAddressFormData({
       address_line_1: address.address_line_1 || '',
@@ -225,6 +243,90 @@ const Profile = () => {
       pincode: address.pincode || ''
     });
     setAddressOpen(true);
+  };
+
+  const handleAccountChange = (e) => {
+    const { name, value } = e.target;
+    setAccountFormData((prev) => ({ ...prev, [name]: value }));
+    if (accountErrors[name]) {
+      setAccountErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const openAccountEdit = (account = null) => {
+    setSelectedAccount(account);
+    if (account) {
+      setAccountFormData({
+        bank_name: account.bank_name || '',
+        ifsc_code: account.ifsc_code || '',
+        account_holder_name: account.account_holder_name || '',
+        account_number: account.account_number || '',
+        linked_phone_number: account.linked_phone_number || '',
+        upi_id: account.upi_id || '',
+        upi_number: account.upi_number || '',
+      });
+      setQrFile(null);
+    } else {
+      setAccountFormData({
+        bank_name: '',
+        ifsc_code: '',
+        account_holder_name: '',
+        account_number: '',
+        linked_phone_number: '',
+        upi_id: '',
+        upi_number: '',
+      });
+      setQrFile(null);
+    }
+    setAccountOpen(true);
+  };
+
+  const handleAccountSubmit = async (e) => {
+    e.preventDefault();
+    if (!user || !user.id) {
+      showToast('error', 'You must be logged in with a valid user ID to submit account details');
+      return;
+    }
+
+    setIsAccountSubmitting(true);
+    const formData = new FormData();
+    Object.entries(accountFormData).forEach(([key, value]) => {
+      if (value !== '') {
+        formData.append(key, value);
+      }
+    });
+    if (qrFile) {
+      formData.append('qrcode', qrFile);
+    }
+    if (!selectedAccount) {
+      formData.append('user_id', user.id);
+    }
+
+    try {
+      let response;
+      if (selectedAccount) {
+        response = await axiosInstance.put(`/accounts/${selectedAccount._id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          withCredentials: true,
+        });
+        setAccounts(accounts.map(acc => acc._id === selectedAccount._id ? response.data : acc));
+        showToast('success', 'Account updated successfully');
+      } else {
+        response = await axiosInstance.post(`/accounts`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          withCredentials: true,
+        });
+        setAccounts([...accounts, response.data]);
+        showToast('success', 'Account added successfully');
+      }
+      setAccountOpen(false);
+    } catch (error) {
+      console.error('Account operation failed:', error.response?.data || error.message);
+      const errorMessage = error.response?.data?.message || error.response?.statusText || 'Failed to save account';
+      showToast('error', errorMessage);
+    } finally {
+      setIsAccountSubmitting(false);
+    }
   };
 
   if (isLoading) {
@@ -365,7 +467,6 @@ const Profile = () => {
         </CardHeader>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Personal Information */}
             <section>
               <h3 className="font-semibold text-lg mb-4 flex items-center">
                 <UserIcon className="mr-2 h-5 w-5" />
@@ -392,7 +493,6 @@ const Profile = () => {
               </dl>
             </section>
 
-            {/* Verification Status */}
             <section>
               <h3 className="font-semibold text-lg mb-4 flex items-center">
                 <CheckCircle2 className="mr-2 h-5 w-5" />
@@ -432,7 +532,6 @@ const Profile = () => {
               </dl>
             </section>
 
-            {/* KYC Documents */}
             <section>
               <h3 className="font-semibold text-lg mb-4 flex items-center">
                 <FileText className="mr-2 h-5 w-5" />
@@ -470,7 +569,6 @@ const Profile = () => {
               </dl>
             </section>
 
-            {/* Referral Information */}
             <section>
               <h3 className="font-semibold text-lg mb-4 flex items-center">
                 <Code className="mr-2 h-5 w-5" />
@@ -491,7 +589,6 @@ const Profile = () => {
             </section>
           </div>
 
-          {/* Addresses Section */}
           <section className="mt-8">
             <h3 className="font-semibold text-lg mb-4 flex items-center">
               <MapPin className="mr-2 h-5 w-5" />
@@ -653,6 +750,322 @@ const Profile = () => {
                 ))}
               </div>
             )}
+          </section>
+
+          <section className="mt-8">
+            <h3 className="font-semibold text-lg mb-4 flex items-center">
+              <Banknote className="mr-2 h-5 w-5" />
+              Account Details
+            </h3>
+            <div className="grid grid-cols-1 gap-4">
+              {accounts.length === 0 ? (
+                <Card className="shadow-sm relative">
+                  <CardContent className="p-4">
+                    <div className="absolute top-2 right-2">
+                      <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={() => openAccountEdit()}>
+                            <Edit className="h-5 w-5 text-red-500" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                              <Banknote className="h-6 w-6 text-blue-600" />
+                              Add Account Details
+                            </DialogTitle>
+                            <DialogDescription>
+                              Add your account details here. Click save when you're done.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <form onSubmit={handleAccountSubmit} className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="bank_name">Bank Name</Label>
+                                <Input
+                                  id="bank_name"
+                                  name="bank_name"
+                                  value={accountFormData.bank_name}
+                                  onChange={handleAccountChange}
+                                  placeholder="Bank Name"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="ifsc_code">IFSC Code</Label>
+                                <Input
+                                  id="ifsc_code"
+                                  name="ifsc_code"
+                                  value={accountFormData.ifsc_code}
+                                  onChange={handleAccountChange}
+                                  placeholder="IFSC Code"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="account_holder_name">Account Holder Name</Label>
+                                <Input
+                                  id="account_holder_name"
+                                  name="account_holder_name"
+                                  value={accountFormData.account_holder_name}
+                                  onChange={handleAccountChange}
+                                  placeholder="Account Holder Name"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="account_number">Account Number</Label>
+                                <Input
+                                  id="account_number"
+                                  name="account_number"
+                                  value={accountFormData.account_number}
+                                  onChange={handleAccountChange}
+                                  placeholder="Account Number"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="linked_phone_number">Linked Phone Number</Label>
+                                <Input
+                                  id="linked_phone_number"
+                                  name="linked_phone_number"
+                                  value={accountFormData.linked_phone_number}
+                                  onChange={handleAccountChange}
+                                  placeholder="Linked Phone Number"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="upi_id">UPI ID</Label>
+                                <Input
+                                  id="upi_id"
+                                  name="upi_id"
+                                  value={accountFormData.upi_id}
+                                  onChange={handleAccountChange}
+                                  placeholder="UPI ID"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="upi_number">UPI Number</Label>
+                                <Input
+                                  id="upi_number"
+                                  name="upi_number"
+                                  value={accountFormData.upi_number}
+                                  onChange={handleAccountChange}
+                                  placeholder="UPI Number"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="qrcode">QR Code Image</Label>
+                                <Input
+                                  id="qrcode"
+                                  type="file"
+                                  onChange={(e) => setQrFile(e.target.files[0])}
+                                />
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button
+                                type="submit"
+                                className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                                disabled={isAccountSubmitting}
+                              >
+                                {isAccountSubmitting ? (
+                                  <>
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  'Save Account'
+                                )}
+                              </Button>
+                            </DialogFooter>
+                          </form>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                    <p className="text-sm text-muted-foreground">No account details added yet.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                accounts.map((account) => (
+                  <Card key={account._id} className="shadow-sm relative">
+                    <CardContent className="p-4">
+                      <div className="absolute top-2 right-2">
+                        <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => openAccountEdit(account)}>
+                              <Edit className="h-5 w-5 text-red-500" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center gap-2">
+                                <Banknote className="h-6 w-6 text-blue-600" />
+                                Edit Account Details
+                              </DialogTitle>
+                              <DialogDescription>
+                                Update your account details here. Click save when you're done.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={handleAccountSubmit} className="space-y-4">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="bank_name">Bank Name</Label>
+                                  <Input
+                                    id="bank_name"
+                                    name="bank_name"
+                                    value={accountFormData.bank_name}
+                                    onChange={handleAccountChange}
+                                    placeholder="Bank Name"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="ifsc_code">IFSC Code</Label>
+                                  <Input
+                                    id="ifsc_code"
+                                    name="ifsc_code"
+                                    value={accountFormData.ifsc_code}
+                                    onChange={handleAccountChange}
+                                    placeholder="IFSC Code"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="account_holder_name">Account Holder Name</Label>
+                                  <Input
+                                    id="account_holder_name"
+                                    name="account_holder_name"
+                                    value={accountFormData.account_holder_name}
+                                    onChange={handleAccountChange}
+                                    placeholder="Account Holder Name"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="account_number">Account Number</Label>
+                                  <Input
+                                    id="account_number"
+                                    name="account_number"
+                                    value={accountFormData.account_number}
+                                    onChange={handleAccountChange}
+                                    placeholder="Account Number"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="linked_phone_number">Linked Phone Number</Label>
+                                  <Input
+                                    id="linked_phone_number"
+                                    name="linked_phone_number"
+                                    value={accountFormData.linked_phone_number}
+                                    onChange={handleAccountChange}
+                                    placeholder="Linked Phone Number"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="upi_id">UPI ID</Label>
+                                  <Input
+                                    id="upi_id"
+                                    name="upi_id"
+                                    value={accountFormData.upi_id}
+                                    onChange={handleAccountChange}
+                                    placeholder="UPI ID"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="upi_number">UPI Number</Label>
+                                  <Input
+                                    id="upi_number"
+                                    name="upi_number"
+                                    value={accountFormData.upi_number}
+                                    onChange={handleAccountChange}
+                                    placeholder="UPI Number"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="qrcode">QR Code Image (Upload new if needed)</Label>
+                                  {selectedAccount?.qrcode && (
+                                    <img
+                                      src={selectedAccount.qrcode}
+                                      alt="Current QR Code"
+                                      className="w-32 h-32 object-contain mb-2"
+                                    />
+                                  )}
+                                  <Input
+                                    id="qrcode"
+                                    type="file"
+                                    onChange={(e) => setQrFile(e.target.files[0])}
+                                  />
+                                </div>
+                              </div>
+                              <DialogFooter>
+                                <Button
+                                  type="submit"
+                                  className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                                  disabled={isAccountSubmitting}
+                                >
+                                  {isAccountSubmitting ? (
+                                    <>
+                                      <Loader2 className="h-5 w-5 animate-spin" />
+                                      Saving...
+                                    </>
+                                  ) : (
+                                    'Save Account'
+                                  )}
+                                </Button>
+                              </DialogFooter>
+                            </form>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                      <dl className="space-y-2 text-sm">
+                        <div className="flex items-center">
+                          <Banknote className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <dt className="w-32 font-medium">Bank Name:</dt>
+                          <dd>{account.bank_name || 'N/A'}</dd>
+                        </div>
+                        <div className="flex items-center">
+                          <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <dt className="w-32 font-medium">Account Number:</dt>
+                          <dd>{account.account_number || 'N/A'}</dd>
+                        </div>
+                        <div className="flex items-center">
+                          <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <dt className="w-32 font-medium">IFSC Code:</dt>
+                          <dd>{account.ifsc_code || 'N/A'}</dd>
+                        </div>
+                        <div className="flex items-center">
+                          <UserIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <dt className="w-32 font-medium">Account Holder:</dt>
+                          <dd>{account.account_holder_name || 'N/A'}</dd>
+                        </div>
+                        <div className="flex items-center">
+                          <Phone className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <dt className="w-32 font-medium">Linked Phone:</dt>
+                          <dd>{account.linked_phone_number || 'N/A'}</dd>
+                        </div>
+                        <div className="flex items-center">
+                          <Code className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <dt className="w-32 font-medium">UPI ID:</dt>
+                          <dd>{account.upi_id || 'N/A'}</dd>
+                        </div>
+                        <div className="flex items-center">
+                          <Phone className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <dt className="w-32 font-medium">UPI Number:</dt>
+                          <dd>{account.upi_number || 'N/A'}</dd>
+                        </div>
+                        {account.qrcode && (
+                          <div>
+                            <div className="flex items-center mb-2">
+                              <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
+                              <dt className="w-32 font-medium">QR Code:</dt>
+                            </div>
+                            <img
+                              src={account.qrcode}
+                              alt="UPI QR Code"
+                              className="w-48 rounded-md shadow-sm"
+                            />
+                          </div>
+                        )}
+                      </dl>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
           </section>
         </CardContent>
       </Card>
