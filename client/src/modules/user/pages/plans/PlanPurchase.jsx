@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, Upload, Tag, DollarSign, Percent, Lock, Clock, TrendingUp, Wallet, FileText, ArrowRightCircle } from "lucide-react";
+import { CreditCard, Tag, DollarSign, Percent, Lock, Clock, TrendingUp, Wallet, FileText, ArrowRightCircle } from "lucide-react";
 import axiosInstance from "@/modules/common/lib/axios";
 import { AuthContext } from "@/modules/common/context/AuthContext";
 
@@ -15,7 +15,6 @@ const AdminPurchasePlan = () => {
   const [profitCalculations, setProfitCalculations] = useState({});
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const debounceTimer = useRef(null);
 
   // Validate role_id
@@ -86,16 +85,10 @@ const AdminPurchasePlan = () => {
     setShowPurchaseDialog(true);
   };
 
-  const handleOpenUploadDialog = (plan) => {
-    setSelectedPlan(plan);
-    setShowUploadDialog(true);
-  };
-
   // Handle Proceed Payment button click
   const handleProceedPayment = () => {
     setShowPurchaseDialog(false); // Close the purchase dialog
-    // Optionally, open the upload dialog or perform other actions
-    // setShowUploadDialog(true);
+    // Optionally, perform other actions
   };
 
   return (
@@ -188,27 +181,6 @@ const AdminPurchasePlan = () => {
                             <ArrowRightCircle className="mr-2 h-4 w-4" />
                             Proceed to Payment
                           </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                    <Dialog open={showUploadDialog && selectedPlan?._id === plan._id} onOpenChange={setShowUploadDialog}>
-                      <DialogTrigger asChild>
-                        <Button
-                          onClick={() => handleOpenUploadDialog(plan)}
-                          variant="outline"
-                          className="ml-2"
-                        >
-                          <Upload className="mr-2 h-4 w-4" /> Upload Payment
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Welcome to Payment Upload</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            Welcome to the payment upload section for {plan?.plan_name}! This is a placeholder for payment-related information. Please contact support for further assistance.
-                          </div>
                         </div>
                       </DialogContent>
                     </Dialog>
