@@ -1,9 +1,10 @@
 import React from 'react'
+import ReportManagement from './ReportManagement';
 
 const Reports = () => {
   return (
     <div>
-      welcome to reports
+      <ReportManagement />
     </div>
   )
 }
