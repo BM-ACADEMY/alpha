@@ -7,7 +7,7 @@ const accountController = require("../controller/accountController");
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.get("/", accountController.getAccounts);
-router.get("/:id", accountController.getAccountById);
+// router.get("/:id", accountController.getAccountById);
 router.post("/", upload.single('qrcode'), accountController.createAccount);
 router.put("/:id", upload.single('qrcode'), accountController.updateAccount);
 router.delete("/:id", accountController.deleteAccount);

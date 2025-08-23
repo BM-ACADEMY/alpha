@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, Tag, DollarSign, Percent, Lock, Clock, TrendingUp, Wallet, FileText, ArrowRightCircle } from "lucide-react";
+import { CreditCard, Tag, DollarSign, Percent, Lock, Clock, TrendingUp, Wallet, FileText, ArrowRightCircle, Upload } from "lucide-react";
 import axiosInstance from "@/modules/common/lib/axios";
 import { AuthContext } from "@/modules/common/context/AuthContext";
 
-const AdminPurchasePlan = () => {
+const PlanPurchase = () => {
   const { user } = useContext(AuthContext);
   const role_id = user?.role_id?._id;
   const [plans, setPlans] = useState([]);
@@ -15,6 +15,8 @@ const AdminPurchasePlan = () => {
   const [profitCalculations, setProfitCalculations] = useState({});
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
+  const [subscriptionId, setSubscriptionId] = useState(null);
+  const [file, setFile] = useState(null);
   const debounceTimer = useRef(null);
 
   // Validate role_id
@@ -33,7 +35,6 @@ const AdminPurchasePlan = () => {
       .then((res) => {
         if (isMounted) {
           setPlans(res.data);
-          // Calculate profit for each plan
           const calculations = {};
           res.data.forEach((plan) => {
             const minInvestment = parseFloat(plan.min_investment?.$numberDecimal || 0);
@@ -82,18 +83,73 @@ const AdminPurchasePlan = () => {
   // Handle opening of dialogs
   const handleOpenPurchaseDialog = (plan) => {
     setSelectedPlan(plan);
+    setSubscriptionId(null); // Reset subscription ID
+    setFile(null); // Reset file
     setShowPurchaseDialog(true);
   };
 
   // Handle Proceed Payment button click
-  const handleProceedPayment = () => {
-    setShowPurchaseDialog(false); // Close the purchase dialog
-    // Optionally, perform other actions
+ const handleProceedPayment = async () => {
+  if (!selectedPlan || !user) {
+    setStatusMessage("User or plan not selected");
+    return;
+  }
+
+  console.log("Proceeding with payment - User ID:", user._id, "Plan ID:", selectedPlan._id);
+
+  try {
+    const response = await axiosInstance.post("/user-subscription-plan/subscribe", {
+      user_id: user._id,
+      plan_id: selectedPlan._id,
+      username: user.username,
+      amount: parseFloat(selectedPlan.min_investment.$numberDecimal),
+    });
+
+    if (response.status === 201) {
+      setSubscriptionId(response.data.subscription._id);
+      setStatusMessage("Subscription created successfully! Please upload your payment screenshot.");
+    }
+  } catch (error) {
+    console.error("Create subscription error:", error.message, error.response?.data);
+    setStatusMessage(error.response?.data?.message || "Failed to create subscription");
+  }
+};
+
+  // Handle file selection
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+  };
+
+  // Handle screenshot upload
+  const handleUploadScreenshot = async () => {
+    if (!file || !subscriptionId) {
+      setStatusMessage("No file selected or subscription not created");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("screenshot", file);
+    formData.append("subscription_id", subscriptionId);
+
+    try {
+      const response = await axiosInstance.post("/user-subscription-plan/upload-screenshot", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      if (response.status === 200) {
+        setStatusMessage("Screenshot uploaded successfully!");
+        setShowPurchaseDialog(false); // Close dialog after successful upload
+        setFile(null);
+        setSubscriptionId(null);
+      }
+    } catch (error) {
+      console.error("Upload screenshot error:", error.message, error.response?.data);
+      setStatusMessage(error.response?.data?.message || "Failed to upload screenshot");
+    }
   };
 
   return (
     <div className="p-6 space-y-8">
-      {/* Plans List */}
       <Card>
         <CardHeader>
           <CardTitle>Available Plans</CardTitle>
@@ -141,46 +197,73 @@ const AdminPurchasePlan = () => {
                           <DialogTitle>{plan?.plan_name} Details</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="flex items-center">
-                              <Tag className="mr-2 h-4 w-4 text-gray-500" />
-                              <span><strong>Plan Name:</strong> {plan?.plan_name}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <DollarSign className="mr-2 h-4 w-4 text-gray-500" />
-                              <span><strong>Minimum Investment:</strong> {plan?.min_investment?.$numberDecimal} {plan?.amount_type}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <Percent className="mr-2 h-4 w-4 text-gray-500" />
-                              <span><strong>Profit Percentage:</strong> {plan?.profit_percentage?.$numberDecimal}%</span>
-                            </div>
-                            <div className="flex items-center">
-                              <Lock className="mr-2 h-4 w-4 text-gray-500" />
-                              <span><strong>Capital Lock-in Period:</strong> {plan?.capital_lockin || "N/A"} days</span>
-                            </div>
-                            <div className="flex items-center">
-                              <Clock className="mr-2 h-4 w-4 text-gray-500" />
-                              <span><strong>Profit Withdrawal:</strong> {plan?.profit_withdrawal || "daily"}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <TrendingUp className="mr-2 h-4 w-4 text-gray-500" />
-                              <span><strong>Estimated Profit:</strong> {profitCalculations[plan._id]?.profitAmount} {plan?.amount_type} ({plan?.profit_withdrawal || "daily"})</span>
-                            </div>
-                            <div className="flex items-center">
-                              <Wallet className="mr-2 h-4 w-4 text-gray-500" />
-                              <span><strong>Total Return:</strong> {profitCalculations[plan._id]?.totalReturn} {plan?.amount_type}</span>
-                            </div>
-                            {plan?.notes && (
-                              <div className="col-span-2 flex items-start">
-                                <FileText className="mr-2 h-4 w-4 text-gray-500 mt-1" />
-                                <span><strong>Notes:</strong> {plan?.notes}</span>
+                          {!subscriptionId ? (
+                            <>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="flex items-center">
+                                  <Tag className="mr-2 h-4 w-4 text-gray-500" />
+                                  <span><strong>Plan Name:</strong> {plan?.plan_name}</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <DollarSign className="mr-2 h-4 w-4 text-gray-500" />
+                                  <span><strong>Minimum Investment:</strong> {plan?.min_investment?.$numberDecimal} {plan?.amount_type}</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <Percent className="mr-2 h-4 w-4 text-gray-500" />
+                                  <span><strong>Profit Percentage:</strong> {plan?.profit_percentage?.$numberDecimal}%</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <Lock className="mr-2 h-4 w-4 text-gray-500" />
+                                  <span><strong>Capital Lock-in Period:</strong> {plan?.capital_lockin || "N/A"} days</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <Clock className="mr-2 h-4 w-4 text-gray-500" />
+                                  <span><strong>Profit Withdrawal:</strong> {plan?.profit_withdrawal || "daily"}</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <TrendingUp className="mr-2 h-4 w-4 text-gray-500" />
+                                  <span><strong>Estimated Profit:</strong> {profitCalculations[plan._id]?.profitAmount} {plan?.amount_type} ({plan?.profit_withdrawal || "daily"})</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <Wallet className="mr-2 h-4 w-4 text-gray-500" />
+                                  <span><strong>Total Return:</strong> {profitCalculations[plan._id]?.totalReturn} {plan?.amount_type}</span>
+                                </div>
+                                {plan?.notes && (
+                                  <div className="col-span-2 flex items-start">
+                                    <FileText className="mr-2 h-4 w-4 text-gray-500 mt-1" />
+                                    <span><strong>Notes:</strong> {plan?.notes}</span>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          <Button onClick={handleProceedPayment} className="w-full">
-                            <ArrowRightCircle className="mr-2 h-4 w-4" />
-                            Proceed to Payment
-                          </Button>
+                              <Button onClick={handleProceedPayment} className="w-full">
+                                <ArrowRightCircle className="mr-2 h-4 w-4" />
+                                Proceed to Payment
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-green-600">
+                                Subscription created successfully! Please upload your payment screenshot.
+                              </div>
+                              <div className="flex flex-col space-y-4">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleFileChange}
+                                  className="border p-2 rounded"
+                                />
+                                <Button onClick={handleUploadScreenshot} disabled={!file} className="w-full">
+                                  <Upload className="mr-2 h-4 w-4" />
+                                  Upload Screenshot
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                          {statusMessage && (
+                            <div className={statusMessage.includes("Failed") ? "text-red-600" : "text-green-600"}>
+                              {statusMessage}
+                            </div>
+                          )}
                         </div>
                       </DialogContent>
                     </Dialog>
@@ -200,4 +283,4 @@ const AdminPurchasePlan = () => {
   );
 };
 
-export default AdminPurchasePlan;
+export default PlanPurchase;
