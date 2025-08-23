@@ -4,7 +4,7 @@ const User = require('../model/usersModel');
 const Plan = require('../model/planModel');
 const mongoose = require('mongoose');
 
-// Helper to get current date (for testing, use provided date)
+// Helper to get current date
 const getCurrentDate = () => new Date();
 
 // Helper to get week range (Monday to Sunday)
@@ -30,8 +30,8 @@ exports.getOverallReports = async (req, res) => {
 
     // Total available plans
     const totalPlans = await Plan.countDocuments();
-    const inrPlans = await Plan.countDocuments({ currency: 'INR' });
-    const usdtPlans = await Plan.countDocuments({ currency: 'USDT' });
+    const inrPlans = await Plan.countDocuments({ amount_type: 'INR' });
+    const usdtPlans = await Plan.countDocuments({ amount_type: 'USDT' });
 
     // Total chosen (verified subscriptions)
     const chosenCount = await UserPlanSubscription.countDocuments({ status: 'verified' });
@@ -41,7 +41,7 @@ exports.getOverallReports = async (req, res) => {
       { $match: { status: 'verified' } },
       { $lookup: { from: 'plans', localField: 'plan_id', foreignField: '_id', as: 'plan' } },
       { $unwind: '$plan' },
-      { $group: { _id: '$plan.currency', count: { $sum: 1 } } },
+      { $group: { _id: '$plan.amount_type', count: { $sum: 1 } } },
     ]);
     let chosenINR = 0, chosenUSDT = 0;
     chosenByCurrency.forEach((g) => {
@@ -60,7 +60,7 @@ exports.getOverallReports = async (req, res) => {
       { $match: { status: 'verified', expires_at: { $lt: currentDate } } },
       { $lookup: { from: 'plans', localField: 'plan_id', foreignField: '_id', as: 'plan' } },
       { $unwind: '$plan' },
-      { $group: { _id: '$plan.currency', count: { $sum: 1 } } },
+      { $group: { _id: '$plan.amount_type', count: { $sum: 1 } } },
     ]);
     let expiredINR = 0, expiredUSDT = 0;
     expiredByCurrency.forEach((g) => {
@@ -76,7 +76,7 @@ exports.getOverallReports = async (req, res) => {
       { $match: { status: 'rejected' } },
       { $lookup: { from: 'plans', localField: 'plan_id', foreignField: '_id', as: 'plan' } },
       { $unwind: '$plan' },
-      { $group: { _id: '$plan.currency', count: { $sum: 1 } } },
+      { $group: { _id: '$plan.amount_type', count: { $sum: 1 } } },
     ]);
     let rejectedINR = 0, rejectedUSDT = 0;
     rejectedByCurrency.forEach((g) => {
@@ -89,7 +89,7 @@ exports.getOverallReports = async (req, res) => {
       { $match: { status: 'verified' } },
       { $lookup: { from: 'plans', localField: 'plan_id', foreignField: '_id', as: 'plan' } },
       { $unwind: '$plan' },
-      { $group: { _id: { $toLower: { $trim: { input: '$plan.name' } } }, count: { $sum: 1 } } },
+      { $group: { _id: { $toLower: { $trim: { input: '$plan.plan_name' } } }, count: { $sum: 1 } } },
     ]);
     let planWiseCounts = {};
     planWise.forEach((g) => {
@@ -116,7 +116,7 @@ exports.getOverallReports = async (req, res) => {
   }
 };
 
-// Upcoming Expirations
+// Upcoming Expirations (per plan)
 exports.getExpirations = async (req, res) => {
   const { period } = req.params; // 'week' or 'month'
   try {
@@ -162,7 +162,7 @@ exports.getExpirations = async (req, res) => {
             {
               $project: {
                 user: { username: 1, email: 1, phone_number: 1 },
-                plan: { name: 1, currency: 1 },
+                plan: { plan_name: 1, amount_type: 1 },
                 amount: 1,
                 expires_at: 1,
               },
@@ -171,7 +171,7 @@ exports.getExpirations = async (req, res) => {
           totals: [
             {
               $group: {
-                _id: '$plan.currency',
+                _id: '$plan.amount_type',
                 totalAmount: { $sum: '$amount' },
               },
             },
@@ -197,7 +197,7 @@ exports.getExpirations = async (req, res) => {
   }
 };
 
-// Settlements (upcoming)
+// Upcoming Settlements (grouped by user and currency)
 exports.getSettlements = async (req, res) => {
   const { period } = req.params; // 'week' or 'month'
   try {
@@ -240,10 +240,18 @@ exports.getSettlements = async (req, res) => {
         $facet: {
           list: [
             {
+              $group: {
+                _id: { user_id: '$user._id', amount_type: '$plan.amount_type' },
+                user: { $first: '$user' },
+                totalAmountToSettle: { $sum: '$amount' },
+                expires_at: { $max: '$expires_at' },
+              },
+            },
+            {
               $project: {
                 user: { username: 1, email: 1, phone_number: 1 },
-                plan: { name: 1, currency: 1 },
-                amountToSettle: '$amount',
+                amount_type: '$_id.amount_type',
+                totalAmountToSettle: 1,
                 expires_at: 1,
               },
             },
@@ -251,7 +259,7 @@ exports.getSettlements = async (req, res) => {
           totals: [
             {
               $group: {
-                _id: '$plan.currency',
+                _id: '$plan.amount_type',
                 totalAmount: { $sum: '$amount' },
               },
             },

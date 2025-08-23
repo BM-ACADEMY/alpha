@@ -111,17 +111,16 @@ const ReportManagement = () => {
 
   const expirationColumns = [
     { header: 'User', accessor: (row) => row.user.username },
-    { header: 'Plan', accessor: (row) => row.plan.name },
-    { header: 'Amount', accessor: (row) => `${row.plan.currency === 'INR' ? '₹' : 'USDT'} ${row.amount}` },
-    { header: 'Currency', accessor: (row) => row.plan.currency },
+    { header: 'Plan', accessor: (row) => row.plan.plan_name },
+    { header: 'Amount', accessor: (row) => `${row.plan.amount_type === 'INR' ? '₹' : 'USDT'} ${row.amount}` },
+    { header: 'Currency', accessor: (row) => row.plan.amount_type },
     { header: 'Expires At', accessor: (row) => new Date(row.expires_at).toLocaleDateString() },
   ];
 
   const settlementColumns = [
     { header: 'User', accessor: (row) => row.user.username },
-    { header: 'Plan', accessor: (row) => row.plan.name },
-    { header: 'Amount to Settle', accessor: (row) => `${row.plan.currency === 'INR' ? '₹' : 'USDT'} ${row.amountToSettle}` },
-    { header: 'Currency', accessor: (row) => row.plan.currency },
+    { header: 'Amount to Settle', accessor: (row) => `${row.amount_type === 'INR' ? '₹' : 'USDT'} ${row.totalAmountToSettle}` },
+    { header: 'Currency', accessor: (row) => row.amount_type },
     { header: 'Expires At', accessor: (row) => new Date(row.expires_at).toLocaleDateString() },
   ];
 
