@@ -5,9 +5,9 @@ const Plan = require("../model/planModel");
 const Percentage = require("../model/percentageModel");
 const Account = require("../model/accountModel");
 const Role = require("../model/rolesModel");
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 const { processFile } = require("../utils/FileUpload");
 
 const uploadScreenshot = (req, res, next) => {
@@ -26,7 +26,9 @@ const uploadScreenshot = (req, res, next) => {
       return res.status(400).json({ message: err.message });
     }
     console.log("Multer middleware passed:", {
-      file: req.file ? { filename: req.file.originalname, size: req.file.size } : "No file",
+      file: req.file
+        ? { filename: req.file.originalname, size: req.file.size }
+        : "No file",
       body: req.body,
     });
     next();
@@ -36,7 +38,9 @@ const uploadScreenshot = (req, res, next) => {
 const handleUploadScreenshot = async (req, res) => {
   console.log("Reached handleUploadScreenshot:", {
     body: req.body,
-    file: req.file ? { originalname: req.file.originalname, size: req.file.size } : "No file",
+    file: req.file
+      ? { originalname: req.file.originalname, size: req.file.size }
+      : "No file",
   });
   const { subscription_id, username, amount } = req.body;
 
@@ -46,12 +50,23 @@ const handleUploadScreenshot = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
     if (!subscription_id || !username || !amount) {
-      console.log("Missing required fields:", { subscription_id, username, amount });
-      return res.status(400).json({ message: "Missing required fields: subscription_id, username, or amount" });
+      console.log("Missing required fields:", {
+        subscription_id,
+        username,
+        amount,
+      });
+      return res
+        .status(400)
+        .json({
+          message:
+            "Missing required fields: subscription_id, username, or amount",
+        });
     }
     if (!mongoose.Types.ObjectId.isValid(subscription_id)) {
       console.log("Invalid subscription_id:", subscription_id);
-      return res.status(400).json({ message: "Invalid subscription_id format" });
+      return res
+        .status(400)
+        .json({ message: "Invalid subscription_id format" });
     }
     if (isNaN(amount) || Number(amount) <= 0) {
       console.log("Invalid amount:", amount);
@@ -64,15 +79,24 @@ const handleUploadScreenshot = async (req, res) => {
       return res.status(404).json({ message: "Subscription not found" });
     }
 
-    const random10 = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-    const fileName = `${username}_${random10}${path.extname(req.file.originalname)}`;
-    const filePath = await processFile(req.file.buffer, req.file.mimetype, username, fileName);
+    const random10 = Math.floor(
+      1000000000 + Math.random() * 9000000000
+    ).toString();
+    const fileName = `${username}_${random10}${path.extname(
+      req.file.originalname
+    )}`;
+    const filePath = await processFile(
+      req.file.buffer,
+      req.file.mimetype,
+      username,
+      fileName
+    );
 
     console.log("Saving file path:", filePath);
     subscription.payment_screenshot = filePath;
     subscription.status = "pending";
 
-subscription.amount = Number(amount);
+    subscription.amount = Number(amount);
 
     await subscription.save();
     console.log("Subscription saved:", {
@@ -83,7 +107,8 @@ subscription.amount = Number(amount);
     });
 
     res.status(200).json({
-      message: "Payment screenshot uploaded. Under verification. Wait 24-48 hours.",
+      message:
+        "Payment screenshot uploaded. Under verification. Wait 24-48 hours.",
     });
   } catch (error) {
     console.error("Upload screenshot error:", {
@@ -117,16 +142,20 @@ const searchUser = async (req, res) => {
 const getPlans = async (req, res) => {
   try {
     const plans = await Plan.find();
-    const plansWithProfit = await Promise.all(plans.map(async (plan) => {
-      const percentage = await Percentage.findOne({
-        category: plan.plan_name.toLowerCase(),
-        amount_type: plan.amount_type,
-      });
-      return {
-        ...plan._doc,
-        profit_percentage: percentage ? percentage.profit_percentage : plan.profit_percentage,
-      };
-    }));
+    const plansWithProfit = await Promise.all(
+      plans.map(async (plan) => {
+        const percentage = await Percentage.findOne({
+          category: plan.plan_name.toLowerCase(),
+          amount_type: plan.amount_type,
+        });
+        return {
+          ...plan._doc,
+          profit_percentage: percentage
+            ? percentage.profit_percentage
+            : plan.profit_percentage,
+        };
+      })
+    );
     res.json(plansWithProfit);
   } catch (error) {
     console.error("Get plans error:", error);
@@ -177,8 +206,13 @@ const getAdminAccount = async (req, res) => {
 const createSubscription = async (req, res) => {
   const { user_id, plan_id, username, amount } = req.body;
   try {
-    if (!mongoose.Types.ObjectId.isValid(user_id) || !mongoose.Types.ObjectId.isValid(plan_id)) {
-      return res.status(400).json({ message: "Invalid user_id or plan_id format" });
+    if (
+      !mongoose.Types.ObjectId.isValid(user_id) ||
+      !mongoose.Types.ObjectId.isValid(plan_id)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Invalid user_id or plan_id format" });
     }
     if (isNaN(amount) || Number(amount) <= 0) {
       return res.status(400).json({ message: "Invalid amount" });
@@ -195,11 +229,13 @@ const createSubscription = async (req, res) => {
     // Check for active subscriptions
     const activeSubscription = await UserPlanSubscription.findOne({
       user_id,
-      planStatus: 'Active',
+      planStatus: "Active",
       expires_at: { $gt: new Date() },
     });
     if (activeSubscription) {
-      return res.status(400).json({ message: "User already has an active subscription" });
+      return res
+        .status(400)
+        .json({ message: "User already has an active subscription" });
     }
 
     // Fetch profit percentage from Percentage model
@@ -208,12 +244,16 @@ const createSubscription = async (req, res) => {
       amount_type: planExists.amount_type,
     });
     if (!percentage) {
-      return res.status(404).json({ message: "Profit percentage not found for this plan" });
+      return res
+        .status(404)
+        .json({ message: "Profit percentage not found for this plan" });
     }
 
     // Calculate expires_at based on capital_lockin
     const expires_at = new Date();
-    expires_at.setDate(expires_at.getDate() + (planExists.capital_lockin || 30)); // Default to 30 days if undefined
+    expires_at.setDate(
+      expires_at.getDate() + (planExists.capital_lockin || 30)
+    ); // Default to 30 days if undefined
 
     const subscription = new UserPlanSubscription({
       user_id,
@@ -235,7 +275,10 @@ const getPurchasedPlans = async (req, res) => {
   try {
     const subscriptions = await UserPlanSubscription.find()
       .populate("user_id", "username email phone_number")
-      .populate("plan_id", "plan_name amount_type min_investment capital_lockin profit_withdrawal")
+      .populate(
+        "plan_id",
+        "plan_name amount_type min_investment capital_lockin profit_withdrawal"
+      )
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .exec();
@@ -255,7 +298,9 @@ const verifySubscription = async (req, res) => {
   const { id } = req.params;
   try {
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid subscription_id format" });
+      return res
+        .status(400)
+        .json({ message: "Invalid subscription_id format" });
     }
     const subscription = await UserPlanSubscription.findById(id);
     if (!subscription) {
@@ -277,7 +322,9 @@ const rejectSubscription = async (req, res) => {
   const { rejected_reason } = req.body;
   try {
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid subscription_id format" });
+      return res
+        .status(400)
+        .json({ message: "Invalid subscription_id format" });
     }
     const subscription = await UserPlanSubscription.findById(id);
     if (!subscription) {
@@ -296,7 +343,13 @@ const rejectSubscription = async (req, res) => {
 const getImage = async (req, res) => {
   try {
     const { folderName, fileName } = req.params;
-    const filePath = path.join(__dirname, "..", "Uploads", folderName, fileName);
+    const filePath = path.join(
+      __dirname,
+      "..",
+      "Uploads",
+      folderName,
+      fileName
+    );
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ message: "Image not found" });
     }

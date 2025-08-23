@@ -7,6 +7,7 @@ import AdminReports from '@/modules/admin/pages/reports/Reports';
 import AdminPlans from '@/modules/admin/pages/plans/Plans';
 import AdminProfile from '@/modules/admin/pages/settings/Profile';
 import PercentageManager from '@/modules/admin/pages/profit-percentage/PercentageManager';
+import ComplaintsTable from '@/modules/admin/pages/complaint/ComplaintsTable';
 
 export const adminRoutes = [
   {
@@ -70,6 +71,14 @@ export const adminRoutes = [
     element: (
       <PrivateRoute allowedRole="admin">
         <AdminProfile />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: '/admin-dashboard/complaint',
+    element: (
+      <PrivateRoute allowedRole="admin">
+        <ComplaintsTable />
       </PrivateRoute>
     ),
   },
