@@ -321,3 +321,18 @@ exports.logout = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+
+// Add populate for role_id and referred_by in getUserById
+exports.getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .populate({ path: 'role_id', select: 'role_name' })
+      .populate({ path: 'referred_by', select: 'username' })
+      .select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.status(200).json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

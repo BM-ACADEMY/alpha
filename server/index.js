@@ -41,7 +41,9 @@ const corsOptions = {
     }
   },
   credentials: true,
+
   methods: ["GET", "POST", "PATCH","PUT","DELETE", "OPTIONS"],
+
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 app.use(cors(corsOptions));
@@ -80,6 +82,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/address", addressRoutes);
+app.use('/Uploads', express.static('Uploads'));
+// Connect to DB and then Start Server
 app.use("/api/user-subscription-plan", userSubscriptionPlanRoute);
 app.use("/api/wallet-point", walletRoute);
 app.use("/api/reports", reportRoute);
@@ -103,7 +107,6 @@ app.use((err, req, res, next) => {
   }
   res.status(500).json({ message: err.message || "Internal server error" });
 });
-
 // Connect to DB and Start Server
 const PORT = process.env.PORT || 5000;
 
@@ -118,5 +121,4 @@ const startServer = async () => {
     process.exit(1);
   }
 };
-
 startServer();
