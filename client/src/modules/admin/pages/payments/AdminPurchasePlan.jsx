@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, CreditCard, Upload, CheckCircle, XCircle, Clock, Eye } from "lucide-react";
 import axiosInstance from "@/modules/common/lib/axios";
 import { AuthContext } from "@/modules/common/context/AuthContext";
+import { showToast } from "@/modules/common/toast/customToast";
 
 const AdminPurchasePlan = () => {
   const { user } = useContext(AuthContext);
@@ -32,8 +33,8 @@ const AdminPurchasePlan = () => {
   const [imageUrl, setImageUrl] = useState("");
   const [profitCalculations, setProfitCalculations] = useState({});
   const [showProfitDialog, setShowProfitDialog] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const debounceTimer = useRef(null);
-
   // Validate role_id
   useEffect(() => {
     if (!role_id) {
@@ -189,9 +190,10 @@ const AdminPurchasePlan = () => {
   };
 
   // Proceed with subscription
+
   const handleProceed = () => {
     if (!selectedUser || !selectedPlan) {
-      setStatusMessage("Please select a user and plan");
+      showToast("error", "Please select a user and plan");
       return;
     }
     setIsLoading(true);
@@ -206,12 +208,14 @@ const AdminPurchasePlan = () => {
         console.log("Subscription created:", res.data);
         setSubscriptionId(res.data.subscription._id);
         fetchAdminAccount();
-        setStatusMessage("Subscription initiated");
+        showToast("success", "Subscription initiated successfully");
+        setSelectedPlan(selectedPlan); // Keep the selected plan
         setShowProfitDialog(false);
+        setShowUploadDialog(true); // Open upload dialog
       })
       .catch((error) => {
         console.error("Subscribe error:", error.message, error.response?.data);
-        setStatusMessage(error.response?.data?.message || "Failed to create subscription");
+        showToast("error", error.response?.data?.message || "Failed to create subscription");
         setShowProfitDialog(false);
       })
       .finally(() => setIsLoading(false));
@@ -244,7 +248,7 @@ const AdminPurchasePlan = () => {
         username: selectedUser?.username,
         amount,
       });
-      setStatusMessage("Please provide all required fields");
+      showToast("error", "Please provide all required fields");
       return;
     }
     setIsLoading(true);
@@ -254,10 +258,6 @@ const AdminPurchasePlan = () => {
     formData.append("subscription_id", subscriptionId);
     formData.append("username", selectedUser.username);
     formData.append("amount", amount);
-
-    for (let [key, value] of formData.entries()) {
-      console.log(`FormData: ${key}=${value instanceof File ? value.name : value}`);
-    }
 
     try {
       const res = await axiosInstance.post("/user-subscription-plan/upload-screenshot", formData, {
@@ -269,12 +269,13 @@ const AdminPurchasePlan = () => {
         },
       });
       console.log("Upload success:", res.data);
-      setStatusMessage(res.data.message);
+      showToast("success", res.data.message);
       setSelectedPlan(null);
       setPaymentScreenshot(null);
       setSubscriptionId(null);
       setAmount("");
       setUploadProgress(0);
+      setShowUploadDialog(false); // Close upload dialog
       fetchPurchasedPlans(currentPage);
     } catch (error) {
       console.error("Upload error:", {
@@ -283,12 +284,11 @@ const AdminPurchasePlan = () => {
         status: error.response?.status,
         headers: error.response?.headers,
       });
-      setStatusMessage(error.response?.data?.message || "Failed to upload screenshot");
+      showToast("error", error.response?.data?.message || "Failed to upload screenshot");
     } finally {
       setIsLoading(false);
     }
   };
-
   // Approve subscription
   const handleApprove = async (subscriptionId) => {
     setIsLoading(true);
@@ -351,7 +351,7 @@ const AdminPurchasePlan = () => {
     <div className="p-6 space-y-8">
       {/* Search User */}
       <Card>
-        <CardHeader>
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
           <CardTitle>Search User</CardTitle>
         </CardHeader>
         <CardContent>
@@ -377,7 +377,7 @@ const AdminPurchasePlan = () => {
 
       {/* Plans List */}
       <Card>
-        <CardHeader>
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
           <CardTitle>Available Plans</CardTitle>
         </CardHeader>
         <CardContent>
@@ -409,7 +409,10 @@ const AdminPurchasePlan = () => {
                     {profitCalculations[plan._id]?.totalReturn} {plan?.amount_type}
                   </TableCell>
                   <TableCell>
-                    <Dialog open={showProfitDialog && selectedPlan?._id === plan._id} onOpenChange={setShowProfitDialog}>
+                    <Dialog
+                      open={showProfitDialog && selectedPlan?._id === plan._id}
+                      onOpenChange={setShowProfitDialog}
+                    >
                       <DialogTrigger asChild>
                         <Button
                           onClick={() => handlePurchase(plan)}
@@ -422,99 +425,50 @@ const AdminPurchasePlan = () => {
                       <DialogContent>
                         <DialogHeader>
                           <DialogTitle>
-                            Confirm Purchase: {selectedPlan?.plan_name} for {selectedUser?.username}
+                            Confirm Purchase: {selectedPlan?.plan_name} for{" "}
+                            {selectedUser?.username}
                           </DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4">
-                          <p><strong>Plan Name:</strong> {selectedPlan?.plan_name}</p>
-                          <p><strong>Min Investment:</strong> {selectedPlan?.min_investment?.$numberDecimal} {selectedPlan?.amount_type}</p>
-                          <p><strong>Profit Percentage:</strong> {selectedPlan?.profit_percentage?.$numberDecimal}%</p>
-                          <p><strong>Validity:</strong> {selectedPlan?.capital_lockin} days</p>
-                          <p><strong>Profit Amount ({selectedPlan?.profit_withdrawal}):</strong> {profitCalculations[selectedPlan?._id]?.profitAmount} {selectedPlan?.amount_type}</p>
-                          <p><strong>Total Return:</strong> {profitCalculations[selectedPlan?._id]?.totalReturn} {selectedPlan?.amount_type}</p>
+                          <p>
+                            <strong>Plan Name:</strong> {selectedPlan?.plan_name}
+                          </p>
+                          <p>
+                            <strong>Min Investment:</strong>{" "}
+                            {selectedPlan?.min_investment?.$numberDecimal}{" "}
+                            {selectedPlan?.amount_type}
+                          </p>
+                          <p>
+                            <strong>Profit Percentage:</strong>{" "}
+                            {selectedPlan?.profit_percentage?.$numberDecimal}%
+                          </p>
+                          <p>
+                            <strong>Validity:</strong> {selectedPlan?.capital_lockin} days
+                          </p>
+                          <p>
+                            <strong>
+                              Profit Amount ({selectedPlan?.profit_withdrawal}):
+                            </strong>{" "}
+                            {profitCalculations[selectedPlan?._id]?.profitAmount}{" "}
+                            {selectedPlan?.amount_type}
+                          </p>
+                          <p>
+                            <strong>Total Return:</strong>{" "}
+                            {profitCalculations[selectedPlan?._id]?.totalReturn}{" "}
+                            {selectedPlan?.amount_type}
+                          </p>
                           <Button onClick={handleProceed} disabled={isLoading}>
                             Proceed to Payment
                           </Button>
                           {statusMessage && (
-                            <p className={statusMessage.includes("Failed") || statusMessage.includes("active subscription") ? "text-red-600" : "text-green-600"}>
-                              {statusMessage}
-                            </p>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          onClick={() => {
-                            setSelectedPlan(plan);
-                            setShowProfitDialog(false);
-                          }}
-                          disabled={!selectedUser || isLoading}
-                          variant="outline"
-                          className="ml-2"
-                        >
-                          <Upload className="mr-2 h-4 w-4" /> Upload Payment
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>
-                            Upload Payment for {selectedPlan?.plan_name}
-                          </DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <label>Amount</label>
-                            <Input
-                              type="number"
-                              value={amount}
-                              readOnly
-                              placeholder="Amount"
-                            />
-                          </div>
-                          {adminAccount ? (
-                            <div>
-                              <h3 className="font-semibold">Admin Payment Details</h3>
-                              <p>Bank: {adminAccount.bank_name || "N/A"}</p>
-                              <p>IFSC: {adminAccount.ifsc_code || "N/A"}</p>
-                              <p>Account Holder: {adminAccount.account_holder_name || "N/A"}</p>
-                              <p>Account Number: {adminAccount.account_number || "N/A"}</p>
-                              <p>Linked Phone: {adminAccount.linked_phone_number || "N/A"}</p>
-                              <p>UPI ID: {adminAccount.upi_id || "N/A"}</p>
-                              <p>UPI Number: {adminAccount.upi_number || "N/A"}</p>
-                              {adminAccount.qrcode && (
-                                <img
-                                  src={`${import.meta.env.VITE_BASE_URL}${adminAccount.qrcode}`}
-                                  alt="QR Code"
-                                  className="w-32 h-32"
-                                />
-                              )}
-                              <p className="text-sm text-muted-foreground">
-                                Pay manually using GPay (phone/UPI/QR) or bank transfer.
-                              </p>
-                            </div>
-                          ) : (
-                            <p className="text-red-600">Admin account details not available</p>
-                          )}
-                          <div className="space-y-2">
-                            <label>Upload Payment Screenshot (Max 200MB, Any file type)</label>
-                            <Input type="file" onChange={handleFileChange} />
-                            <Button onClick={handleSubmit} disabled={!paymentScreenshot || isLoading}>
-                              <Upload className="mr-2 h-4 w-4" />{" "}
-                              {isLoading ? `Uploading (${uploadProgress}%)` : "Submit"}
-                            </Button>
-                            {uploadProgress > 0 && uploadProgress < 100 && (
-                              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                                <div
-                                  className="bg-blue-600 h-2.5 rounded-full"
-                                  style={{ width: `${uploadProgress}%` }}
-                                />
-                              </div>
-                            )}
-                          </div>
-                          {statusMessage && (
-                            <p className={statusMessage.includes("Failed") ? "text-red-600" : "text-green-600"}>
+                            <p
+                              className={
+                                statusMessage.includes("Failed") ||
+                                  statusMessage.includes("active subscription")
+                                  ? "text-red-600"
+                                  : "text-green-600"
+                              }
+                            >
                               {statusMessage}
                             </p>
                           )}
@@ -526,12 +480,78 @@ const AdminPurchasePlan = () => {
               ))}
             </TableBody>
           </Table>
+          {/* Upload Payment Dialog - Moved outside the table */}
+          <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Upload Payment for {selectedPlan?.plan_name}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label>Amount</label>
+                  <Input type="number" value={amount} readOnly placeholder="Amount" />
+                </div>
+                {adminAccount ? (
+                  <div>
+                    <h3 className="font-semibold">Admin Payment Details</h3>
+                    <p>Bank: {adminAccount.bank_name || "N/A"}</p>
+                    <p>IFSC: {adminAccount.ifsc_code || "N/A"}</p>
+                    <p>Account Holder: {adminAccount.account_holder_name || "N/A"}</p>
+                    <p>Account Number: {adminAccount.account_number || "N/A"}</p>
+                    <p>Linked Phone: {adminAccount.linked_phone_number || "N/A"}</p>
+                    <p>UPI ID: {adminAccount.upi_id || "N/A"}</p>
+                    <p>UPI Number: {adminAccount.upi_number || "N/A"}</p>
+                    {adminAccount.qrcode && (
+                      <img
+                        src={`${import.meta.env.VITE_BASE_URL}${adminAccount.qrcode}`}
+                        alt="QR Code"
+                        className="w-32 h-32"
+                      />
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      Pay manually using GPay (phone/UPI/QR) or bank transfer.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-red-600">Admin account details not available</p>
+                )}
+                <div className="space-y-2">
+                  <label>Upload Payment Screenshot (Max 200MB, Any file type)</label>
+                  <Input type="file" onChange={handleFileChange} />
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={!paymentScreenshot || isLoading}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />{" "}
+                    {isLoading ? `Uploading (${uploadProgress}%)` : "Submit"}
+                  </Button>
+                  {uploadProgress > 0 && uploadProgress < 100 && (
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+                {statusMessage && (
+                  <p
+                    className={
+                      statusMessage.includes("Failed") ? "text-red-600" : "text-green-600"
+                    }
+                  >
+                    {statusMessage}
+                  </p>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
 
       {/* Purchased Plans Table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
           <CardTitle>Purchased Plans</CardTitle>
         </CardHeader>
         <CardContent>

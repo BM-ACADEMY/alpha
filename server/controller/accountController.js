@@ -1,8 +1,6 @@
-// Updated backend controller: controller/accountController.js
 const Account = require("../model/accountModel");
 const User = require("../model/usersModel"); // Assuming User model exists
-const path = require('path');
-const fs = require('fs');
+const { uploadQrcodeImage, updateQrcodeImage } = require("../controller/profileImageController");
 
 // Get all accounts
 exports.getAccounts = async (req, res) => {
@@ -25,6 +23,7 @@ exports.getAccountById = async (req, res) => {
   }
 };
 
+// Get accounts by user ID
 exports.getAccountsByUserId = async (req, res) => {
   try {
     const accounts = await Account.find({ user_id: req.params.id }).populate("user_id", "username email");
@@ -42,16 +41,20 @@ exports.createAccount = async (req, res) => {
 
     let qrcodePath;
     if (req.file) {
-      const random = Math.floor(100000 + Math.random() * 900000);
-      const ext = path.extname(req.file.originalname);
-      const filename = `${user.username}${random}${ext}`;
-      const dir = path.join(__dirname, '..', 'Uploads', 'qr_code');
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+      // Use profileImageController's uploadQrcodeImage logic
+      req.body.entity_type = 'qr_code'; // Set entity_type for QR code
+      const uploadResponse = await new Promise((resolve, reject) => {
+        uploadQrcodeImage(req, {
+          status: (code) => ({
+            json: (data) => resolve({ status: code, data }),
+          }),
+        }, (err) => reject(err));
+      });
+
+      if (uploadResponse.status !== 200) {
+        return res.status(uploadResponse.status).json(uploadResponse.data);
       }
-      const filePath = path.join(dir, filename);
-      fs.writeFileSync(filePath, req.file.buffer);
-      qrcodePath = `/Uploads/qr_code/${filename}`;
+      qrcodePath = uploadResponse.data.fileUrl;
     }
 
     const account = new Account({
@@ -61,6 +64,7 @@ exports.createAccount = async (req, res) => {
     const saved = await account.save();
     res.status(201).json(saved);
   } catch (err) {
+    console.error('Create Account Error:', err);
     res.status(400).json({ message: err.message });
   }
 };
@@ -76,23 +80,20 @@ exports.updateAccount = async (req, res) => {
 
     let qrcodePath = account.qrcode;
     if (req.file) {
-      // Delete old QR code if exists
-      if (qrcodePath) {
-        const oldPath = path.join(__dirname, '..', qrcodePath);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
+      req.body.entity_type = 'qr_code';
+      req.body.old_filename = account.qrcode ? account.qrcode.split('/').pop() : null;
+      const updateResponse = await new Promise((resolve, reject) => {
+        updateQrcodeImage(req, {
+          status: (code) => ({
+            json: (data) => resolve({ status: code, data }),
+          }),
+        }, (err) => reject(err));
+      });
+
+      if (updateResponse.status !== 200) {
+        return res.status(updateResponse.status).json(updateResponse.data);
       }
-      const random = Math.floor(100000 + Math.random() * 900000);
-      const ext = path.extname(req.file.originalname);
-      const filename = `${user.username}${random}${ext}`;
-      const dir = path.join(__dirname, '..', 'Uploads', 'qr_code');
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      const filePath = path.join(dir, filename);
-      fs.writeFileSync(filePath, req.file.buffer);
-      qrcodePath = `/Uploads/qr_code/${filename}`;
+      qrcodePath = updateResponse.data.fileUrl;
     }
 
     const updatedData = {
@@ -102,6 +103,7 @@ exports.updateAccount = async (req, res) => {
     const updated = await Account.findByIdAndUpdate(req.params.id, updatedData, { new: true });
     res.status(200).json(updated);
   } catch (err) {
+    console.error('Update Account Error:', err);
     res.status(400).json({ message: err.message });
   }
 };
@@ -114,15 +116,17 @@ exports.deleteAccount = async (req, res) => {
 
     // Delete QR code if exists
     if (account.qrcode) {
-      const qrPath = path.join(__dirname, '..', account.qrcode);
-      if (fs.existsSync(qrPath)) {
-        fs.unlinkSync(qrPath);
+      const filename = account.qrcode.split('/').pop();
+      const filePath = path.join(__dirname, '..', 'Uploads', 'qr_code', account.user_id, filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
       }
     }
 
     await Account.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: "Account deleted successfully" });
   } catch (err) {
+    console.error('Delete Account Error:', err);
     res.status(500).json({ message: err.message });
   }
 };

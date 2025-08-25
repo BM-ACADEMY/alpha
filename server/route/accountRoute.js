@@ -1,10 +1,7 @@
-// Updated route: route/accountRoute.js
 const express = require("express");
 const router = express.Router();
-const multer = require('multer');
+const { upload } = require("../utils/profileUpload"); // Use profileUpload's upload middleware
 const accountController = require("../controller/accountController");
-
-const upload = multer({ storage: multer.memoryStorage() });
 
 router.get("/", accountController.getAccounts);
 router.get("/:id", accountController.getAccountById);

@@ -114,7 +114,7 @@ const WalletManagement = () => {
     <div className="p-6 space-y-8">
       {/* Search User */}
       <Card>
-        <CardHeader>
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
           <CardTitle>Search User</CardTitle>
         </CardHeader>
         <CardContent>
@@ -140,7 +140,7 @@ const WalletManagement = () => {
       {/* Subscriptions Table */}
       {subscriptions.length > 0 && (
         <Card>
-          <CardHeader>
+          <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
             <CardTitle>Active Subscriptions</CardTitle>
           </CardHeader>
           <CardContent>
@@ -166,6 +166,7 @@ const WalletManagement = () => {
                         onClick={() => handleSubscriptionSelect(sub)}
                         variant="outline"
                         size="sm"
+                        className="cursor-pointer"
                       >
                         Select
                       </Button>
@@ -181,7 +182,7 @@ const WalletManagement = () => {
       {/* Add Points Form */}
       {selectedSubscription && (
         <Card>
-          <CardHeader>
+          <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
             <CardTitle>Add Points to Wallet</CardTitle>
           </CardHeader>
           <CardContent>
@@ -202,7 +203,7 @@ const WalletManagement = () => {
                   readOnly
                 />
               </div>
-              <Button onClick={handleAddPoints} disabled={isLoading}>
+              <Button onClick={handleAddPoints} disabled={isLoading}    className="mb-4 bg-[#d09d42] text-white hover:bg-[#0f1c3f] cursor-pointer">
                 <Wallet className="mr-2 h-4 w-4" /> Add Points
               </Button>
               {statusMessage && (
@@ -217,7 +218,7 @@ const WalletManagement = () => {
 
       {/* Wallets Table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded"> 
           <CardTitle>Wallet Information</CardTitle>
         </CardHeader>
         <CardContent>
