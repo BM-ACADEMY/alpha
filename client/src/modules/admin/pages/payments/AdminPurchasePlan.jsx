@@ -6,10 +6,29 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, CreditCard, Upload, CheckCircle, XCircle, Clock, Eye } from "lucide-react";
+import { Search, CreditCard, Upload, CheckCircle, XCircle, Clock, Eye,Banknote ,Hash } from "lucide-react";
 import axiosInstance from "@/modules/common/lib/axios";
 import { AuthContext } from "@/modules/common/context/AuthContext";
 import { showToast } from "@/modules/common/toast/customToast";
+import Zoom from "react-medium-image-zoom";
+import "react-medium-image-zoom/dist/styles.css";
+
+
+
+// Fallback for imageCache if Map is unavailable
+const imageCache = typeof Map === 'function' ? new Map() : {
+  cache: {},
+  set(key, value) { this.cache[key] = value; },
+  get(key) { return this.cache[key]; },
+  has(key) { return key in this.cache; },
+  clear() { this.cache = {}; },
+};
+
+// Log if Map is unavailable for debugging
+if (typeof Map !== 'function') {
+  console.warn('Map constructor is not available. Using fallback object for imageCache.');
+}
+
 
 const AdminPurchasePlan = () => {
   const { user } = useContext(AuthContext);
@@ -139,6 +158,40 @@ const AdminPurchasePlan = () => {
     }
   };
 
+
+  const getQrcodeImageUrl = async (filePath, entityType = 'user') => {
+    if (!filePath || !user?.id) {
+      console.warn('getImageUrl: Missing filePath or user ID', { filePath, userId: user?.id });
+      return '/fallback-image.png';
+    }
+
+    // Check cache first
+    if (imageCache.has(filePath)) {
+      return imageCache.get(filePath);
+    }
+
+    const parts = filePath.split('/');
+    const filename = parts[parts.length - 1];
+
+    try {
+      const response = await axiosInstance.get(
+        `/profile-image/get-image/${entityType}/${user.id}/${encodeURIComponent(filename)}`,
+        { responseType: 'blob', withCredentials: true }
+      );
+      const blob = new Blob([response.data], { type: response.headers['content-type'] });
+      const blobUrl = URL.createObjectURL(blob);
+      imageCache.set(filePath, blobUrl); // Cache the blob URL
+      return blobUrl;
+    } catch (error) {
+      console.error('getImageUrl error:', {
+        filePath,
+        status: error.response?.status,
+        message: error.message,
+      });
+      return '/fallback-image.png';
+    }
+  };
+
   // Debounce search
   const handleSearch = (e) => {
     setSearchQuery(e.target.value);
@@ -160,23 +213,47 @@ const AdminPurchasePlan = () => {
   };
 
   // Fetch admin account
-  const fetchAdminAccount = () => {
+  // const fetchAdminAccount = () => {
+  //   if (!role_id) {
+  //     console.error("Cannot fetch admin account: role_id is undefined");
+  //     setStatusMessage("Invalid role ID");
+  //     return;
+  //   }
+  //   axiosInstance
+  //     .get(`/user-subscription-plan/admin-account/${role_id}`)
+  //     .then((res) => {
+  //       console.log("Admin account fetched:", res.data);
+  //       setAdminAccount(res.data);
+  //     })
+  //     .catch((error) => {
+  //       console.error("Fetch admin account error:", error.message, error.response?.data);
+  //       setStatusMessage("Failed to fetch admin account");
+  //     });
+  // };
+
+  const fetchAdminAccount = async () => {
     if (!role_id) {
       console.error("Cannot fetch admin account: role_id is undefined");
       setStatusMessage("Invalid role ID");
       return;
     }
-    axiosInstance
-      .get(`/user-subscription-plan/admin-account/${role_id}`)
-      .then((res) => {
-        console.log("Admin account fetched:", res.data);
-        setAdminAccount(res.data);
-      })
-      .catch((error) => {
-        console.error("Fetch admin account error:", error.message, error.response?.data);
-        setStatusMessage("Failed to fetch admin account");
-      });
+
+    try {
+      const res = await axiosInstance.get(`/user-subscription-plan/admin-account/${role_id}`);
+      const account = res.data;
+
+      const qrcodeUrl = account.qrcode
+        ? await getQrcodeImageUrl(account.qrcode, "qr_code") // 👈 same function you already have
+        : null;
+
+      setAdminAccount({ ...account, qrcodeUrl });
+      console.log("Admin account fetched:", { ...account, qrcodeUrl });
+    } catch (error) {
+      console.error("Fetch admin account error:", error.message, error.response?.data);
+      setStatusMessage("Failed to fetch admin account");
+    }
   };
+
 
   // Initiate purchase
   const handlePurchase = (plan) => {
@@ -491,30 +568,74 @@ const AdminPurchasePlan = () => {
                   <label>Amount</label>
                   <Input type="number" value={amount} readOnly placeholder="Amount" />
                 </div>
-                {adminAccount ? (
-                  <div>
-                    <h3 className="font-semibold">Admin Payment Details</h3>
-                    <p>Bank: {adminAccount.bank_name || "N/A"}</p>
-                    <p>IFSC: {adminAccount.ifsc_code || "N/A"}</p>
-                    <p>Account Holder: {adminAccount.account_holder_name || "N/A"}</p>
-                    <p>Account Number: {adminAccount.account_number || "N/A"}</p>
-                    <p>Linked Phone: {adminAccount.linked_phone_number || "N/A"}</p>
-                    <p>UPI ID: {adminAccount.upi_id || "N/A"}</p>
-                    <p>UPI Number: {adminAccount.upi_number || "N/A"}</p>
-                    {adminAccount.qrcode && (
-                      <img
-                        src={`${import.meta.env.VITE_BASE_URL}${adminAccount.qrcode}`}
-                        alt="QR Code"
-                        className="w-32 h-32"
-                      />
-                    )}
-                    <p className="text-sm text-muted-foreground">
-                      Pay manually using GPay (phone/UPI/QR) or bank transfer.
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-red-600">Admin account details not available</p>
-                )}
+             {adminAccount ? (
+  <div>
+    <h3 className="font-semibold mb-3">Admin Payment Details</h3>
+
+    <ul className="divide-y divide-gray-200 rounded-lg border bg-gray-50">
+      <li className="flex items-center gap-3 p-3">
+        <Banknote className="h-5 w-5 text-gray-600" />
+        <span className="text-sm">Bank: {adminAccount.bank_name || "N/A"}</span>
+      </li>
+      <li className="flex items-center gap-3 p-3">
+        <Hash className="h-5 w-5 text-gray-600" />
+        <span className="text-sm">IFSC: {adminAccount.ifsc_code || "N/A"}</span>
+      </li>
+      <li className="flex items-center gap-3 p-3">
+        <User className="h-5 w-5 text-gray-600" />
+        <span className="text-sm">
+          Account Holder: {adminAccount.account_holder_name || "N/A"}
+        </span>
+      </li>
+      <li className="flex items-center gap-3 p-3">
+        <CreditCard className="h-5 w-5 text-gray-600" />
+        <span className="text-sm">
+          Account No: {adminAccount.account_number || "N/A"}
+        </span>
+      </li>
+      <li className="flex items-center gap-3 p-3">
+        <Phone className="h-5 w-5 text-gray-600" />
+        <span className="text-sm">
+          Linked Phone: {adminAccount.linked_phone_number || "N/A"}
+        </span>
+      </li>
+      <li className="flex items-center gap-3 p-3">
+        <Wallet className="h-5 w-5 text-gray-600" />
+        <span className="text-sm">UPI ID: {adminAccount.upi_id || "N/A"}</span>
+      </li>
+      <li className="flex items-center gap-3 p-3">
+        <Wallet className="h-5 w-5 text-gray-600" />
+        <span className="text-sm">UPI No: {adminAccount.upi_number || "N/A"}</span>
+      </li>
+
+      {adminAccount.qrcodeUrl && (
+        <li className="flex flex-col gap-2 p-3">
+          <div className="flex items-center gap-3">
+            <QrCode className="h-5 w-5 text-gray-600" />
+            <span className="text-sm font-medium">QR Code</span>
+          </div>
+          <Zoom>
+            <img
+              src={adminAccount.qrcodeUrl}
+              alt="Admin QR Code"
+              className="w-[200px] h-[200px] object-contain border rounded-lg shadow cursor-pointer bg-white"
+              onError={(e) => {
+                console.error("Failed to load admin qrcode:", e);
+                e.target.src = "/fallback-image.png";
+              }}
+            />
+          </Zoom>
+        </li>
+      )}
+    </ul>
+
+    <p className="text-sm text-muted-foreground mt-3">
+      Pay manually using GPay (phone/UPI/QR) or bank transfer.
+    </p>
+  </div>
+) : (
+  <p className="text-red-600">Admin account details not available</p>
+)}
                 <div className="space-y-2">
                   <label>Upload Payment Screenshot (Max 200MB, Any file type)</label>
                   <Input type="file" onChange={handleFileChange} />
@@ -696,7 +817,17 @@ const AdminPurchasePlan = () => {
                                 {imageUrl && (
                                   <div>
                                     <p><strong>Payment Screenshot:</strong></p>
-                                    <img src={imageUrl} alt="Payment Screenshot" className="w-full max-w-md" />
+                                    <Zoom>
+                                      <img
+                                        src={imageUrl}
+                                        alt="Payment Screenshot"
+                                        className="w-full max-w-md rounded-lg border shadow cursor-pointer"
+                                        onError={(e) => {
+                                          console.error("Failed to load payment screenshot:", e);
+                                          e.target.src = "/fallback-image.png";
+                                        }}
+                                      />
+                                    </Zoom>
                                   </div>
                                 )}
                               </div>

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const complaintController = require('../controller/complaintController');
 const { upload } = require('../utils/FileUpload');
+const authMiddleware = require("../middleware/authMiddleware");
 
 // POST /complaints - Create
 router.post('/', upload.array('images', 5), complaintController.createComplaint);
@@ -25,7 +26,7 @@ router.post('/upload/image', upload.array('images', 5), complaintController.uplo
 router.delete('/delete-complaint-images/:id/images/:filename', complaintController.deleteImage);
 
 // GET /complaints/images/:filename - Get image
-router.get('/images/:filename', complaintController.getImage);
+router.get('/complaint-image/:user_id/:filename',authMiddleware, complaintController.getComplaintImage);
 
 // DELETE /complaints/:id - Delete
 router.delete('/delete-complaint/:id', complaintController.deleteComplaint);

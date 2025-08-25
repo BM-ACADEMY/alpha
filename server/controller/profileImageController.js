@@ -271,18 +271,21 @@ const updateQrcodeImage = async (req, res) => {
   try {
     const { entity_type, user_id, old_filename } = req.body;
 
-    if (!entity_type || !user_id || !old_filename) {
-      return res.status(400).json({ message: 'Missing required fields' });
+    if (!entity_type || !user_id) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ message: 'No new file uploaded' });
-    }
+    // if (!req.file) {
+    //   return res.status(400).json({ message: "No new file uploaded" });
+    // }
 
     const uploadPath = createEntityFolder(entity_type, user_id);
-    const oldFilePath = path.join(uploadPath, old_filename);
 
-    if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
+    // Only try deleting if old_filename exists
+  if (old_filename) {
+  const oldFilePath = path.join(uploadPath, old_filename);
+  if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
+}
 
     const fileName = `${Date.now()}_${req.file.originalname}`;
     const fileUrl = await processFile(
@@ -294,11 +297,11 @@ const updateQrcodeImage = async (req, res) => {
     );
 
     res.status(200).json({
-      message: 'QR code image updated successfully',
+      message: "QR code image updated successfully",
       fileUrl,
     });
   } catch (error) {
-    console.error('QR Code Image Update Error:', error);
+    console.error("QR Code Image Update Error:", error);
     res.status(500).json({ message: error.message });
   }
 };

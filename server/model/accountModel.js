@@ -42,6 +42,9 @@ const AccountSchema = new mongoose.Schema(
     qrcode: {
       type: String, // storing base64 or URL
     },
+    usdt_account_number:{
+      type: String 
+    }
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: false },

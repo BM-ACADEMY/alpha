@@ -1,9 +1,10 @@
 import PrivateRoute from '@/modules/common/context/PrivateRoute';
 import UserDashboard from '@/modules/user/pages/dashboard/Dashboard';
-import UserEarnings from '@/modules/user/pages/earnings/Earnings';
+import UserEarnings from '@/modules/user/pages/Complaint/Complaint';
 import UserPlans from '@/modules/user/pages/plans/Plans';
 import UserWallet from '@/modules/user/pages/wallet/Wallet';
 import UserProfile from '@/modules/user/pages/settings/UserProfile';
+import Profile from '@/modules/user/pages/settings/Profile';
 
 
 export const userRoutes = [
@@ -43,7 +44,7 @@ export const userRoutes = [
     path: '/user-dashboard/profile',
     element: (
       <PrivateRoute allowedRole="user">
-        <UserProfile />
+        <Profile />
       </PrivateRoute>
     ),
   },

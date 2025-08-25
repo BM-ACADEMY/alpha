@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '@/modules/common/lib/axios';
 import {
@@ -20,19 +21,18 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Eye, Mail, CheckCircle, Trash,Send } from 'lucide-react';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+import { Eye, Mail, CheckCircle, Trash, Send } from 'lucide-react';
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { showToast } from '@/modules/common/toast/customToast';
 import ConfirmationDialog from '@/modules/common/reusable/ConfirmationDialog';
-
 import LightGallery from 'lightgallery/react';
 import 'lightgallery/css/lightgallery.css';
 import 'lightgallery/css/lg-zoom.css';
 import 'lightgallery/css/lg-thumbnail.css';
 import lgThumbnail from 'lightgallery/plugins/thumbnail';
 import lgZoom from 'lightgallery/plugins/zoom';
-
+import { getImageUrl } from './ImageUtils'; // Import getImageUrl
 
 const ComplaintsTable = () => {
   const [complaints, setComplaints] = useState([]);
@@ -44,16 +44,30 @@ const ComplaintsTable = () => {
   const [replyData, setReplyData] = useState({ email: '', username: '', phone: '', message: '' });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [complaintToDelete, setComplaintToDelete] = useState(null);
+  const [imageUrls, setImageUrls] = useState({}); // Store blob URLs for images
 
   useEffect(() => {
     fetchComplaints();
   }, [page]);
 
+  // Fetch complaints and preload images
   const fetchComplaints = async () => {
     try {
       const res = await axiosInstance.get(`/complaints/fetch-all-complaints?page=${page}&limit=${limit}`);
       setComplaints(res.data.complaints);
       setTotal(res.data.total);
+
+      // Preload images for all complaints
+      const newImageUrls = {};
+      for (const complaint of res.data.complaints) {
+        if (complaint.image_urls && complaint.image_urls.length > 0) {
+          for (const url of complaint.image_urls) {
+            const blobUrl = await getImageUrl(url, complaint.user_id._id, 'complaint');
+            newImageUrls[url] = blobUrl;
+          }
+        }
+      }
+      setImageUrls(newImageUrls);
     } catch (err) {
       console.error('Failed to fetch complaints:', err);
       showToast('error', 'Failed to fetch complaints');
@@ -119,117 +133,112 @@ const ComplaintsTable = () => {
       console.error('Failed to delete complaint:', err);
       showToast('error', 'Failed to delete complaint');
     }
+    setIsDeleteDialogOpen(false);
+    setComplaintToDelete(null);
   };
 
   const totalPages = Math.ceil(total / limit);
-const colors = [
-  "bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500",
-  "bg-purple-500", "bg-pink-500", "bg-orange-500", "bg-teal-500"
-]
+  const colors = [
+    "bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500",
+    "bg-purple-500", "bg-pink-500", "bg-orange-500", "bg-teal-500"
+  ];
 
-function getRandomColor(username) {
-  let hash = 0
-  for (let i = 0; i < username.length; i++) {
-    hash = username.charCodeAt(i) + ((hash << 5) - hash)
+  function getRandomColor(username) {
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+      hash = username.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
   }
-  return colors[Math.abs(hash) % colors.length]
-}
-const onGalleryInit = () => {
+
+  const onGalleryInit = () => {
     console.log('LightGallery has been initialized');
   };
 
   return (
     <div className="p-4">
-     <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>User</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Description</TableHead>
-          <TableHead>Created At</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead className="text-center">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {complaints.map((c) => (
-          <TableRow key={c._id} className="hover:bg-muted/40">
-            <TableCell className="flex items-center gap-3">
-              <Avatar>
-                <AvatarFallback className={`${getRandomColor(c.user_id.username)} text-white`}>
-                  {c.user_id.username.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="font-medium">{c.user_id.username}</span>
-            </TableCell>
-
-            <TableCell>
-              <Badge variant="secondary">{c.complaint_type}</Badge>
-            </TableCell>
-
-            <TableCell className="max-w-xs truncate">
-              {c.description}
-            </TableCell>
-
-            <TableCell>
-              {new Date(c.created_at).toLocaleString()}
-            </TableCell>
-
-            <TableCell>
-              {c.is_read ? (
-                <Badge className="bg-green-500 hover:bg-green-600">Read</Badge>
-              ) : (
-                <Badge className="bg-red-500 hover:bg-red-600">Unread</Badge>
-              )}
-            </TableCell>
-
-            <TableCell className="flex justify-center gap-2">
-              {!c.is_read && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="hover:bg-green-100 cursor-pointer"
-                  onClick={(e) => handleMarkRead(e, c._id)} 
-                  title="Mark as Read"
-                >
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                </Button>
-              )}
-
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="hover:bg-blue-100 cursor-pointer"
-                onClick={(e) => handleViewDetails(e, c)} 
-                title="View Details"
-              >
-                <Eye className="h-5 w-5 text-blue-600" />
-              </Button>
-
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="hover:bg-yellow-100 cursor-pointer"
-                onClick={(e) => handleOpenReply(e, c)} 
-                title="Send Reply"
-              >
-                <Mail className="h-5 w-5 text-yellow-600" />
-              </Button>
-
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="hover:bg-red-100 cursor-pointer"
-                onClick={(e) => handleDelete(e, c._id)} 
-                title="Delete"
-              >
-                <Trash className="h-5 w-5 text-red-600" />
-              </Button>
-            </TableCell>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>User</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Description</TableHead>
+            <TableHead>Created At</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-center">Actions</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {complaints.map((c) => (
+            <TableRow key={c._id} className="hover:bg-muted/40">
+              <TableCell className="flex items-center gap-3">
+                <Avatar>
+                  <AvatarFallback className={`${getRandomColor(c.user_id.username)} text-white`}>
+                    {c.user_id.username.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="font-medium">{c.user_id.username}</span>
+              </TableCell>
+              <TableCell>
+                <Badge variant="secondary">{c.complaint_type}</Badge>
+              </TableCell>
+              <TableCell className="max-w-xs truncate">
+                {c.description}
+              </TableCell>
+              <TableCell>
+                {new Date(c.created_at).toLocaleString()}
+              </TableCell>
+              <TableCell>
+                {c.is_read ? (
+                  <Badge className="bg-green-500 hover:bg-green-600">Read</Badge>
+                ) : (
+                  <Badge className="bg-red-500 hover:bg-red-600">Unread</Badge>
+                )}
+              </TableCell>
+              <TableCell className="flex justify-center gap-2">
+                {!c.is_read && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:bg-green-100 cursor-pointer"
+                    onClick={(e) => handleMarkRead(e, c._id)}
+                    title="Mark as Read"
+                  >
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hover:bg-blue-100 cursor-pointer"
+                  onClick={(e) => handleViewDetails(e, c)}
+                  title="View Details"
+                >
+                  <Eye className="h-5 w-5 text-blue-600" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hover:bg-yellow-100 cursor-pointer"
+                  onClick={(e) => handleOpenReply(e, c)}
+                  title="Send Reply"
+                >
+                  <Mail className="h-5 w-5 text-yellow-600" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hover:bg-red-100 cursor-pointer"
+                  onClick={(e) => handleDelete(e, c._id)}
+                  title="Delete"
+                >
+                  <Trash className="h-5 w-5 text-red-600" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
       {selectedComplaint && dialogMode === 'view' && (
         <Dialog open={!!selectedComplaint && dialogMode === 'view'} onOpenChange={() => { setSelectedComplaint(null); setDialogMode(null); }}>
           <DialogContent>
@@ -261,18 +270,22 @@ const onGalleryInit = () => {
                   </TableRow>
                 </TableBody>
               </Table>
-             {selectedComplaint.image_urls.length > 0 && (
+              {selectedComplaint.image_urls.length > 0 && (
                 <div>
                   <h3 className="font-bold">Images</h3>
                   <LightGallery
                     onInit={onGalleryInit}
                     speed={500}
                     plugins={[lgThumbnail, lgZoom]}
-                    elementClassNames="mt-2"
+                    elementClassNames="mt-2 flex flex-wrap gap-2"
                   >
                     {selectedComplaint.image_urls.map((url, idx) => (
-                      <a key={idx} href={url}>
-                        <img alt={`complaint-${idx}`} src={url} className="w-32 h-32 object-cover rounded mr-2" />
+                      <a key={idx} href={imageUrls[url] || '/fallback-image.png'}>
+                        <img
+                          alt={`complaint-${idx}`}
+                          src={imageUrls[url] || '/fallback-image.png'}
+                          className="w-32 h-32 object-cover rounded"
+                        />
                       </a>
                     ))}
                   </LightGallery>
@@ -298,7 +311,9 @@ const onGalleryInit = () => {
                 placeholder="Reply message"
                 rows={5}
               />
-              <Button onClick={handleSendReply}> <Send className='w-4 h-4' /> Send Reply</Button>
+              <Button onClick={handleSendReply}>
+                <Send className='w-4 h-4 mr-2' /> Send Reply
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

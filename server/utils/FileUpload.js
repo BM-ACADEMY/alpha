@@ -7,25 +7,28 @@ const sharp = require("sharp");
 dotenv.config();
 
 const SERVER_URL = process.env.SERVER_URL || "http://localhost:5000";
-console.log(`Server URL: ${SERVER_URL}`);
 
-// Create upload folder
-const createUploadFolder = (username) => {
-  const sanitizedUsername = username ? username.replace(/\s+/g, "_") : "default";
-  const uploadDir = path.join(__dirname, "../Uploads", sanitizedUsername);
+// Create upload folder with user_id
+const createUploadFolder = (user_id, folderPrefix = "complaints") => {
+  const folderName = path.join(folderPrefix, user_id); // e.g., complaints/[user_id]
+  const uploadDir = path.join(__dirname, "../Uploads", folderName);
 
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
 
-  return uploadDir;
+  return { uploadDir, folderName };
 };
 
 // Multer configuration
 const storage = multer.memoryStorage();
 const fileFilter = (req, file, cb) => {
   console.log("File filter:", { mimetype: file.mimetype, originalname: file.originalname });
-  // Allow all file types
+  // Allow only images
+  const isImage = /\.(jpg|jpeg|png|gif|bmp|tiff)$/i.test(file.originalname);
+  if (!isImage) {
+    return cb(new Error("Only image files are allowed"), false);
+  }
   cb(null, true);
 };
 
@@ -35,7 +38,7 @@ const upload = multer({
   limits: { fileSize: 200 * 1024 * 1024 }, // 200MB limit
 });
 
-// Compress image if it's an image
+// Compress image
 const compressImage = async (buffer, outputPath) => {
   try {
     console.log("Compressing image:", outputPath);
@@ -48,9 +51,9 @@ const compressImage = async (buffer, outputPath) => {
 
     await image
       .toFormat("webp", { quality: 90 })
-      .toFile(outputPath.replace(/\.\w+$/, ".webp"));
+      .toFile(outputPath);
     console.log("Image compressed successfully:", outputPath);
-    return outputPath.replace(/\.\w+$/, ".webp");
+    return outputPath;
   } catch (error) {
     console.error("Image compression failed:", error.message);
     throw new Error("Image compression failed: " + error.message);
@@ -58,27 +61,16 @@ const compressImage = async (buffer, outputPath) => {
 };
 
 // Process file and return public URL
-const processFile = async (buffer, mimetype, username, fileName) => {
-  const uploadPath = createUploadFolder(username);
-  const fileExt = path.extname(fileName).toLowerCase();
-  const isImage = /\.(jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(fileExt);
-  let finalFileName = fileName;
+const processFile = async (buffer, filename, user_id, username, folderPrefix = "complaints") => {
+  const { uploadDir, folderName } = createUploadFolder(user_id, folderPrefix);
+  const sanitizedUsername = username ? username.replace(/\s+/g, "_") : "default";
+  const randomDigits = Math.floor(100000 + Math.random() * 900000).toString();
+  const finalFileName = filename.replace(/\.\w+$/, ".webp"); // Use provided filename, convert to .webp
+  const filePath = path.join(uploadDir, finalFileName);
 
-  if (isImage) {
-    finalFileName = fileName.replace(/\.\w+$/, ".webp");
-  }
+  await compressImage(buffer, filePath);
 
-  const filePath = path.join(uploadPath, finalFileName);
-
-  if (isImage) {
-    await compressImage(buffer, filePath);
-  } else {
-    // For non-image files, write the buffer directly
-    await fs.promises.writeFile(filePath, buffer);
-    console.log("Non-image file saved:", filePath);
-  }
-
-  const publicUrl = `${SERVER_URL}/Uploads/${username}/${finalFileName}`;
+  const publicUrl = `${SERVER_URL}/Uploads/${folderName}/${finalFileName}`;
   console.log("File processed:", publicUrl);
   return publicUrl;
 };
