@@ -191,6 +191,10 @@ const UserSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    profile_image:{
+      type:String,
+      default:null
+    }
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: false },

@@ -11,10 +11,12 @@ router.post('/login', userController.loginUser);
 router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password', userController.resetPassword);
 router.post('/logout', userController.logout);
+router.put('/update-user/:id', userController.updateUser);
 // Protected routes (auth required)
-router.get("/", authMiddleware, userController.getUsers);
+router.get("/fetch-all-users-details", authMiddleware, userController.getUsers);
 router.get("/user-info", authMiddleware, userController.getUserInfo);
 router.post("/", authMiddleware, userController.createUser);
 router.patch("/:id", authMiddleware, upload.fields([{ name: 'pan_image', maxCount: 1 }, { name: 'aadhar_image', maxCount: 1 }]), userController.updateUser);router.delete("/:id", authMiddleware, userController.deleteUser);
 router.get("/:id", authMiddleware, userController.getUserById);
+router.get("/fetch-full-details/:id", authMiddleware, userController.getUserDetails);
 module.exports = router;

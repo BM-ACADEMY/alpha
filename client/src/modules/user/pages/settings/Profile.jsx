@@ -46,7 +46,23 @@ import {
   Pin,
   Loader2,
   Banknote,
+  Trash2,
 } from 'lucide-react';
+import ReferralCard from './ReferralCard';
+
+// Fallback for imageCache if Map is unavailable
+const imageCache = typeof Map === 'function' ? new Map() : {
+  cache: {},
+  set(key, value) { this.cache[key] = value; },
+  get(key) { return this.cache[key]; },
+  has(key) { return key in this.cache; },
+  clear() { this.cache = {}; },
+};
+
+// Log if Map is unavailable for debugging
+if (typeof Map !== 'function') {
+  console.warn('Map constructor is not available. Using fallback object for imageCache.');
+}
 
 const Profile = () => {
   const { user } = useContext(AuthContext);
@@ -66,7 +82,7 @@ const Profile = () => {
     city: '',
     state: '',
     country: '',
-    pincode: ''
+    pincode: '',
   });
   const [accountFormData, setAccountFormData] = useState({
     bank_name: '',
@@ -76,58 +92,135 @@ const Profile = () => {
     linked_phone_number: '',
     upi_id: '',
     upi_number: '',
+    qrcode: null,
   });
-  const [qrFile, setQrFile] = useState(null);
+  const [imagePreviews, setImagePreviews] = useState({
+    profile_image: null,
+    pan_image: null,
+    aadhar_image: null,
+    qrcode: null,
+  });
   const [addressErrors, setAddressErrors] = useState({});
   const [accountErrors, setAccountErrors] = useState({});
   const [isAddressSubmitting, setIsAddressSubmitting] = useState(false);
   const [isAccountSubmitting, setIsAccountSubmitting] = useState(false);
+  const [isImageUploading, setIsImageUploading] = useState({
+    profile_image: false,
+    pan_image: false,
+    aadhar_image: false,
+    qrcode: false,
+  });
+
+  // Function to fetch image as blob and return a blob URL
+  const getImageUrl = async (filePath, entityType = 'user') => {
+    if (!filePath || !user?.id) {
+      console.warn('getImageUrl: Missing filePath or user ID', { filePath, userId: user?.id });
+      return '/fallback-image.png';
+    }
+
+    // Check cache first
+    if (imageCache.has(filePath)) {
+      return imageCache.get(filePath);
+    }
+
+    const parts = filePath.split('/');
+    const filename = parts[parts.length - 1];
+
+    try {
+      const response = await axiosInstance.get(
+        `/profile-image/get-image/${entityType}/${user.id}/${encodeURIComponent(filename)}`,
+        { responseType: 'blob', withCredentials: true }
+      );
+      const blob = new Blob([response.data], { type: response.headers['content-type'] });
+      const blobUrl = URL.createObjectURL(blob);
+      imageCache.set(filePath, blobUrl); // Cache the blob URL
+      return blobUrl;
+    } catch (error) {
+      console.error('getImageUrl error:', {
+        filePath,
+        status: error.response?.status,
+        message: error.message,
+      });
+      return '/fallback-image.png';
+    }
+  };
+
+  // Clean up blob URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (typeof Map === 'function') {
+        imageCache.forEach((url) => URL.revokeObjectURL(url));
+        imageCache.clear();
+      } else {
+        Object.values(imageCache.cache).forEach((url) => URL.revokeObjectURL(url));
+        imageCache.clear();
+      }
+    };
+  }, []);
 
   useEffect(() => {
-    if (user?.id) {
-      const fetchProfile = async () => {
-        try {
-          const response = await axiosInstance.get(`/users/${user.id}`, {
-            withCredentials: true,
-          });
-          setProfileData(response.data);
-        } catch (error) {
-          console.error('Failed to fetch profile:', error);
-          showToast('error', 'Failed to load profile data');
-        }
-      };
-
-      const fetchAddresses = async () => {
-        try {
-          const response = await axiosInstance.get(`/address/user/${user.id}`, {
-            withCredentials: true,
-          });
-          setAddresses(response.data);
-        } catch (error) {
-          console.error('Failed to fetch addresses:', error);
-          showToast('error', 'Failed to load addresses');
-        }
-      };
-
-      const fetchAccounts = async () => {
-        try {
-          const response = await axiosInstance.get(`/accounts/user/${user.id}`, {
-            withCredentials: true,
-          });
-          setAccounts(response.data);
-        } catch (error) {
-          console.error('Failed to fetch accounts:', error);
-          showToast('error', 'Failed to load account details');
-        }
-      };
-
-      setIsLoading(true);
-      Promise.all([fetchProfile(), fetchAddresses(), fetchAccounts()]).finally(() =>
-        setIsLoading(false)
-      );
-    } else {
+    if (!user?.id) {
       setIsLoading(false);
+      return;
     }
+
+    const fetchProfile = async () => {
+      try {
+        const response = await axiosInstance.get(`/users/${user.id}`, {
+          withCredentials: true,
+        });
+        const profile = response.data;
+        setProfileData(profile);
+
+        const imageFields = ['profile_image', 'pan_image', 'aadhar_image', 'qrcode'];
+        const imagePromises = imageFields.map(async (field) => ({
+          field,
+          url: profile[field] ? await getImageUrl(profile[field], field === 'qrcode' ? 'qr_code' : 'user') : null,
+        }));
+        const previewsArray = await Promise.all(imagePromises);
+        const previews = previewsArray.reduce((acc, { field, url }) => ({ ...acc, [field]: url }), {});
+        setImagePreviews(previews);
+      } catch (error) {
+        console.error('Failed to fetch profile:', error);
+        showToast('error', 'Failed to load profile data');
+      }
+    };
+
+    const fetchAddresses = async () => {
+      try {
+        const response = await axiosInstance.get(`/address/user/${user.id}`, {
+          withCredentials: true,
+        });
+        setAddresses(response.data);
+      } catch (error) {
+        console.error('Failed to fetch addresses:', error);
+        showToast('error', 'Failed to load addresses');
+      }
+    };
+
+    const fetchAccounts = async () => {
+      try {
+        const response = await axiosInstance.get(`/accounts/user/${user.id}`, {
+          withCredentials: true,
+        });
+        const accountsData = response.data;
+        const updatedAccounts = await Promise.all(
+          accountsData.map(async (account) => ({
+            ...account,
+            qrcodeUrl: account.qrcode ? await getImageUrl(account.qrcode, 'qr_code') : null,
+          })
+          ));
+        setAccounts(updatedAccounts);
+      } catch (error) {
+        console.error('Failed to fetch accounts:', error);
+        showToast('error', 'Failed to load account details');
+      }
+    };
+
+    setIsLoading(true);
+    Promise.all([fetchProfile(), fetchAddresses(), fetchAccounts()]).finally(() =>
+      setIsLoading(false)
+    );
   }, [user]);
 
   useEffect(() => {
@@ -146,20 +239,120 @@ const Profile = () => {
     setEditData({ ...editData, [e.target.id]: e.target.value });
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = (e, imageType) => {
     if (e.target.files[0]) {
-      setEditData({ ...editData, [e.target.id]: e.target.files[0] });
+      const file = e.target.files[0];
+      setEditData({ ...editData, [imageType]: file });
+      const tempPreview = URL.createObjectURL(file);
+      setImagePreviews({
+        ...imagePreviews,
+        [imageType]: tempPreview,
+      });
+    }
+  };
+
+  const handleImageUpload = async (imageType, file) => {
+    if (!user?.id) {
+      showToast('error', 'User ID is required');
+      return null;
+    }
+    setIsImageUploading({ ...isImageUploading, [imageType]: true });
+    const formData = new FormData();
+    formData.append(imageType, file);
+    formData.append('entity_type', imageType === 'qrcode' ? 'qr_code' : 'user');
+    formData.append('user_id', user.id);
+    if (profileData[imageType]) {
+      formData.append('old_filename', profileData[imageType].split('/').pop());
+    }
+    try {
+      const endpoint = profileData[imageType]
+        ? `/profile-image/update-${imageType.replace('_', '-')}`
+        : `/profile-image/upload-${imageType.replace('_', '-')}`;
+      const response = await axiosInstance[profileData[imageType] ? 'put' : 'post'](
+        endpoint,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          withCredentials: true,
+        }
+      );
+      const fileUrl = response.data.fileUrl;
+      setProfileData({ ...profileData, [imageType]: fileUrl });
+      setImagePreviews({ ...imagePreviews, [imageType]: await getImageUrl(fileUrl, imageType === 'qrcode' ? 'qr_code' : 'user') });
+      showToast('success', `${imageType.replace('_', ' ')} uploaded successfully`);
+      return fileUrl;
+    } catch (error) {
+      console.error(`${imageType} upload failed:`, error);
+      showToast('error', `Failed to upload ${imageType.replace('_', ' ')}: ${error.response?.data?.message || error.message}`);
+      setImagePreviews({ ...imagePreviews, [imageType]: '/fallback-image.png' });
+      return null;
+    } finally {
+      setIsImageUploading({ ...isImageUploading, [imageType]: false });
+    }
+  };
+
+  const handleAccountFileChange = (e) => {
+    if (e.target.files[0]) {
+      const file = e.target.files[0];
+      setAccountFormData({ ...accountFormData, qrcode: file });
+      setImagePreviews({
+        ...imagePreviews,
+        qrcode: URL.createObjectURL(file),
+      });
+    }
+  };
+
+  const handleImageDelete = async (imageType) => {
+    if (!user?.id || !profileData[imageType]) {
+      showToast('error', 'No image to delete or user ID missing');
+      return;
+    }
+    try {
+      const entityType = imageType === 'qrcode' ? 'qr_code' : 'user';
+      await axiosInstance.delete('/profile-image/delete-image', {
+        data: {
+          entity_type: entityType,
+          user_id: user.id,
+          filename: profileData[imageType].split('/').pop(),
+        },
+        withCredentials: true,
+      });
+      setProfileData({ ...profileData, [imageType]: null });
+      setImagePreviews({ ...imagePreviews, [imageType]: null });
+      setEditData({ ...editData, [imageType]: null });
+      showToast('success', `${imageType.replace('_', ' ')} deleted successfully`);
+    } catch (error) {
+      console.error(`${imageType} delete failed:`, error);
+      showToast('error', `Failed to delete ${imageType.replace('_', ' ')}`);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!user?.id) {
+      showToast('error', 'User ID is required');
+      return;
+    }
     const formData = new FormData();
+    const imageFields = ['profile_image', 'pan_image', 'aadhar_image', 'qrcode'];
+
+    for (const imageType of imageFields) {
+      if (editData[imageType] instanceof File) {
+        const fileUrl = await handleImageUpload(imageType, editData[imageType]);
+        if (fileUrl) {
+          formData.append(imageType, fileUrl);
+        }
+      } else if (profileData[imageType]) {
+        formData.append(imageType, profileData[imageType]);
+      }
+    }
+
     for (const key in editData) {
-      if (editData[key] !== undefined && editData[key] !== '') {
+      if (!imageFields.includes(key) && editData[key] !== undefined && editData[key] !== '') {
         formData.append(key, editData[key]);
       }
     }
+
     try {
       const response = await axiosInstance.patch(`/users/${user.id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -170,7 +363,7 @@ const Profile = () => {
       showToast('success', 'Profile updated successfully');
     } catch (error) {
       console.error('Failed to update profile:', error);
-      showToast('error', 'Failed to update profile');
+      showToast('error', `Failed to update profile: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -200,19 +393,17 @@ const Profile = () => {
       showToast('error', 'You must be logged in with a valid user ID to submit an address');
       return;
     }
-
     if (!validateAddressForm()) {
       showToast('error', 'Please fill in all required fields correctly');
       return;
     }
-
     setIsAddressSubmitting(true);
     try {
       const response = await axiosInstance.patch(`/address/${selectedAddress._id}`, {
         user_id: user.id,
-        ...addressFormData
+        ...addressFormData,
       }, { withCredentials: true });
-      setAddresses(addresses.map(addr => addr._id === selectedAddress._id ? response.data : addr));
+      setAddresses(addresses.map((addr) => (addr._id === selectedAddress._id ? response.data : addr)));
       setAddressOpen(false);
       showToast('success', 'Address updated successfully');
       setAddressFormData({
@@ -221,12 +412,11 @@ const Profile = () => {
         city: '',
         state: '',
         country: '',
-        pincode: ''
+        pincode: '',
       });
     } catch (error) {
       console.error('Address update failed:', error.response?.data || error.message);
-      const errorMessage = error.response?.data?.message || error.response?.statusText || 'Failed to update address';
-      showToast('error', errorMessage);
+      showToast('error', error.response?.data?.message || 'Failed to update address');
     } finally {
       setIsAddressSubmitting(false);
     }
@@ -240,7 +430,7 @@ const Profile = () => {
       city: address.city || '',
       state: address.state || '',
       country: address.country || '',
-      pincode: address.pincode || ''
+      pincode: address.pincode || '',
     });
     setAddressOpen(true);
   };
@@ -264,8 +454,12 @@ const Profile = () => {
         linked_phone_number: account.linked_phone_number || '',
         upi_id: account.upi_id || '',
         upi_number: account.upi_number || '',
+        qrcode: null,
       });
-      setQrFile(null);
+      setImagePreviews({
+        ...imagePreviews,
+        qrcode: account.qrcodeUrl || null,
+      });
     } else {
       setAccountFormData({
         bank_name: '',
@@ -275,8 +469,9 @@ const Profile = () => {
         linked_phone_number: '',
         upi_id: '',
         upi_number: '',
+        qrcode: null,
       });
-      setQrFile(null);
+      setImagePreviews({ ...imagePreviews, qrcode: null });
     }
     setAccountOpen(true);
   };
@@ -287,20 +482,50 @@ const Profile = () => {
       showToast('error', 'You must be logged in with a valid user ID to submit account details');
       return;
     }
-
     setIsAccountSubmitting(true);
+    let qrcodeUrl = selectedAccount?.qrcode || null;
+
+    // Handle QR code upload/update separately
+    if (accountFormData.qrcode instanceof File) {
+      const formData = new FormData();
+      formData.append('qrcode', accountFormData.qrcode);
+      formData.append('entity_type', 'qr_code');
+      formData.append('user_id', user.id);
+      if (selectedAccount?.qrcode) {
+        formData.append('old_filename', selectedAccount.qrcode.split('/').pop());
+      }
+      try {
+        const endpoint = selectedAccount?.qrcode
+          ? '/profile-image/update-qrcode-image'
+          : '/profile-image/upload-qrcode-image';
+        const response = await axiosInstance[selectedAccount?.qrcode ? 'put' : 'post'](
+          endpoint,
+          formData,
+          {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            withCredentials: true,
+          }
+        );
+        qrcodeUrl = response.data.fileUrl;
+        setImagePreviews({ ...imagePreviews, qrcode: await getImageUrl(qrcodeUrl, 'qr_code') });
+      } catch (error) {
+        console.error('QR code upload failed:', error);
+        showToast('error', `Failed to upload QR code: ${error.response?.data?.message || error.message}`);
+        setIsAccountSubmitting(false);
+        return;
+      }
+    }
+
     const formData = new FormData();
     Object.entries(accountFormData).forEach(([key, value]) => {
-      if (value !== '') {
+      if (key !== 'qrcode' && value !== '') {
         formData.append(key, value);
       }
     });
-    if (qrFile) {
-      formData.append('qrcode', qrFile);
+    if (qrcodeUrl) {
+      formData.append('qrcode', qrcodeUrl);
     }
-    if (!selectedAccount) {
-      formData.append('user_id', user.id);
-    }
+    formData.append('user_id', user.id);
 
     try {
       let response;
@@ -309,21 +534,39 @@ const Profile = () => {
           headers: { 'Content-Type': 'multipart/form-data' },
           withCredentials: true,
         });
-        setAccounts(accounts.map(acc => acc._id === selectedAccount._id ? response.data : acc));
         showToast('success', 'Account updated successfully');
       } else {
         response = await axiosInstance.post(`/accounts`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
           withCredentials: true,
         });
-        setAccounts([...accounts, response.data]);
         showToast('success', 'Account added successfully');
       }
+      const accountsResponse = await axiosInstance.get(`/accounts/user/${user.id}`, {
+        withCredentials: true,
+      });
+      const updatedAccounts = await Promise.all(
+        accountsResponse.data.map(async (account) => ({
+          ...account,
+          qrcodeUrl: account.qrcode ? await getImageUrl(account.qrcode, 'qr_code') : null,
+        })
+        ));
+      setAccounts(updatedAccounts);
       setAccountOpen(false);
+      setAccountFormData({
+        bank_name: '',
+        ifsc_code: '',
+        account_holder_name: '',
+        account_number: '',
+        linked_phone_number: '',
+        upi_id: '',
+        upi_number: '',
+        qrcode: null,
+      });
+      setImagePreviews({ ...imagePreviews, qrcode: null });
     } catch (error) {
       console.error('Account operation failed:', error.response?.data || error.message);
-      const errorMessage = error.response?.data?.message || error.response?.statusText || 'Failed to save account';
-      showToast('error', errorMessage);
+      showToast('error', error.response?.data?.message || 'Failed to save account');
     } finally {
       setIsAccountSubmitting(false);
     }
@@ -346,15 +589,27 @@ const Profile = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
+    <div className="">
       <Card className="shadow-lg">
         <CardHeader className="border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Avatar className="h-16 w-16">
-                <AvatarFallback className="text-xl">
-                  {profileData.username?.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
+                {imagePreviews.profile_image ? (
+                  <img
+                    src={imagePreviews.profile_image}
+                    alt="Profile"
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      console.error('Failed to load profile_image:', e);
+                      e.target.src = '/fallback-image.png';
+                    }}
+                  />
+                ) : (
+                  <AvatarFallback className="text-xl">
+                    {profileData.username?.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                )}
               </Avatar>
               <div>
                 <CardTitle className="text-2xl">{profileData.username}</CardTitle>
@@ -364,229 +619,317 @@ const Profile = () => {
                 </div>
               </div>
             </div>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Edit className="h-5 w-5 text-red-500" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Edit Profile</DialogTitle>
-                  <DialogDescription>
-                    Make changes to your profile here. Click save when you're done.
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit}>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="username" className="text-right">
-                        Username
-                      </Label>
-                      <Input
-                        id="username"
-                        value={editData.username}
-                        onChange={handleChange}
-                        className="col-span-3"
-                      />
+            <div className="flex items-center space-x-2">
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Edit className="h-5 w-5 text-red-500" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Edit Profile</DialogTitle>
+                    <DialogDescription>
+                      Make changes to your profile here. Click save when you're done.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit}>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="username" className="text-right">
+                          Username
+                        </Label>
+                        <Input
+                          id="username"
+                          value={editData.username}
+                          onChange={handleChange}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="email" className="text-right">
+                          Email
+                        </Label>
+                        <Input
+                          id="email"
+                          value={editData.email}
+                          onChange={handleChange}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="phone_number" className="text-right">
+                          Phone
+                        </Label>
+                        <Input
+                          id="phone_number"
+                          value={editData.phone_number}
+                          onChange={handleChange}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="pan_number" className="text-right">
+                          PAN Number
+                        </Label>
+                        <Input
+                          id="pan_number"
+                          value={editData.pan_number}
+                          onChange={handleChange}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="pan_image" className="text-right">
+                          PAN Image
+                        </Label>
+                        <Input
+                          id="pan_image"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, 'pan_image')}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="aadhar_number" className="text-right">
+                          Aadhar Number
+                        </Label>
+                        <Input
+                          id="aadhar_number"
+                          value={editData.aadhar_number}
+                          onChange={handleChange}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="aadhar_image" className="text-right">
+                          Aadhar Image
+                        </Label>
+                        <Input
+                          id="aadhar_image"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, 'aadhar_image')}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="profile_image" className="text-right">
+                          Profile Image
+                        </Label>
+                        <Input
+                          id="profile_image"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, 'profile_image')}
+                          className="col-span-3"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="qrcode" className="text-right">
+                          QR Code Image
+                        </Label>
+                        <Input
+                          id="qrcode"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, 'qrcode')}
+                          className="col-span-3"
+                        />
+                      </div>
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="email" className="text-right">
-                        Email
-                      </Label>
-                      <Input
-                        id="email"
-                        value={editData.email}
-                        onChange={handleChange}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="phone_number" className="text-right">
-                        Phone
-                      </Label>
-                      <Input
-                        id="phone_number"
-                        value={editData.phone_number}
-                        onChange={handleChange}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="pan_number" className="text-right">
-                        PAN Number
-                      </Label>
-                      <Input
-                        id="pan_number"
-                        value={editData.pan_number}
-                        onChange={handleChange}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="pan_image" className="text-right">
-                        PAN Image
-                      </Label>
-                      <Input
-                        id="pan_image"
-                        type="file"
-                        onChange={handleFileChange}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="aadhar_number" className="text-right">
-                        Aadhar Number
-                      </Label>
-                      <Input
-                        id="aadhar_number"
-                        value={editData.aadhar_number}
-                        onChange={handleChange}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="aadhar_image" className="text-right">
-                        Aadhar Image
-                      </Label>
-                      <Input
-                        id="aadhar_image"
-                        type="file"
-                        onChange={handleFileChange}
-                        className="col-span-3"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button type="submit">Save changes</Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
+                    <DialogFooter>
+                      <Button type="submit" disabled={isImageUploading.profile_image || isImageUploading.pan_image || isImageUploading.aadhar_image || isImageUploading.qrcode}>
+                        Save changes
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
+          <div className="grid grid-cols-1 w-full sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+            {['profile_image', 'pan_image', 'aadhar_image', 'qrcode'].map((imageType) => (
+              imagePreviews[imageType] && (
+                <div key={imageType} className="relative w-[200px] h-[200px] mx-auto">
+                  <img
+                    src={imagePreviews[imageType]}
+                    alt={imageType.replace('_', ' ')}
+                    className="w-full h-full object-cover rounded-md border"
+                    onError={(e) => {
+                      console.error(`Failed to load ${imageType}:`, e);
+                      e.target.src = '/fallback-image.png';
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-1 right-1 bg-red-500 hover:bg-red-600"
+                    onClick={() => handleImageDelete(imageType)}
+                    disabled={isImageUploading[imageType]}
+                  >
+                    <Trash2 className="h-4 w-4 text-white" />
+                  </Button>
+                </div>
+              )
+            ))}
+          </div>
+
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <section>
-              <h3 className="font-semibold text-lg mb-4 flex items-center">
-                <UserIcon className="mr-2 h-5 w-5" />
-                Personal Information
-              </h3>
-              <dl className="space-y-3 text-sm">
-                <div className="flex items-center">
-                  <Phone className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <dt className="w-32 font-medium">Phone:</dt>
-                  <dd>{profileData.phone_number || 'Not provided'}</dd>
-                </div>
-                <div className="flex items-center">
-                  <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <dt className="w-32 font-medium">Joined:</dt>
-                  <dd>{new Date(profileData.created_at).toLocaleDateString()}</dd>
-                </div>
-                <div className="flex items-center">
-                  <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <dt className="w-32 font-medium">Role:</dt>
-                  <dd>
-                    <Badge variant="secondary">{profileData.role_id?.role_name || 'Unknown'}</Badge>
-                  </dd>
-                </div>
-              </dl>
-            </section>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Personal Information */}
+            <Card>
+              <CardHeader className="flex flex-row items-center gap-2">
+                <UserIcon className="h-5 w-5 text-muted-foreground" />
+                <CardTitle className="text-lg">Personal Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="divide-y divide-gray-200 rounded-lg border border-gray-200">
+                  {[
+                    {
+                      label: "Phone",
+                      value: profileData.phone_number || "Not provided",
+                      icon: Phone,
+                    },
+                    {
+                      label: "Joined",
+                      value: new Date(profileData.created_at).toLocaleDateString(),
+                      icon: Calendar,
+                    },
+                    {
+                      label: "Role",
+                      value: (
+                        <Badge variant="secondary">
+                          {profileData.role_id?.role_name || "Unknown"}
+                        </Badge>
+                      ),
+                      icon: Users,
+                    },
+                  ].map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center bg-gray-100 px-4 py-3 text-sm"
+                    >
+                      <item.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <dt className="w-36 font-medium">{item.label}:</dt>
+                      <dd className="flex-1">{item.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
 
-            <section>
-              <h3 className="font-semibold text-lg mb-4 flex items-center">
-                <CheckCircle2 className="mr-2 h-5 w-5" />
-                Verification
-              </h3>
-              <dl className="space-y-3 text-sm">
-                <div className="flex items-center">
-                  <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <dt className="w-32 font-medium">Email Verified:</dt>
-                  <dd>
-                    {profileData.email_verified ? (
-                      <Badge variant="success" className="flex items-center">
-                        <CheckCircle2 className="mr-1 h-3 w-3" /> Yes
-                      </Badge>
-                    ) : (
-                      <Badge variant="destructive" className="flex items-center">
-                        <XCircle className="mr-1 h-3 w-3" /> No
-                      </Badge>
-                    )}
-                  </dd>
-                </div>
-                <div className="flex items-center">
-                  <UserIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <dt className="w-32 font-medium">Admin Verified:</dt>
-                  <dd>
-                    {profileData.verified_by_admin ? (
-                      <Badge variant="success" className="flex items-center">
-                        <CheckCircle2 className="mr-1 h-3 w-3" /> Yes
-                      </Badge>
-                    ) : (
-                      <Badge variant="destructive" className="flex items-center">
-                        <XCircle className="mr-1 h-3 w-3" /> No
-                      </Badge>
-                    )}
-                  </dd>
-                </div>
-              </dl>
-            </section>
-
-            <section>
-              <h3 className="font-semibold text-lg mb-4 flex items-center">
-                <FileText className="mr-2 h-5 w-5" />
-                KYC Documents
-              </h3>
-              <dl className="space-y-3 text-sm">
-                <div>
-                  <div className="flex items-center mb-2">
-                    <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <dt className="w-32 font-medium">PAN Number:</dt>
-                    <dd>{profileData.pan_number || 'Not provided'}</dd>
+            {/* Verification */}
+            <Card>
+              <CardHeader className="flex flex-row items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+                <CardTitle className="text-lg">Verification</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="divide-y divide-gray-200 rounded-lg border border-gray-200">
+                  <div className="flex items-center bg-gray-100 px-4 py-3 text-sm">
+                    <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <dt className="w-36 font-medium">Email Verified:</dt>
+                    <dd>
+                      {profileData.email_verified ? (
+                        <Badge variant="success" className="flex items-center">
+                          <CheckCircle2 className="mr-1 h-3 w-3" /> Yes
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive" className="flex items-center">
+                          <XCircle className="mr-1 h-3 w-3" /> No
+                        </Badge>
+                      )}
+                    </dd>
                   </div>
-                  {profileData.pan_image && (
-                    <img
-                      src={profileData.pan_image}
-                      alt="PAN Document"
-                      className="w-48 rounded-md shadow-sm"
-                    />
-                  )}
-                </div>
-                <div>
-                  <div className="flex items-center mb-2">
-                    <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <dt className="w-32 font-medium">Aadhar Number:</dt>
-                    <dd>{profileData.aadhar_number || 'Not provided'}</dd>
-                  </div>
-                  {profileData.aadhar_image && (
-                    <img
-                      src={profileData.aadhar_image}
-                      alt="Aadhar Document"
-                      className="w-48 rounded-md shadow-sm"
-                    />
-                  )}
-                </div>
-              </dl>
-            </section>
 
-            <section>
-              <h3 className="font-semibold text-lg mb-4 flex items-center">
-                <Code className="mr-2 h-5 w-5" />
-                Referral
-              </h3>
-              <dl className="space-y-3 text-sm">
-                <div className="flex items-center">
-                  <Code className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <dt className="w-32 font-medium">Referral Code:</dt>
-                  <dd>{profileData.referral_code || 'Not generated'}</dd>
-                </div>
-                <div className="flex items-center">
-                  <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <dt className="w-32 font-medium">Referred By:</dt>
-                  <dd>{profileData.referred_by?.username || 'None'}</dd>
-                </div>
-              </dl>
-            </section>
+                  <div className="flex items-center bg-gray-100 px-4 py-3 text-sm">
+                    <UserIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <dt className="w-36 font-medium">Admin Verified:</dt>
+                    <dd>
+                      {profileData.verified_by_admin ? (
+                        <Badge variant="success" className="flex items-center">
+                          <CheckCircle2 className="mr-1 h-3 w-3" /> Yes
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive" className="flex items-center">
+                          <XCircle className="mr-1 h-3 w-3" /> No
+                        </Badge>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+
+            {/* KYC Documents */}
+            <Card>
+              <CardHeader className="flex flex-row items-center gap-2">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <CardTitle className="text-lg">KYC Documents</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="divide-y divide-gray-200 rounded-lg border border-gray-200">
+                  {[
+                    {
+                      label: "PAN Number",
+                      value: profileData.pan_number || "Not provided",
+                      icon: CreditCard,
+                    },
+                    {
+                      label: "Aadhar Number",
+                      value: profileData.aadhar_number || "Not provided",
+                      icon: FileText,
+                    },
+                  ].map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center bg-gray-100 px-4 py-3 text-sm"
+                    >
+                      <item.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <dt className="w-36 font-medium">{item.label}:</dt>
+                      <dd className="flex-1">{item.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
+
+            {/* Referral */}
+            {/* <Card>
+              <CardHeader className="flex flex-row items-center gap-2">
+                <Code className="h-5 w-5 text-muted-foreground" />
+                <CardTitle className="text-lg">Referral</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="divide-y divide-gray-200 rounded-lg border border-gray-200">
+                  {[
+                    {
+                      label: "Referral Code",
+                      value: profileData.referral_code || "Not generated",
+                      icon: Code,
+                    },
+                    {
+                      label: "Referred By",
+                      value: profileData.referred_by?.username || "None",
+                      icon: Users,
+                    },
+                  ].map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center bg-gray-100 px-4 py-3 text-sm"
+                    >
+                      <item.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <dt className="w-36 font-medium">{item.label}:</dt>
+                      <dd className="flex-1">{item.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card> */}
+            <ReferralCard profileData={profileData} />
           </div>
 
           <section className="mt-8">
@@ -597,9 +940,9 @@ const Profile = () => {
             {addresses.length === 0 ? (
               <p className="text-sm text-muted-foreground">No addresses added yet.</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                 {addresses.map((address) => (
-                  <Card key={address._id} className="shadow-sm relative">
+                  <Card key={address._id} className="shadow-sm relative w-full">
                     <CardContent className="p-4">
                       <div className="absolute top-2 right-2">
                         <Dialog open={addressOpen} onOpenChange={setAddressOpen}>
@@ -713,37 +1056,24 @@ const Profile = () => {
                           </DialogContent>
                         </Dialog>
                       </div>
-                      <dl className="space-y-2 text-sm">
-                        <div className="flex items-center">
-                          <Home className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">Line 1:</dt>
-                          <dd>{address.address_line_1 || 'N/A'}</dd>
-                        </div>
-                        <div className="flex items-center">
-                          <Building className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">Line 2:</dt>
-                          <dd>{address.address_line_2 || 'N/A'}</dd>
-                        </div>
-                        <div className="flex items-center">
-                          <Map className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">City:</dt>
-                          <dd>{address.city || 'N/A'}</dd>
-                        </div>
-                        <div className="flex items-center">
-                          <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">State:</dt>
-                          <dd>{address.state || 'N/A'}</dd>
-                        </div>
-                        <div className="flex items-center">
-                          <Globe className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">Country:</dt>
-                          <dd>{address.country || 'N/A'}</dd>
-                        </div>
-                        <div className="flex items-center">
-                          <Pin className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">Pincode:</dt>
-                          <dd>{address.pincode || 'N/A'}</dd>
-                        </div>
+                      <dl className="divide-y divide-gray-200 rounded-lg border border-gray-200">
+                        {[
+                          { label: "Line 1", value: address.address_line_1, icon: Home },
+                          { label: "Line 2", value: address.address_line_2, icon: Building },
+                          { label: "City", value: address.city, icon: Map },
+                          { label: "State", value: address.state, icon: MapPin },
+                          { label: "Country", value: address.country, icon: Globe },
+                          { label: "Pincode", value: address.pincode, icon: Pin },
+                        ].map((item, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center bg-gray-100 px-4 py-3 text-sm"
+                          >
+                            <item.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <dt className="w-36 font-medium">{item.label}:</dt>
+                            <dd className="flex-1">{item.value || "N/A"}</dd>
+                          </div>
+                        ))}
                       </dl>
                     </CardContent>
                   </Card>
@@ -852,10 +1182,33 @@ const Profile = () => {
                               </div>
                               <div className="space-y-2">
                                 <Label htmlFor="qrcode">QR Code Image</Label>
+                                {imagePreviews.qrcode && (
+                                  <div className="relative">
+                                    <img
+                                      src={imagePreviews.qrcode}
+                                      alt="Current QR Code"
+                                      className="w-32 h-32 object-contain mb-2"
+                                      onError={(e) => {
+                                        console.error('Failed to load qrcode:', e);
+                                        e.target.src = '/fallback-image.png';
+                                      }}
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="absolute top-0 right-0 bg-red-500 hover:bg-red-600"
+                                      onClick={() => handleImageDelete('qrcode')}
+                                      disabled={isImageUploading.qrcode}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-white" />
+                                    </Button>
+                                  </div>
+                                )}
                                 <Input
                                   id="qrcode"
                                   type="file"
-                                  onChange={(e) => setQrFile(e.target.files[0])}
+                                  accept="image/*"
+                                  onChange={(e) => handleAccountFileChange(e)}
                                 />
                               </div>
                             </div>
@@ -976,18 +1329,34 @@ const Profile = () => {
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label htmlFor="qrcode">QR Code Image (Upload new if needed)</Label>
-                                  {selectedAccount?.qrcode && (
-                                    <img
-                                      src={selectedAccount.qrcode}
-                                      alt="Current QR Code"
-                                      className="w-32 h-32 object-contain mb-2"
-                                    />
+                                  <Label htmlFor="qrcode">QR Code Image</Label>
+                                  {imagePreviews.qrcode && (
+                                    <div className="relative">
+                                      <img
+                                        src={imagePreviews.qrcode}
+                                        alt="Current QR Code"
+                                        className="w-32 h-32 object-contain mb-2"
+                                        onError={(e) => {
+                                          console.error('Failed to load qrcode:', e);
+                                          e.target.src = '/fallback-image.png';
+                                        }}
+                                      />
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute top-0 right-0 bg-red-500 hover:bg-red-600"
+                                        onClick={() => handleImageDelete('qrcode')}
+                                        disabled={isImageUploading.qrcode}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-white" />
+                                      </Button>
+                                    </div>
                                   )}
                                   <Input
                                     id="qrcode"
                                     type="file"
-                                    onChange={(e) => setQrFile(e.target.files[0])}
+                                    accept="image/*"
+                                    onChange={(e) => handleAccountFileChange(e)}
                                   />
                                 </div>
                               </div>
@@ -1011,56 +1380,45 @@ const Profile = () => {
                           </DialogContent>
                         </Dialog>
                       </div>
-                      <dl className="space-y-2 text-sm">
-                        <div className="flex items-center">
-                          <Banknote className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">Bank Name:</dt>
-                          <dd>{account.bank_name || 'N/A'}</dd>
-                        </div>
-                        <div className="flex items-center">
-                          <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">Account Number:</dt>
-                          <dd>{account.account_number || 'N/A'}</dd>
-                        </div>
-                        <div className="flex items-center">
-                          <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">IFSC Code:</dt>
-                          <dd>{account.ifsc_code || 'N/A'}</dd>
-                        </div>
-                        <div className="flex items-center">
-                          <UserIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">Account Holder:</dt>
-                          <dd>{account.account_holder_name || 'N/A'}</dd>
-                        </div>
-                        <div className="flex items-center">
-                          <Phone className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">Linked Phone:</dt>
-                          <dd>{account.linked_phone_number || 'N/A'}</dd>
-                        </div>
-                        <div className="flex items-center">
-                          <Code className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">UPI ID:</dt>
-                          <dd>{account.upi_id || 'N/A'}</dd>
-                        </div>
-                        <div className="flex items-center">
-                          <Phone className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <dt className="w-32 font-medium">UPI Number:</dt>
-                          <dd>{account.upi_number || 'N/A'}</dd>
-                        </div>
-                        {account.qrcode && (
-                          <div>
-                            <div className="flex items-center mb-2">
-                              <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
-                              <dt className="w-32 font-medium">QR Code:</dt>
+                      <div className="flex flex-col lg:flex-row gap-6">
+                        {/* Left Side - Account Details */}
+                        <dl className="flex-1 divide-y divide-gray-200 rounded-lg border border-gray-200">
+                          {[
+                            { label: "Bank Name", value: account.bank_name, icon: Banknote },
+                            { label: "Account Number", value: account.account_number, icon: CreditCard },
+                            { label: "IFSC Code", value: account.ifsc_code, icon: Code },
+                            { label: "Holder Name", value: account.account_holder_name, icon: UserIcon },
+                            { label: "Linked Phone", value: account.linked_phone_number, icon: Phone },
+                            { label: "UPI ID", value: account.upi_id, icon: Code },
+                            { label: "UPI Number", value: account.upi_number, icon: Phone },
+                          ].map((item, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center bg-gray-100 px-4 py-3 text-sm"
+                            >
+                              <item.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                              <dt className="w-36 font-medium">{item.label}:</dt>
+                              <dd className="flex-1">{item.value || "N/A"}</dd>
                             </div>
+                          ))}
+                        </dl>
+
+                        {/* Right Side - QR Code */}
+                        {account.qrcodeUrl && (
+                          <div className="flex flex-col items-center lg:items-start">
+                            <span className="text-sm font-medium mb-2">QR Code:</span>
                             <img
-                              src={account.qrcode}
-                              alt="UPI QR Code"
-                              className="w-48 rounded-md shadow-sm"
+                              src={account.qrcodeUrl}
+                              alt="QR Code"
+                              className="w-[200px] h-[200px] object-contain border rounded-lg shadow"
+                              onError={(e) => {
+                                console.error("Failed to load account qrcode:", e)
+                                e.target.src = "/fallback-image.png"
+                              }}
                             />
                           </div>
                         )}
-                      </dl>
+                      </div>
                     </CardContent>
                   </Card>
                 ))
