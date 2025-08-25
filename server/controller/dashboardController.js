@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const User = require('../model/usersModel'); // Adjust path as needed
 const Plan = require('../model/planModel'); // Adjust path as needed
 const UserPlanSubscription = require('../model/userSubscriptionPlanModel'); // Adjust path as needed
-const Wallet = require('../model/walletModel'); // Adjust path as needed
+const Wallet = require('../model/walletModel'); 
 
 const getDashboardData = async (req, res) => {
   try {
