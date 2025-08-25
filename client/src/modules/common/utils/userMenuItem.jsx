@@ -26,7 +26,7 @@ export const userMenuItems = {
       icon: LayoutDashboard,
     },
     {
-      title: 'Earnings',
+      title: 'Complaint',
       url: '/user-dashboard/earnings',
       icon: BarChart,
     },
