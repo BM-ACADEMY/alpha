@@ -12,7 +12,6 @@ import ResetPassword from '@/modules/common/pages/verify/ResetPassword';
 import { userRoutes } from '@/modules/common/routes/UserRoutes';
 import { adminRoutes } from '@/modules/common/routes/AdminRoutes';
 import Page from './modules/admin/page';
-import './app.css'
 import ReferralRegister from './modules/common/pages/ReferralRegister';
 
 function App() {
