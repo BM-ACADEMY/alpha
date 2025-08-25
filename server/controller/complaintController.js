@@ -169,22 +169,40 @@ exports.deleteImage = async (req, res) => {
   }
 };
 
-// Get Image
-exports.getImage = async (req, res) => {
-  try {
-    const filename = req.params.filename;
-    const filePath = path.join(__dirname, '../Uploads', FOLDER_NAME, filename);
+exports.getComplaintImage = (req, res) => {
+  const { user_id, filename } = req.params;
+  // Construct file path based on complaint image storage structure
+  const filePath = path.join(__dirname, '../Uploads', 'complaint', `${user_id}complaints`, filename);
 
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ message: 'Image not found' });
-    }
+  console.log('getComplaintImage called:', { user_id, filename, filePath });
 
-    res.sendFile(filePath);
-  } catch (err) {
-    res.status(500).json({ message: 'Server Error', error: err.message });
+  // Check if file exists
+  if (!fs.existsSync(filePath)) {
+    console.error('Image not found:', filePath);
+    return res.status(404).json({ message: 'Image not found' });
   }
-};
 
+  // Optional: Verify authentication (uncomment if authMiddleware is used)
+  /*
+  if (!req.user || req.user.id !== user_id) {
+    console.error('Unauthorized access:', { user: req.user, user_id });
+    return res.status(403).json({ message: 'Unauthorized' });
+  }
+  */
+
+  // Get MIME type based on file extension
+  const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+
+  // Serve the file directly
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error('Error sending file:', err);
+      res.status(500).json({ message: 'Error serving file' });
+    }
+  });
+};
 // Delete Complaint
 exports.deleteComplaint = async (req, res) => {
   try {

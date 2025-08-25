@@ -247,19 +247,18 @@ import {
   Calendar,
 } from "lucide-react";
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
-  PieChart,
-  Pie,
-  Cell,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
-
-import axiosInstance from "@/modules/common/lib/axios"; // Adjust path to your axiosInstance
+import axiosInstance from "@/modules/common/lib/axios";
 import { showToast } from "@/modules/common/toast/customToast";
 
 const Dashboard = () => {
@@ -272,14 +271,10 @@ const Dashboard = () => {
         setIsLoading(true);
         const response = await axiosInstance.get("/dashboard-route/dashboard");
         setData(response.data);
-        showToast("success", "Dashboard data loaded successfully!");
         setIsLoading(false);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
-        showToast("error",
-          `${error.response?.data?.message}|| Failed to load dashboard data`
-
-        );
+        showToast("error", error.response?.data?.message || "Failed to load dashboard data");
         setIsLoading(false);
       }
     };
@@ -290,11 +285,11 @@ const Dashboard = () => {
     <div className="p-6 space-y-6">
       <h1 className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">Admin Dashboard Overview</h1>
 
-      {/* First Row: Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {isLoading ? (
           <>
-            {[...Array(6)].map((_, i) => (
+            {[...Array(8)].map((_, i) => (
               <Skeleton key={i} className="h-32 w-full" />
             ))}
           </>
@@ -320,20 +315,38 @@ const Dashboard = () => {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Current Month Amount</CardTitle>
+                <CardTitle className="text-sm font-medium">Current Month (₹ INR)</CardTitle>
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${data?.currentMonthAmount?.toLocaleString() || 0}</div>
+                <div className="text-2xl font-bold">₹ {data?.currentMonthAmount?.INR?.toLocaleString() || 0}</div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
+                <CardTitle className="text-sm font-medium">Current Month (₮ USDT)</CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">₮ {data?.currentMonthAmount?.USDT?.toLocaleString() || 0}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Amount (₹ INR)</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${data?.totalAmount?.toLocaleString() || 0}</div>
+                <div className="text-2xl font-bold">₹ {data?.totalAmount?.INR?.toLocaleString() || 0}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Amount (₮ USDT)</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">₮ {data?.totalAmount?.USDT?.toLocaleString() || 0}</div>
               </CardContent>
             </Card>
             <Card>
@@ -360,7 +373,7 @@ const Dashboard = () => {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Area Chart: Plan-wise User Count */}
+        {/* Line Chart: Plan-wise User Count */}
         <Card>
           <CardHeader>
             <CardTitle>Plan-wise User Count Over Time</CardTitle>
@@ -370,7 +383,7 @@ const Dashboard = () => {
               <Skeleton className="h-64 w-full" />
             ) : (
               <ResponsiveContainer width="100%" height={300}>
-                <AreaChart
+                <LineChart
                   data={data?.planUserCounts || []}
                   margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                 >
@@ -378,28 +391,35 @@ const Dashboard = () => {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Area
+                  <Line
                     type="monotone"
-                    dataKey="PlanA"
-                    stackId="1"
+                    dataKey="starter"
                     stroke="#8884d8"
-                    fill="#8884d8"
+                    strokeWidth={2}
+                    name="Starter"
                   />
-                  <Area
+                  <Line
                     type="monotone"
-                    dataKey="PlanB"
-                    stackId="1"
+                    dataKey="advanced"
                     stroke="#82ca9d"
-                    fill="#82ca9d"
+                    strokeWidth={2}
+                    name="Advanced"
                   />
-                  <Area
+                  <Line
                     type="monotone"
-                    dataKey="PlanC"
-                    stackId="1"
+                    dataKey="premium"
                     stroke="#ffc658"
-                    fill="#ffc658"
+                    strokeWidth={2}
+                    name="Premium"
                   />
-                </AreaChart>
+                  <Line
+                    type="monotone"
+                    dataKey="elite"
+                    stroke="#ff7300"
+                    strokeWidth={2}
+                    name="Elite"
+                  />
+                </LineChart>
               </ResponsiveContainer>
             )}
           </CardContent>
@@ -408,7 +428,7 @@ const Dashboard = () => {
         {/* Pie Chart: Currency Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle>Currency Distribution (INR vs USDT)</CardTitle>
+            <CardTitle>Currency Distribution (₹ INR vs ₮ USDT)</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -422,7 +442,6 @@ const Dashboard = () => {
                     cy="50%"
                     innerRadius={60}
                     outerRadius={80}
-                    fill="#8884d8"
                     paddingAngle={5}
                     dataKey="value"
                     label

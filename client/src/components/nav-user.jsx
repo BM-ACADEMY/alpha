@@ -1,16 +1,18 @@
+import { useNavigate } from "react-router-dom";
 import {
   IconCreditCard,
   IconDotsVertical,
   IconLogout,
   IconNotification,
   IconUserCircle,
-} from "@tabler/icons-react"
+} from "@tabler/icons-react";
 
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "@/components/ui/avatar"
+} from "@/components/ui/avatar";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,26 +21,27 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
+
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
-import { useNavigate } from "react-router-dom"
+} from "@/components/ui/sidebar";
 
-export function NavUser({
-  user, logout
-}) {
-  const { isMobile } = useSidebar()
+export function NavUser({ user, logout }) {
+  const { isMobile } = useSidebar();
   const navigate = useNavigate();
-  console.log(user, "user list");
 
   const handleLogout = () => {
     logout();
-    navigate('/admin-login');
-  }
+    navigate("/admin-login");
+  };
+
+  const goToSettings = () => {
+    navigate("/admin-dashboard/settings");
+  };
 
   return (
     <SidebarMenu>
@@ -48,10 +51,10 @@ export function NavUser({
             <SidebarMenuButton
               size="lg"
               className="
-    hover:bg-gray-700
-    data-[state=open]:bg-sidebar-accent
-    [&[data-state=open]_.username]:text-black
-  "
+                hover:bg-gray-700
+                data-[state=open]:bg-sidebar-accent
+                [&[data-state=open]_.username]:text-black
+              "
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
                 <AvatarImage src={user.avatar} alt={user.username} />
@@ -71,14 +74,14 @@ export function NavUser({
 
               <IconDotsVertical className="ml-auto size-4 text-gray-400" />
             </SidebarMenuButton>
-
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
             className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "right"}
             align="end"
-            sideOffset={4}>
+            sideOffset={4}
+          >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg grayscale">
@@ -96,15 +99,20 @@ export function NavUser({
                 </div>
               </div>
             </DropdownMenuLabel>
+
             <DropdownMenuSeparator />
+
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <IconUserCircle />
-                Account
-              </DropdownMenuItem>
-              
+              {user?.role_id?.role_name === "admin" && (
+                <DropdownMenuItem onClick={goToSettings}>
+                  <IconUserCircle />
+                  Account
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
+
             <DropdownMenuSeparator />
+
             <DropdownMenuItem onClick={handleLogout}>
               <IconLogout />
               Log out

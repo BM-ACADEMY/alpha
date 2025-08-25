@@ -1,8 +1,8 @@
-const mongoose = require('mongoose');
-const User = require('../model/usersModel'); // Adjust path as needed
-const Plan = require('../model/planModel'); // Adjust path as needed
-const UserPlanSubscription = require('../model/userSubscriptionPlanModel'); // Adjust path as needed
-const Wallet = require('../model/walletModel'); 
+const mongoose = require("mongoose");
+const User = require("../model/usersModel"); // Adjust path as needed
+const Plan = require("../model/planModel"); // Adjust path as needed
+const UserPlanSubscription = require("../model/userSubscriptionPlanModel"); // Adjust path as needed
+const Wallet = require("../model/walletModel");
 
 const getDashboardData = async (req, res) => {
   try {
@@ -21,36 +21,58 @@ const getDashboardData = async (req, res) => {
     // Total Plans
     const totalPlans = await Plan.countDocuments();
 
-    // Current Month Amount (sum of verified subscriptions this month)
+    // Current Month Amount by currency
     const currentMonthAmount = await UserPlanSubscription.aggregate([
       {
         $match: {
-          purchased_at: { $gte: startOfMonth },
-          status: 'verified',
+          purchased_at: { $gte: startOfMonth, $lte: endOfToday },
+          status: "verified",
         },
       },
       {
+        $lookup: {
+          from: "plans",
+          localField: "plan_id",
+          foreignField: "_id",
+          as: "plan",
+        },
+      },
+      {
+        $unwind: "$plan",
+      },
+      {
         $group: {
-          _id: null,
-          total: { $sum: '$amount' },
+          _id: "$plan.amount_type",
+          total: { $sum: "$amount" },
         },
       },
     ]);
 
-    // Total Amount (sum of all verified subscriptions)
+    // Total Amount by currency
     const totalAmount = await UserPlanSubscription.aggregate([
       {
-        $match: { status: 'verified' },
+        $match: { status: "verified" },
+      },
+      {
+        $lookup: {
+          from: "plans",
+          localField: "plan_id",
+          foreignField: "_id",
+          as: "plan",
+        },
+      },
+      {
+        $unwind: "$plan",
       },
       {
         $group: {
-          _id: null,
-          total: { $sum: '$amount' },
+          _id: "$plan.amount_type",
+          total: { $sum: "$amount" },
         },
       },
     ]);
 
-    // New Users Today
+    // New Users Today (using created_at from User schema)
     const newUsersToday = await User.countDocuments({
       created_at: { $gte: startOfToday, $lte: endOfToday },
     });
@@ -66,45 +88,65 @@ const getDashboardData = async (req, res) => {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
       months.push({
-        name: date.toLocaleString('default', { month: 'short' }),
+        name: date.toLocaleString("default", { month: "short" }),
         date: date,
       });
     }
 
     const planUserCounts = await Promise.all(
       months.map(async (month) => {
-        const startOfMonth = new Date(month.date.getFullYear(), month.date.getMonth(), 1);
-        const endOfMonth = new Date(month.date.getFullYear(), month.date.getMonth() + 1, 0);
+        const startOfMonth = new Date(
+          month.date.getFullYear(),
+          month.date.getMonth(),
+          1
+        );
+        const endOfMonth = new Date(
+          month.date.getFullYear(),
+          month.date.getMonth() + 1,
+          0
+        );
 
         const subscriptions = await UserPlanSubscription.aggregate([
           {
             $match: {
               purchased_at: { $gte: startOfMonth, $lte: endOfMonth },
-              status: 'verified',
-            },
-          },
-          {
-            $group: {
-              _id: '$plan_id',
-              count: { $sum: 1 },
+              status: "verified",
             },
           },
           {
             $lookup: {
-              from: 'plans',
-              localField: '_id',
-              foreignField: '_id',
-              as: 'plan',
+              from: "plans",
+              localField: "plan_id",
+              foreignField: "_id",
+              as: "plan",
             },
           },
           {
-            $unwind: '$plan',
+            $unwind: "$plan",
+          },
+          {
+            $group: {
+              _id: {
+                $toLower: {
+                  $trim: {
+                    input: {
+                      $replaceAll: {
+                        input: "$plan.plan_name",
+                        find: " ",
+                        replacement: "",
+                      },
+                    },
+                  },
+                },
+              },
+              count: { $sum: 1 },
+            },
           },
         ]);
 
         const result = { name: month.name };
         subscriptions.forEach((sub) => {
-          result[sub.plan.plan_name] = sub.count;
+          result[sub._id] = sub.count;
         });
         return result;
       })
@@ -113,28 +155,33 @@ const getDashboardData = async (req, res) => {
     // Currency Distribution
     const currencyDistribution = await UserPlanSubscription.aggregate([
       {
-        $match: { status: 'verified' },
+        $match: { status: "verified" },
       },
       {
         $lookup: {
-          from: 'plans',
-          localField: 'plan_id',
-          foreignField: '_id',
-          as: 'plan',
+          from: "plans",
+          localField: "plan_id",
+          foreignField: "_id",
+          as: "plan",
         },
       },
       {
-        $unwind: '$plan',
+        $unwind: "$plan",
       },
       {
         $group: {
-          _id: '$plan.amount_type',
-          value: { $sum: '$amount' },
+          _id: "$plan.amount_type",
+          value: { $sum: "$amount" },
         },
       },
       {
         $project: {
-          name: '$_id',
+          name: {
+            $concat: [
+              { $cond: [{ $eq: ["$_id", "INR"] }, "₹ ", "₮ "] },
+              "$_id",
+            ],
+          },
           value: 1,
           _id: 0,
         },
@@ -144,46 +191,61 @@ const getDashboardData = async (req, res) => {
     const dashboardData = {
       totalUsers,
       totalPlans,
-      currentMonthAmount: currentMonthAmount[0]?.total || 0,
-      totalAmount: totalAmount[0]?.total || 0,
+      currentMonthAmount: {
+        INR: currentMonthAmount.find((c) => c._id === "INR")?.total || 0,
+        USDT: currentMonthAmount.find((c) => c._id === "USDT")?.total || 0,
+      },
+      totalAmount: {
+        INR: totalAmount.find((c) => c._id === "INR")?.total || 0,
+        USDT: totalAmount.find((c) => c._id === "USDT")?.total || 0,
+      },
       newUsersToday,
       referralUsers,
       planUserCounts: planUserCounts.map((month) => ({
         name: month.name,
-        PlanA: month['Plan A'] || 0, // Adjust plan names as per your actual data
-        PlanB: month['Plan B'] || 0,
-        PlanC: month['Plan C'] || 0,
+        starter: month.starter || 0,
+        advanced: month.advanced || 0,
+        premium: month.premium || 0,
+        elite: month.elite || 0,
       })),
       currencyDistribution,
     };
 
     res.status(200).json(dashboardData);
   } catch (error) {
-    console.error('Error fetching dashboard data:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error fetching dashboard data:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
+
 const getUserDashboardData = async (req, res) => {
   try {
     const userId = req.params.id; // Assuming user ID is available from authentication middleware
 
     // Fetch user profile
-    const user = await User.findById(userId).select('customerId username email referral_code referred_by');
+    const user = await User.findById(userId).select(
+      "customerId username email referral_code referred_by"
+    );
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     // Fetch wallet information
-    const wallet = await Wallet.findOne({ user_id: userId }).select('userPlanCapitalAmount dailyProfitAmount totalWalletPoint');
+    const wallet = await Wallet.findOne({ user_id: userId }).select(
+      "userPlanCapitalAmount dailyProfitAmount totalWalletPoint"
+    );
 
     // Fetch active plans
     const activePlans = await UserPlanSubscription.find({
       user_id: userId,
-      planStatus: 'Active',
-      status: 'verified',
+      planStatus: "Active",
+      status: "verified",
     })
-      .populate('plan_id', 'plan_name amount_type min_investment profit_percentage')
-      .select('amount profit_percentage purchased_at expires_at');
+      .populate(
+        "plan_id",
+        "plan_name amount_type min_investment profit_percentage"
+      )
+      .select("amount profit_percentage purchased_at expires_at");
 
     // Fetch referral count
     const referralCount = await User.countDocuments({ referred_by: userId });
@@ -194,20 +256,28 @@ const getUserDashboardData = async (req, res) => {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
       months.push({
-        name: date.toLocaleString('default', { month: 'short' }),
+        name: date.toLocaleString("default", { month: "short" }),
         date: date,
       });
     }
 
     const profitOverTime = await Promise.all(
       months.map(async (month) => {
-        const startOfMonth = new Date(month.date.getFullYear(), month.date.getMonth(), 1);
-        const endOfMonth = new Date(month.date.getFullYear(), month.date.getMonth() + 1, 0);
+        const startOfMonth = new Date(
+          month.date.getFullYear(),
+          month.date.getMonth(),
+          1
+        );
+        const endOfMonth = new Date(
+          month.date.getFullYear(),
+          month.date.getMonth() + 1,
+          0
+        );
 
         const walletData = await Wallet.findOne({
           user_id: userId,
           created_at: { $gte: startOfMonth, $lte: endOfMonth },
-        }).select('dailyProfitAmount');
+        }).select("dailyProfitAmount");
 
         return {
           name: month.name,
@@ -222,15 +292,21 @@ const getUserDashboardData = async (req, res) => {
         username: user.username,
         email: user.email,
         referralCode: user.referral_code,
-        referredBy: user.referred_by ? (await User.findById(user.referred_by).select('username'))?.username : 'None',
+        referredBy: user.referred_by
+          ? (await User.findById(user.referred_by).select("username"))?.username
+          : "None",
       },
       wallet: wallet
         ? {
             userPlanCapitalAmount: Number(wallet.userPlanCapitalAmount),
             dailyProfitAmount: Number(wallet.dailyProfitAmount),
             totalWalletPoint: Number(wallet.totalWalletPoint),
-        }
-        : { userPlanCapitalAmount: 0, dailyProfitAmount: 0, totalWalletPoint: 0 },
+          }
+        : {
+            userPlanCapitalAmount: 0,
+            dailyProfitAmount: 0,
+            totalWalletPoint: 0,
+          },
       activePlans: activePlans.map((plan) => ({
         planName: plan.plan_id.plan_name,
         amount: plan.amount,
@@ -245,10 +321,9 @@ const getUserDashboardData = async (req, res) => {
 
     res.status(200).json(dashboardData);
   } catch (error) {
-    console.error('Error fetching user dashboard data:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error fetching user dashboard data:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
-
-module.exports = { getDashboardData,getUserDashboardData };
+module.exports = { getDashboardData, getUserDashboardData };

@@ -49,6 +49,11 @@ import {
   Trash2,
 } from 'lucide-react';
 import ReferralCard from './ReferralCard';
+import Zoom from "react-medium-image-zoom";
+import "react-medium-image-zoom/dist/styles.css";
+
+
+
 
 // Fallback for imageCache if Map is unavailable
 const imageCache = typeof Map === 'function' ? new Map() : {
@@ -753,15 +758,18 @@ const Profile = () => {
             {['profile_image', 'pan_image', 'aadhar_image', 'qrcode'].map((imageType) => (
               imagePreviews[imageType] && (
                 <div key={imageType} className="relative w-[200px] h-[200px] mx-auto">
-                  <img
-                    src={imagePreviews[imageType]}
-                    alt={imageType.replace('_', ' ')}
-                    className="w-full h-full object-cover rounded-md border"
-                    onError={(e) => {
-                      console.error(`Failed to load ${imageType}:`, e);
-                      e.target.src = '/fallback-image.png';
-                    }}
-                  />
+                  <Zoom>
+                    <img
+                      src={imagePreviews[imageType]}
+                      alt={imageType.replace('_', ' ')}
+                      className="w-full h-full object-cover rounded-md border cursor-pointer"
+                      onError={(e) => {
+                        console.error(`Failed to load ${imageType}:`, e);
+                        e.target.src = '/fallback-image.png';
+                      }}
+                    />
+                  </Zoom>
+
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1407,15 +1415,17 @@ const Profile = () => {
                         {account.qrcodeUrl && (
                           <div className="flex flex-col items-center lg:items-start">
                             <span className="text-sm font-medium mb-2">QR Code:</span>
-                            <img
-                              src={account.qrcodeUrl}
-                              alt="QR Code"
-                              className="w-[200px] h-[200px] object-contain border rounded-lg shadow"
-                              onError={(e) => {
-                                console.error("Failed to load account qrcode:", e)
-                                e.target.src = "/fallback-image.png"
-                              }}
-                            />
+                            <Zoom>
+                              <img
+                                src={account.qrcodeUrl}
+                                alt="QR Code"
+                                className="w-[200px] h-[200px] object-contain border rounded-lg shadow cursor-pointer"
+                                onError={(e) => {
+                                  console.error("Failed to load account qrcode:", e);
+                                  e.target.src = "/fallback-image.png";
+                                }}
+                              />
+                            </Zoom>
                           </div>
                         )}
                       </div>

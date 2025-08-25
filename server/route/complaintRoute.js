@@ -25,7 +25,7 @@ router.post('/upload/image', upload.array('images', 5), complaintController.uplo
 router.delete('/delete-complaint-images/:id/images/:filename', complaintController.deleteImage);
 
 // GET /complaints/images/:filename - Get image
-router.get('/images/:filename', complaintController.getImage);
+router.get('/complaint-image/:user_id/:filename', complaintController.getComplaintImage);
 
 // DELETE /complaints/:id - Delete
 router.delete('/delete-complaint/:id', complaintController.deleteComplaint);
