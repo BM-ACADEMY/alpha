@@ -30,7 +30,7 @@ export const getImageUrl = async (filePath, userId, entityType = 'user') => {
   const parts = filePath.split('/');
   const filename = parts[parts.length - 1];
   const endpoint = entityType === 'complaint'
-    ? `/complaint-image/${userId}/${encodeURIComponent(filename)}`
+    ? `/complaints/complaint-image/${userId}/${encodeURIComponent(filename)}`
     : `/profile-image/get-image/${entityType}/${userId}/${encodeURIComponent(filename)}`;
 
   try {

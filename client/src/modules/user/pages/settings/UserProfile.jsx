@@ -29,9 +29,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import BasicInfoCard from './BasicInfoCard';
-import AddressCard from './AddressCard';
-import AccountCard from './AccountCard';
+import BasicInfoCard from './BasicInfo';
+import AddressCard from './AddressSection';
+import AccountCard from './AccountSection';
 
 // Fallback for imageCache if Map is unavailable
 const imageCache = typeof Map === 'function' ? new Map() : {

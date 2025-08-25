@@ -193,7 +193,7 @@ const BasicInfo = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Avatar className="h-16 w-16">
-            {imagePreviews.profile_image ? (
+            {imagePreviews?.profile_image ? (
               <img
                 src={imagePreviews?.profile_image}
                 alt="Profile"
@@ -338,7 +338,7 @@ const BasicInfo = ({
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" disabled={isImageUploading.profile_image || isImageUploading.pan_image || isImageUploading.aadhar_image || isImageUploading.qrcode}>
+                  <Button type="submit" disabled={isImageUploading?.profile_image || isImageUploading?.pan_image || isImageUploading?.aadhar_image || isImageUploading?.qrcode}>
                     Save changes
                   </Button>
                 </DialogFooter>
