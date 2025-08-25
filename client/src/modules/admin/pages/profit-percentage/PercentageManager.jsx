@@ -181,8 +181,8 @@ const PercentageManager = () => {
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       <Card className="mb-8 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardTitle className="text-2xl font-semibold">
+       <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+          <CardTitle>
             {editingId ? "Edit Percentage" : "Create Percentage"}
           </CardTitle>
         </CardHeader>
@@ -296,7 +296,7 @@ const PercentageManager = () => {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-[#0F1C3F] hover:bg-[#5B9BD5] text-white w-full cursor-pointer"
+                  className="bg-[#d09d42] w-full text-white hover:bg-[#0f1c3f] cursor-pointer"
                 >
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingId ? "Update Percentage" : "Create Percentage"}
@@ -321,8 +321,8 @@ const PercentageManager = () => {
       </Card>
 
       <Card className="shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardTitle className="text-2xl font-semibold">Percentages List</CardTitle>
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+          <CardTitle >Percentages List</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           {isLoading ? (

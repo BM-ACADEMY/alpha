@@ -191,6 +191,10 @@ const UserSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    profile_image:{
+      type:String,
+      default:null
+    }
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: false },
@@ -225,5 +229,4 @@ UserSchema.pre("save", async function (next) {
 
   next();
 });
-
 module.exports = mongoose.model("User", UserSchema);

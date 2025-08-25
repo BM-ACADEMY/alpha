@@ -1,9 +1,21 @@
+// Updated addressController.js
+
 const Address = require("../model/addressModel");
 
 // Get all addresses
 exports.getAddresses = async (req, res) => {
   try {
     const addresses = await Address.find().populate("user_id", "username email");
+    res.status(200).json(addresses);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Get addresses for a specific user
+exports.getUserAddresses = async (req, res) => {
+  try {
+    const addresses = await Address.find({ user_id: req.params.userId }).populate("user_id", "username email");
     res.status(200).json(addresses);
   } catch (err) {
     res.status(500).json({ message: err.message });
