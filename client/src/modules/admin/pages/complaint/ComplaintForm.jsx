@@ -57,7 +57,7 @@ const ComplaintForm = ({ userId }) => {
     e.preventDefault();
     try {
       await axiosInstance.post('/complaints', {
-        user_id,
+        user_id:userId,
         complaint_type: formData.complaint_type,
         description: formData.description,
         image_urls: imageUrls,

@@ -16,6 +16,7 @@ exports.getAccounts = async (req, res) => {
 };
 
 // Get account by ID
+
 exports.getAccountById = async (req, res) => {
   try {
     const account = await Account.findById(req.params.id).populate(
@@ -28,6 +29,17 @@ exports.getAccountById = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// exports.getAccountById = async (req, res) => {
+//   try {
+//     const account = await Account.findById(req.params.id).populate("user_id", "username email");
+//     if (!account) return res.status(404).json({ message: "Account not found" });
+//     res.status(200).json(account);
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
 
 // Get accounts by user ID
 exports.getAccountsByUserId = async (req, res) => {
