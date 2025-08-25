@@ -1,9 +1,10 @@
 import React from 'react'
+import AdminUserManagement from './AdminUserManagement';
 
 const Users = () => {
   return (
     <div>
-      welcome to users
+      <AdminUserManagement />
     </div>
   )
 }

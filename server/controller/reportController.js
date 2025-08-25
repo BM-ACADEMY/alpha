@@ -197,7 +197,7 @@ exports.getExpirations = async (req, res) => {
   }
 };
 
-// Upcoming Settlements (grouped by user and currency)
+// Upcoming Settlements (grouped by user and currency, using Wallet model for amounts)
 exports.getSettlements = async (req, res) => {
   const { period } = req.params; // 'week' or 'month'
   try {
@@ -237,20 +237,34 @@ exports.getSettlements = async (req, res) => {
       },
       { $unwind: '$plan' },
       {
+        $lookup: {
+          from: 'wallets',
+          localField: 'user_id',
+          foreignField: 'user_id',
+          as: 'wallet',
+        },
+      },
+      { $unwind: '$wallet' },
+      {
         $facet: {
           list: [
             {
               $group: {
                 _id: { user_id: '$user._id', amount_type: '$plan.amount_type' },
                 user: { $first: '$user' },
-                totalAmountToSettle: { $sum: '$amount' },
+                plan: { $first: { plan_name: '$plan.plan_name', amount_type: '$plan.amount_type' } },
+                userPlanCapitalAmount: { $first: '$wallet.userPlanCapitalAmount' },
+                dailyProfitAmount: { $first: '$wallet.dailyProfitAmount' },
+                totalAmountToSettle: { $first: '$wallet.totalWalletPoint' },
                 expires_at: { $max: '$expires_at' },
               },
             },
             {
               $project: {
                 user: { username: 1, email: 1, phone_number: 1 },
-                amount_type: '$_id.amount_type',
+                plan: { plan_name: 1, amount_type: 1 },
+                userPlanCapitalAmount: 1,
+                dailyProfitAmount: 1,
                 totalAmountToSettle: 1,
                 expires_at: 1,
               },
@@ -260,7 +274,7 @@ exports.getSettlements = async (req, res) => {
             {
               $group: {
                 _id: '$plan.amount_type',
-                totalAmount: { $sum: '$amount' },
+                totalAmount: { $sum: '$wallet.totalWalletPoint' },
               },
             },
           ],

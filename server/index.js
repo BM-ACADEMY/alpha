@@ -72,6 +72,8 @@ const addressRoutes = require("./route/addressRoute");
 const userSubscriptionPlanRoute = require("./route/userSubscriptionPlanRoute");
 const walletRoute = require("./route/walletRoute");
 const reportRoute = require("./route/reportRoute");
+const profileImageRoute = require("./route/profileImageRoute");
+const dashboardRoute = require("./route/dashboardRoute");
 
 // Register Routes with Prefix
 app.use("/api/plans", planRoutes);
@@ -87,8 +89,10 @@ app.use('/Uploads', express.static('Uploads'));
 app.use("/api/user-subscription-plan", userSubscriptionPlanRoute);
 app.use("/api/wallet-point", walletRoute);
 app.use("/api/reports", reportRoute);
+app.use("/api/profile-image", profileImageRoute);
+app.use("/api/dashboard-route", dashboardRoute);
 
-// Global Error Handler
+// Global Error Handler 
 app.use((err, req, res, next) => {
   console.error("Server error:", {
     message: err.message,

@@ -7,10 +7,9 @@ const AccountSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    account_type: {
-      type: String,
-      enum : ["INR", "USDT"],
-      required: true
+    account_type:{
+      type:String,
+      enum:["INR","USDT"]
     },
     bank_name: {
       type: String,

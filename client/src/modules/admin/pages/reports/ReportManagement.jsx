@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -119,8 +120,11 @@ const ReportManagement = () => {
 
   const settlementColumns = [
     { header: 'User', accessor: (row) => row.user.username },
-    { header: 'Amount to Settle', accessor: (row) => `${row.amount_type === 'INR' ? '₹' : 'USDT'} ${row.totalAmountToSettle}` },
-    { header: 'Currency', accessor: (row) => row.amount_type },
+    { header: 'Plan', accessor: (row) => row.plan.plan_name },
+    { header: 'Capital Amount', accessor: (row) => `${row.plan.amount_type === 'INR' ? '₹' : 'USDT'} ${row.userPlanCapitalAmount}` },
+    { header: 'Daily Profit', accessor: (row) => `${row.plan.amount_type === 'INR' ? '₹' : 'USDT'} ${row.dailyProfitAmount}` },
+    { header: 'Total Amount to Settle', accessor: (row) => `${row.plan.amount_type === 'INR' ? '₹' : 'USDT'} ${row.totalAmountToSettle}` },
+    { header: 'Currency', accessor: (row) => row.plan.amount_type },
     { header: 'Expires At', accessor: (row) => new Date(row.expires_at).toLocaleDateString() },
   ];
 

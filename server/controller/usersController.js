@@ -4,16 +4,33 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const transporter = require("../utils/nodemailer");
 const Role = require("../model/rolesModel");
+const Address=require("../model/addressModel");
+const Account=require("../model/accountModel");
+const UserPlanSubscription = require("../model/userSubscriptionPlanModel");
+const Wallet = require("../model/walletModel");
+const Plan = require("../model/planModel");
 
 // Get all users
+// Get all users with role = "user"
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password"); // exclude passwords
-    res.status(200).json(users);
+    const users = await User.find()
+      .select("-password")
+      .populate({
+        path: "role_id",
+        match: { role_name: "user" },
+        select: "role_name",
+      });
+
+    // filter out users with null role_id (non-user roles)
+    const filteredUsers = users.filter(u => u.role_id !== null);
+
+    res.status(200).json(filteredUsers);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // Get a single user
 exports.getUserById = async (req, res) => {
@@ -67,8 +84,67 @@ exports.deleteUser = async (req, res) => {
 };
 
 // Register User
+// exports.registerUser = async (req, res) => {
+//   const { username, email, phone_number, password, confirmPassword } = req.body;
+
+//   if (password !== confirmPassword) {
+//     return res.status(400).json({ message: "Passwords do not match" });
+//   }
+
+//   try {
+//     // Check if email or phone number already exists
+//     const existingUser = await User.findOne({
+//       $or: [{ email }, { phone_number }],
+//     });
+
+//     if (existingUser) {
+//       return res
+//         .status(400)
+//         .json({ message: "Email or phone number already exists" });
+//     }
+
+//     // Hash password
+//     const hashedPassword = await bcrypt.hash(password, 10);
+//     const otp = crypto.randomInt(100000, 999999).toString(); // 6-digit OTP
+
+//     // Get default role (e.g., "User")
+//     const defaultRole = await Role.findOne({ role_name: "user" });
+//     if (!defaultRole) {
+//       return res
+//         .status(500)
+//         .json({ message: "Default role not found in database" });
+//     }
+//     console.log(defaultRole, "default r");
+
+//     // Create new user
+//     const user = new User({
+//       username,
+//       email,
+//       phone_number,
+//       password: hashedPassword,
+//       email_otp: otp,
+//       role_id: defaultRole._id,
+//     });
+
+//     await user.save();
+
+//     // Send OTP email
+//     await transporter.sendMail({
+//       from: process.env.EMAIL_USER,
+//       to: email,
+//       subject: "Verify Your Email",
+//       text: `Your OTP for email verification is: ${otp}`,
+//     });
+
+//     res.status(201).json({
+//       message: "User registered. Please verify your email with the OTP sent.",
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
 exports.registerUser = async (req, res) => {
-  const { username, email, phone_number, password, confirmPassword } = req.body;
+  const { username, email, phone_number, password, confirmPassword, referral_code } = req.body;
 
   if (password !== confirmPassword) {
     return res.status(400).json({ message: "Passwords do not match" });
@@ -79,25 +155,28 @@ exports.registerUser = async (req, res) => {
     const existingUser = await User.findOne({
       $or: [{ email }, { phone_number }],
     });
-
     if (existingUser) {
-      return res
-        .status(400)
-        .json({ message: "Email or phone number already exists" });
+      return res.status(400).json({ message: "Email or phone number already exists" });
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-    const otp = crypto.randomInt(100000, 999999).toString(); // 6-digit OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
 
-    // Get default role (e.g., "User")
+    // Get default role
     const defaultRole = await Role.findOne({ role_name: "user" });
     if (!defaultRole) {
-      return res
-        .status(500)
-        .json({ message: "Default role not found in database" });
+      return res.status(500).json({ message: "Default role not found in database" });
     }
-    console.log(defaultRole, "default r");
+
+    // Handle referral (optional)
+    let referred_by = null;
+    if (referral_code) {
+      const referrer = await User.findOne({ referral_code });
+      if (referrer) {
+        referred_by = referrer._id;
+      }
+    }
 
     // Create new user
     const user = new User({
@@ -107,6 +186,7 @@ exports.registerUser = async (req, res) => {
       password: hashedPassword,
       email_otp: otp,
       role_id: defaultRole._id,
+      referred_by,
     });
 
     await user.save();
@@ -119,13 +199,48 @@ exports.registerUser = async (req, res) => {
       text: `Your OTP for email verification is: ${otp}`,
     });
 
+    // ⚡ Add initial referral profit to referrer if they exist
+    if (referred_by) {
+      // Check if referred user already has a subscription
+      const subscription = await UserPlanSubscription.findOne({ user_id: user._id, status: "verified" })
+        .populate("plan_id");
+      
+      if (subscription && subscription.plan_id) {
+        const plan = subscription.plan_id;
+        const capitalLockin = plan.capital_lockin || 30;
+        const totalProfit = (subscription.amount * Number(plan.profit_percentage)) / 100;
+        const dailyProfit = totalProfit / capitalLockin;
+
+        // 1% referral amount
+        const referralProfit = dailyProfit * 0.01;
+
+        // Update referrer wallet
+        let referrerWallet = await Wallet.findOne({ user_id: referred_by });
+        if (!referrerWallet) {
+          referrerWallet = new Wallet({
+            user_id: referred_by,
+            userPlanCapitalAmount: 0,
+            dailyProfitAmount: referralProfit,
+            totalWalletPoint: referralProfit,
+          });
+        } else {
+          referrerWallet.dailyProfitAmount += referralProfit;
+          referrerWallet.totalWalletPoint += referralProfit;
+        }
+        await referrerWallet.save();
+      }
+    }
+
     res.status(201).json({
       message: "User registered. Please verify your email with the OTP sent.",
     });
   } catch (error) {
+    console.error("Register user error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+
 
 // Verify OTP
 exports.verifyEmail = async (req, res) => {
@@ -146,8 +261,6 @@ exports.verifyEmail = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
-
 
 exports.getUserInfo = async (req, res) => {
   try {
@@ -322,7 +435,6 @@ exports.logout = async (req, res) => {
   }
 };
 
-
 // Add populate for role_id and referred_by in getUserById
 exports.getUserById = async (req, res) => {
   try {
@@ -334,5 +446,44 @@ exports.getUserById = async (req, res) => {
     res.status(200).json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+
+
+exports.getUserDetails = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Fetch user details (excluding password and email_otp)
+    const user = await User.findById(userId)
+      .select("-password -email_otp")
+      .populate("role_id")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Fetch address
+    const address = await Address.findOne({ user_id: userId }).lean();
+
+    // Fetch accounts (INR and USDT)
+    const accounts = await Account.find({ user_id: userId }).lean();
+
+    // Separate INR and USDT accounts
+    const inrAccount = accounts.find((acc) => acc.account_type === "INR") || null;
+    const usdtAccount = accounts.find((acc) => acc.account_type === "USDT") || null;
+
+    res.status(200).json({
+      user,
+      address,
+      accounts: {
+        INR: inrAccount,
+        USDT: usdtAccount,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };

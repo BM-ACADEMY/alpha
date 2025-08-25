@@ -271,8 +271,8 @@ const PlanManagement = () => {
       <h1 className="text-2xl font-bold mb-6 text-[#0F1C3F]">Manage Plans</h1>
 
       <Card className="mb-8 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardTitle className="text-2xl font-semibold">
+       <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+          <CardTitle >
             {editingId ? "Edit Plan" : "Create Plan"}
           </CardTitle>
         </CardHeader>
@@ -479,7 +479,7 @@ const PlanManagement = () => {
                 <Button
                   type="submit"
                   disabled={!form.formState.isValid || loading}
-                   className="bg-[#0F1C3F] hover:bg-[#5B9BD5] text-white w-full cursor-pointer"
+                 className="bg-[#d09d42] w-full text-white hover:bg-[#0f1c3f] cursor-pointer"
                 >
                   {loading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -497,8 +497,8 @@ const PlanManagement = () => {
       </Card>
 
       <Card className="shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardTitle className="text-2xl font-semibold">Existing Plans</CardTitle>
+     <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+          <CardTitle >Existing Plans</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           {loading ? (

@@ -13,6 +13,7 @@ import { userRoutes } from '@/modules/common/routes/UserRoutes';
 import { adminRoutes } from '@/modules/common/routes/AdminRoutes';
 import Page from './modules/admin/page';
 import './app.css'
+import ReferralRegister from './modules/common/pages/ReferralRegister';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route path="/reset-password" element={<PrivateRoute allowedRole="public"><ResetPassword /></PrivateRoute>} />
         <Route path="/user-login" element={<PrivateRoute allowedRole="login"><UserLogin /></PrivateRoute>} />
         <Route path="/admin-login" element={<PrivateRoute allowedRole="login"><AdminLogin /></PrivateRoute>} />
+        <Route path="/signup" element={<PrivateRoute allowedRole="public"><ReferralRegister /></PrivateRoute>} />
 
         {/* User and Admin Routes */}
         <Route element={<Page />}>
