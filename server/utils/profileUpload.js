@@ -15,13 +15,13 @@ console.log(`Server URL: ${SERVER_URL}`);
 
 // Ensure dynamic folder creation
 const createEntityFolder = (entity_type, user_id) => {
-  const sanitizedEntityType = entity_type.replace(/\s+/g, "_");
-  const sanitizedUserId = user_id.replace(/\s+/g, "_");
-  const uploadDir = path.join(__dirname, "../Uploads", sanitizedEntityType, sanitizedUserId);
+  if (!entity_type || !user_id) throw new Error("Missing entity_type or user_id");
 
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
+  const sanitizedEntityType = String(entity_type).replace(/\s+/g, "_");
+  const sanitizedUserId = String(user_id).replace(/\s+/g, "_"); // Convert ObjectId to string
+
+  const uploadDir = path.join(__dirname, "../Uploads", sanitizedEntityType, sanitizedUserId);
+  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
   return uploadDir;
 };

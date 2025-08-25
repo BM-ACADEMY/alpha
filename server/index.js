@@ -31,7 +31,7 @@ app.use(morgan("dev"));
 app.use("/Uploads", express.static(uploadsDir));
 
 // CORS Configuration
-const allowedOrigins = ["http://localhost:5173"];
+const allowedOrigins = [process.env.FRONTEND_URL];
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {

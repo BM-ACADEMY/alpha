@@ -205,7 +205,9 @@ const getAdminAccount = async (req, res) => {
 
 const createSubscription = async (req, res) => {
   const { user_id, plan_id, username, amount } = req.body;
+
   try {
+    // Validate ObjectIds
     if (
       !mongoose.Types.ObjectId.isValid(user_id) ||
       !mongoose.Types.ObjectId.isValid(plan_id)
@@ -214,16 +216,30 @@ const createSubscription = async (req, res) => {
         .status(400)
         .json({ message: "Invalid user_id or plan_id format" });
     }
+
+    // Validate amount
     if (isNaN(amount) || Number(amount) <= 0) {
       return res.status(400).json({ message: "Invalid amount" });
     }
+
+    // Check if user exists
     const userExists = await User.findById(user_id);
     if (!userExists) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    // Check if plan exists
     const planExists = await Plan.findById(plan_id);
     if (!planExists) {
       return res.status(404).json({ message: "Plan not found" });
+    }
+
+    // ✅ Check INR account existence before purchase
+    const inrAccount = await Account.findOne({ user_id, account_type: "INR" });
+    if (!inrAccount) {
+      return res.status(400).json({
+        message: "User must add INR account details before purchasing a plan",
+      });
     }
 
     // Check for active subscriptions
@@ -244,17 +260,18 @@ const createSubscription = async (req, res) => {
       amount_type: planExists.amount_type,
     });
     if (!percentage) {
-      return res
-        .status(404)
-        .json({ message: "Profit percentage not found for this plan" });
+      return res.status(404).json({
+        message: "Profit percentage not found for this plan",
+      });
     }
 
     // Calculate expires_at based on capital_lockin
     const expires_at = new Date();
     expires_at.setDate(
-      expires_at.getDate() + (planExists.capital_lockin || 30)
-    ); // Default to 30 days if undefined
+      expires_at.getDate() + (planExists.capital_lockin || 30) // default 30 days
+    );
 
+    // Create new subscription
     const subscription = new UserPlanSubscription({
       user_id,
       plan_id,
@@ -262,8 +279,13 @@ const createSubscription = async (req, res) => {
       profit_percentage: percentage.profit_percentage,
       expires_at,
     });
+
     await subscription.save();
-    res.status(201).json({ message: "Subscription initiated", subscription });
+
+    res
+      .status(201)
+      .json({ message: "Subscription initiated", subscription });
+
   } catch (error) {
     console.error("Create subscription error:", error);
     res.status(500).json({ message: error.message });
