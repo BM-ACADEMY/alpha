@@ -4,8 +4,8 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const transporter = require("../utils/nodemailer");
 const Role = require("../model/rolesModel");
-const Address=require("../model/addressModel");
-const Account=require("../model/accountModel");
+const Address = require("../model/addressModel");
+const Account = require("../model/accountModel");
 const UserPlanSubscription = require("../model/userSubscriptionPlanModel");
 const Wallet = require("../model/walletModel");
 const Plan = require("../model/planModel");
@@ -23,14 +23,13 @@ exports.getUsers = async (req, res) => {
       });
 
     // filter out users with null role_id (non-user roles)
-    const filteredUsers = users.filter(u => u.role_id !== null);
+    const filteredUsers = users.filter((u) => u.role_id !== null);
 
     res.status(200).json(filteredUsers);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
-
 
 // Get a single user
 exports.getUserById = async (req, res) => {
@@ -144,7 +143,14 @@ exports.deleteUser = async (req, res) => {
 //   }
 // };
 exports.registerUser = async (req, res) => {
-  const { username, email, phone_number, password, confirmPassword, referral_code } = req.body;
+  const {
+    username,
+    email,
+    phone_number,
+    password,
+    confirmPassword,
+    referral_code,
+  } = req.body;
 
   if (password !== confirmPassword) {
     return res.status(400).json({ message: "Passwords do not match" });
@@ -156,7 +162,9 @@ exports.registerUser = async (req, res) => {
       $or: [{ email }, { phone_number }],
     });
     if (existingUser) {
-      return res.status(400).json({ message: "Email or phone number already exists" });
+      return res
+        .status(400)
+        .json({ message: "Email or phone number already exists" });
     }
 
     // Hash password
@@ -166,7 +174,9 @@ exports.registerUser = async (req, res) => {
     // Get default role
     const defaultRole = await Role.findOne({ role_name: "user" });
     if (!defaultRole) {
-      return res.status(500).json({ message: "Default role not found in database" });
+      return res
+        .status(500)
+        .json({ message: "Default role not found in database" });
     }
 
     // Handle referral (optional)
@@ -202,13 +212,16 @@ exports.registerUser = async (req, res) => {
     // ⚡ Add initial referral profit to referrer if they exist
     if (referred_by) {
       // Check if referred user already has a subscription
-      const subscription = await UserPlanSubscription.findOne({ user_id: user._id, status: "verified" })
-        .populate("plan_id");
-      
+      const subscription = await UserPlanSubscription.findOne({
+        user_id: user._id,
+        status: "verified",
+      }).populate("plan_id");
+
       if (subscription && subscription.plan_id) {
         const plan = subscription.plan_id;
         const capitalLockin = plan.capital_lockin || 30;
-        const totalProfit = (subscription.amount * Number(plan.profit_percentage)) / 100;
+        const totalProfit =
+          (subscription.amount * Number(plan.profit_percentage)) / 100;
         const dailyProfit = totalProfit / capitalLockin;
 
         // 1% referral amount
@@ -240,8 +253,6 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-
-
 // Verify OTP
 exports.verifyEmail = async (req, res) => {
   const { email, otp } = req.body;
@@ -266,17 +277,17 @@ exports.getUserInfo = async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
       .populate({
-        path: 'role_id',
-        select: 'role_id role_name',
+        path: "role_id",
+        select: "role_id role_name",
       })
-      .select('-password');
+      .select("-password");
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     if (!user.role_id) {
-      return res.status(500).json({ message: 'Role not found for user' });
+      return res.status(500).json({ message: "Role not found for user" });
     }
 
     res.status(200).json({
@@ -288,27 +299,26 @@ exports.getUserInfo = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('getUserInfo - Unexpected error:', error.message);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("getUserInfo - Unexpected error:", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-
 exports.loginUser = async (req, res) => {
   const { email, password, access } = req.body;
-  console.log(req.body, 'login body');
+  console.log(req.body, "login body");
 
   if (!email || !password || !access) {
-    return res.status(400).json({ message: 'Email and password are required' });
+    return res.status(400).json({ message: "Email and password are required" });
   }
   try {
     const user = await User.findOne({ email: email.toLowerCase() }).populate({
-      path: 'role_id',
-      select: 'role_id role_name',
+      path: "role_id",
+      select: "role_id role_name",
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+      return res.status(400).json({ message: "Invalid email or password" });
     }
 
     if (!user.email_verified) {
@@ -319,45 +329,50 @@ exports.loginUser = async (req, res) => {
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: user.email,
-        subject: 'Verify Your Email',
+        subject: "Verify Your Email",
         text: `Your OTP for email verification is: ${otp}`,
       });
 
       return res.status(401).json({
-        message: 'Please verify your email. A new OTP has been sent.',
+        message: "Please verify your email. A new OTP has been sent.",
         email: user.email,
       });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+      return res.status(400).json({ message: "Invalid email or password" });
     }
 
     const userRole = user.role_id.role_name;
-    if (access === 'admin' && userRole !== 'admin') {
-      return res.status(403).json({ message: 'Unauthorized: Admin access required' });
+    if (access === "admin" && userRole !== "admin") {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized: Admin access required" });
     }
-    if (access === 'user' && userRole !== 'user') {
-      return res.status(403).json({ message: 'Unauthorized: User access only' });
+    if (access === "user" && userRole !== "user") {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized: User access only" });
     }
 
     const token = jwt.sign(
       { id: user._id.toString(), role: userRole },
       process.env.JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: "1d" }
     );
 
-    res.cookie('token', token, {
+    res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true, // HTTPS only
+      sameSite: "None", // must be None for cross-origin
+      path: "/",
       maxAge: 24 * 60 * 60 * 1000,
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
     });
 
     res.status(200).json({
       success: true,
-      message: 'Login successful',
+      message: "Login successful",
       user: {
         id: user._id.toString(),
         username: user.username,
@@ -366,8 +381,8 @@ exports.loginUser = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('loginUser - Error:', error.message);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("loginUser - Error:", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -439,8 +454,8 @@ exports.logout = async (req, res) => {
 exports.getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
-      .populate({ path: 'role_id', select: 'role_name' })
-      .populate({ path: 'referred_by', select: 'username' })
+      .populate({ path: "role_id", select: "role_name" })
+      .populate({ path: "referred_by", select: "username" })
       .select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
     res.status(200).json(user);
@@ -448,8 +463,6 @@ exports.getUserById = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
-
 
 exports.getUserDetails = async (req, res) => {
   try {
@@ -472,8 +485,10 @@ exports.getUserDetails = async (req, res) => {
     const accounts = await Account.find({ user_id: userId }).lean();
 
     // Separate INR and USDT accounts
-    const inrAccount = accounts.find((acc) => acc.account_type === "INR") || null;
-    const usdtAccount = accounts.find((acc) => acc.account_type === "USDT") || null;
+    const inrAccount =
+      accounts.find((acc) => acc.account_type === "INR") || null;
+    const usdtAccount =
+      accounts.find((acc) => acc.account_type === "USDT") || null;
 
     res.status(200).json({
       user,
