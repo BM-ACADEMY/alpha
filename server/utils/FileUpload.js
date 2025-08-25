@@ -8,16 +8,9 @@ dotenv.config();
 
 const SERVER_URL = process.env.SERVER_URL || "http://localhost:5000";
 
-// Generate 6 random digits
-const generateRandomDigits = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
-
-// Create upload folder with random digits and username
-const createUploadFolder = (username, folderPrefix = "complaint") => {
-  const sanitizedUsername = username ? username.replace(/\s+/g, "_") : "default";
-  const randomDigits = generateRandomDigits();
-  const folderName = `${folderPrefix}/${randomDigits}${sanitizedUsername}`;
+// Create upload folder with user_id
+const createUploadFolder = (user_id, folderPrefix = "complaints") => {
+  const folderName = path.join(folderPrefix, user_id); // e.g., complaints/[user_id]
   const uploadDir = path.join(__dirname, "../Uploads", folderName);
 
   if (!fs.existsSync(uploadDir)) {
@@ -58,9 +51,9 @@ const compressImage = async (buffer, outputPath) => {
 
     await image
       .toFormat("webp", { quality: 90 })
-      .toFile(outputPath.replace(/\.\w+$/, ".webp"));
+      .toFile(outputPath);
     console.log("Image compressed successfully:", outputPath);
-    return outputPath.replace(/\.\w+$/, ".webp");
+    return outputPath;
   } catch (error) {
     console.error("Image compression failed:", error.message);
     throw new Error("Image compression failed: " + error.message);
@@ -68,10 +61,11 @@ const compressImage = async (buffer, outputPath) => {
 };
 
 // Process file and return public URL
-const processFile = async (buffer, originalname, username, folderPrefix = "complaint") => {
-  const { uploadDir, folderName } = createUploadFolder(username, folderPrefix);
-  const fileExt = path.extname(originalname).toLowerCase();
-  const finalFileName = originalname.replace(/\.\w+$/, ".webp");
+const processFile = async (buffer, filename, user_id, username, folderPrefix = "complaints") => {
+  const { uploadDir, folderName } = createUploadFolder(user_id, folderPrefix);
+  const sanitizedUsername = username ? username.replace(/\s+/g, "_") : "default";
+  const randomDigits = Math.floor(100000 + Math.random() * 900000).toString();
+  const finalFileName = filename.replace(/\.\w+$/, ".webp"); // Use provided filename, convert to .webp
   const filePath = path.join(uploadDir, finalFileName);
 
   await compressImage(buffer, filePath);
