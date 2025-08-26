@@ -93,6 +93,8 @@ const WalletManagement = () => {
     try {
       const res = await axiosInstance.get(`/wallet-point/wallets?page=${page}&limit=10`);
       setWallets(res.data.wallets);
+      console.log(res.data,"wallere");
+      
       setTotalPages(res.data.totalPages);
     } catch (error) {
       console.error('Fetch wallets error:', error.message, error.response?.data);
@@ -235,7 +237,7 @@ const WalletManagement = () => {
               {wallets.map((wallet) => (
                 <TableRow key={wallet._id}>
                   <TableCell>
-                    {wallet.user_id.username} ({wallet.user_id.email})
+                    {wallet?.user_id?.username} ({wallet?.user_id?.email})
                   </TableCell>
                   <TableCell>{wallet.userPlanCapitalAmount}</TableCell>
                   <TableCell>{wallet.dailyProfitAmount.toFixed(2)}</TableCell>

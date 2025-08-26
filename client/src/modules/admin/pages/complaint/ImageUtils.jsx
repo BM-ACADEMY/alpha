@@ -27,24 +27,44 @@ export const getImageUrl = async (filePath, userId, entityType = 'user') => {
     return imageCache.get(filePath);
   }
 
-  const parts = filePath.split('/');
-  const filename = parts[parts.length - 1];
+  // Extract filename and verify userId from URL
+  let filename;
+  try {
+    const parts = filePath.split('/');
+    filename = parts[parts.length - 1];
+    const urlUserId = parts[parts.length - 2]; // Assuming user_id is second-to-last
+    if (urlUserId !== userId) {
+      console.warn('getImageUrl: userId mismatch', { urlUserId, providedUserId: userId, filePath });
+    }
+    if (!filename) throw new Error('Invalid filePath: no filename found');
+  } catch (error) {
+    console.error('getImageUrl: Failed to parse filePath', { filePath, error: error.message });
+    return '/fallback-image.png';
+  }
+
   const endpoint = entityType === 'complaint'
     ? `/complaints/complaint-image/${userId}/${encodeURIComponent(filename)}`
     : `/profile-image/get-image/${entityType}/${userId}/${encodeURIComponent(filename)}`;
 
+  console.log('getImageUrl: Requesting image', { endpoint, filePath, userId, entityType });
+
   try {
     const response = await axiosInstance.get(endpoint, {
       responseType: 'blob',
-      withCredentials: true,
+      // Use Authorization header for JWT
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+      },
     });
     const blob = new Blob([response.data], { type: response.headers['content-type'] });
     const blobUrl = URL.createObjectURL(blob);
-    imageCache.set(filePath, blobUrl); // Cache the blob URL
+    imageCache.set(filePath, blobUrl);
+    console.log('getImageUrl: Image fetched successfully', { blobUrl });
     return blobUrl;
   } catch (error) {
     console.error('getImageUrl error:', {
       filePath,
+      endpoint,
       status: error.response?.status,
       message: error.message,
     });
