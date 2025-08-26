@@ -4,7 +4,7 @@ const transporter = require('../utils/nodemailer');
 const { processFile } = require('../utils/FileUpload');
 const fs = require('fs');
 const path = require('path');
-
+const mime = require('mime-types');
 const FOLDER_NAME = 'complaints';
 
 // Generate a random 6-digit number
@@ -185,33 +185,33 @@ exports.deleteImage = async (req, res) => {
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };
-exports.getComplaintImage = (req, res) => {
+exports.getComplaintImage = async (req, res) => {
   const { user_id, filename } = req.params;
-  // Construct file path based on complaint image storage structure
-  const filePath = path.join(__dirname, '../Uploads', 'complaint', `${user_id}complaints`, filename);
+  const complaint = await Complaint.findOne({ user_id, image_urls: { $elemMatch: { $regex: filename } } });
+  let filePath;
+
+  if (complaint && complaint.folder_prefix) {
+    filePath = path.join(__dirname, '../Uploads', 'complaints', `${complaint.folder_prefix}${user_id}`, filename);
+  } else {
+    filePath = path.join(__dirname, '../Uploads', 'complaints', user_id, filename);
+  }
 
   console.log('getComplaintImage called:', { user_id, filename, filePath });
 
-  // Check if file exists
   if (!fs.existsSync(filePath)) {
     console.error('Image not found:', filePath);
     return res.status(404).json({ message: 'Image not found' });
   }
 
-  // Optional: Verify authentication (uncomment if authMiddleware is used)
-  /*
-  if (!req.user || req.user.id !== user_id) {
+  if (req.user && req.user.role !== 'admin' && req.user.id !== user_id) {
     console.error('Unauthorized access:', { user: req.user, user_id });
     return res.status(403).json({ message: 'Unauthorized' });
   }
-  */
 
-  // Get MIME type based on file extension
   const mimeType = mime.lookup(filePath) || 'application/octet-stream';
   res.setHeader('Content-Type', mimeType);
-  res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+  res.setHeader('Cache-Control', 'public, max-age=31536000');
 
-  // Serve the file directly
   res.sendFile(filePath, (err) => {
     if (err) {
       console.error('Error sending file:', err);

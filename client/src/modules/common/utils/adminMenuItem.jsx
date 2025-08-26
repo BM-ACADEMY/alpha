@@ -58,6 +58,16 @@ export const adminMenuItems = {
       url: '/admin-dashboard/complaint',
       icon: MessageSquareWarning,
     },
+    {
+      title: 'Complaints',
+      url: '/admin-dashboard/complaint',
+      icon: MessageSquareWarning,
+    },
+    {
+      title: 'Redeem Request',
+      url: '/admin-dashboard/redeem',
+      icon: MessageSquareWarning,
+    },
   ],
   navSecondary: [
     // {
@@ -89,11 +99,11 @@ export function AppSidebar({ ...props }) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={adminMenuItems.navMain} />
+        <NavSecondary items={adminMenuItems.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={adminMenuItems.user} />
       </SidebarFooter>
     </Sidebar>
   );

@@ -74,6 +74,7 @@ const walletRoute = require("./route/walletRoute");
 const reportRoute = require("./route/reportRoute");
 const profileImageRoute = require("./route/profileImageRoute");
 const dashboardRoute = require("./route/dashboardRoute");
+const redeemRoute = require("./route/redeemRoute");
 
 // Register Routes with Prefix
 app.use("/api/plans", planRoutes);
@@ -91,6 +92,7 @@ app.use("/api/wallet-point", walletRoute);
 app.use("/api/reports", reportRoute);
 app.use("/api/profile-image", profileImageRoute);
 app.use("/api/dashboard-route", dashboardRoute);
+app.use("/api/redeem", redeemRoute);
 
 // Global Error Handler 
 app.use((err, req, res, next) => {

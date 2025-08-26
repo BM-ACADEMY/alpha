@@ -9,6 +9,7 @@ import AdminProfile from '@/modules/admin/pages/settings/Profile';
 import PercentageManager from '@/modules/admin/pages/profit-percentage/PercentageManager';
 import ComplaintsTable from '@/modules/admin/pages/complaint/ComplaintsTable';
 import Profile from '@/modules/admin/pages/settings/Profile';
+import AdminRedeemRequests from '@/modules/admin/pages/redeem/AdminRedeemRequests';
 
 export const adminRoutes = [
   {
@@ -88,6 +89,14 @@ export const adminRoutes = [
     element: (
       <PrivateRoute allowedRole="admin">
         <Profile />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: '/admin-dashboard/redeem',
+    element: (
+      <PrivateRoute allowedRole="admin">
+        <AdminRedeemRequests />
       </PrivateRoute>
     ),
   },
