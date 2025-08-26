@@ -167,7 +167,7 @@ exports.getAllRedeemRequests = async (req, res) => {
   }
 };
 
-// Update Redeem Request Status
+
 exports.updateRedeemStatus = async (req, res) => {
   try {
     const { id } = req.params;
