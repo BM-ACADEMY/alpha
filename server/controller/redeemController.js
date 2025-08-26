@@ -154,7 +154,7 @@ exports.getAllRedeemRequests = async (req, res) => {
 
     const redeemRequests = await Redeem.find()
       .populate('user_id', 'username email')
-      .sort({ created_at: -1 }) // Descending order
+      .sort({ created_at: -1 }) 
       .skip(skip)
       .limit(parseInt(limit));
 
