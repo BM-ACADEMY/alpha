@@ -24,7 +24,7 @@ const Plans = () => {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/plans', {
+        const response = await fetch(`${import.meta.env.VITE_BASE_URL}/plans`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
