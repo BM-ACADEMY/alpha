@@ -7,7 +7,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const path = require("path");
 const fs = require("fs");
-const multer=require('multer');
+const multer = require("multer");
 
 // Load environment variables
 dotenv.config();
@@ -17,37 +17,52 @@ const app = express();
 // Create Uploads directory
 const uploadsDir = path.join(__dirname, "Uploads");
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+  fs.mkdirSync(UploadsDir, { recursive: true });
 }
 
-// Apply Middlewares
+// CORS Configuration
+const allowedOrigins = [
+  process.env.FRONTEND_URL, process.env.PRODUCTION_URL, // Fallback to localhost:3000
+];
+const corsOptions = {
+  origin: function (origin, callback) {
+    // console.log("CORS Origin:", origin); // Debug origin
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.error("CORS blocked for origin:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+// Apply CORS to all routes, including static files
+app.use(cors(corsOptions));
+
+// Serve static files with explicit CORS headers
+app.use(
+  "/Uploads",
+  (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+    );
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    next();
+  },
+  express.static(uploadsDir)
+);
+
+// Apply other middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(helmet());
 app.use(morgan("dev"));
-
-// Serve static files
-app.use("/Uploads", express.static(uploadsDir));
-
-// CORS Configuration
-const allowedOrigins = [process.env.FRONTEND_URL];
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-
-  methods: ["GET", "POST", "PATCH","PUT","DELETE", "OPTIONS"],
-
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
-app.use(cors(corsOptions));
-app.options(/^.*$/, cors(corsOptions));
 
 // Increase timeout and size limit for upload route
 app.use("/api/user-subscription-plan/upload-screenshot", (req, res, next) => {
@@ -85,8 +100,6 @@ app.use("/api/users", userRoutes);
 app.use("/api/roles", rolesRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/address", addressRoutes);
-app.use('/Uploads', express.static('Uploads'));
-// Connect to DB and then Start Server
 app.use("/api/user-subscription-plan", userSubscriptionPlanRoute);
 app.use("/api/wallet-point", walletRoute);
 app.use("/api/reports", reportRoute);
@@ -94,7 +107,7 @@ app.use("/api/profile-image", profileImageRoute);
 app.use("/api/dashboard-route", dashboardRoute);
 app.use("/api/redeem", redeemRoute);
 
-// Global Error Handler 
+// Global Error Handler
 app.use((err, req, res, next) => {
   console.error("Server error:", {
     message: err.message,
@@ -113,6 +126,7 @@ app.use((err, req, res, next) => {
   }
   res.status(500).json({ message: err.message || "Internal server error" });
 });
+
 // Connect to DB and Start Server
 const PORT = process.env.PORT || 5000;
 

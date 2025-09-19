@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/modules/common/context/AuthContext';
 import PrivateRoute from '@/modules/common/context/PrivateRoute';
-import LandingPage from '@/modules/common/pages/LandingPage';
+// import LandingPage from '@/modules/common/pages/LandingPage';
 import UserLogin from '@/modules/common/pages/UserLogin';
 import AdminLogin from '@/modules/common/pages/AdminLogin';
 import Register from '@/modules/common/pages/Register';
@@ -13,13 +13,15 @@ import { userRoutes } from '@/modules/common/routes/UserRoutes';
 import { adminRoutes } from '@/modules/common/routes/AdminRoutes';
 import Page from './modules/admin/page';
 import ReferralRegister from './modules/common/pages/ReferralRegister';
+import Mainsection from './modules/Homepage/Main/Mainsection';
 
 function App() {
   return (
     <AuthProvider>
       <Routes>
         {/* Public Routes */}
-        <Route path="/" element={<PrivateRoute allowedRole="public"><LandingPage /></PrivateRoute>} />
+        {/* <Route path="/" element={<PrivateRoute allowedRole="public"><LandingPage /></PrivateRoute>} /> */}
+        <Route path="/" element={<PrivateRoute allowedRole="public"><Mainsection /></PrivateRoute>} />
         <Route path="/register" element={<PrivateRoute allowedRole="public"><Register /></PrivateRoute>} />
         <Route path="/verify-email" element={<PrivateRoute allowedRole="public"><VerifyEmail /></PrivateRoute>} />
         <Route path="/forgot-password" element={<PrivateRoute allowedRole="public"><ForgotPassword /></PrivateRoute>} />
