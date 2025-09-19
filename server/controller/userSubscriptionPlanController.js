@@ -79,23 +79,17 @@ const handleUploadScreenshot = async (req, res) => {
       return res.status(404).json({ message: "Subscription not found" });
     }
 
-    const random10 = Math.floor(
-      1000000000 + Math.random() * 9000000000
-    ).toString();
-    const fileName = `${username}_${random10}${path.extname(
-      req.file.originalname
-    )}`;
     const filePath = await processFile(
       req.file.buffer,
-      req.file.mimetype,
+      req.file.originalname,
+      subscription.user_id.toString(),
       username,
-      fileName
+      "payments" // Store in Uploads/payments
     );
 
     console.log("Saving file path:", filePath);
     subscription.payment_screenshot = filePath;
     subscription.status = "pending";
-
     subscription.amount = Number(amount);
 
     await subscription.save();
@@ -206,37 +200,43 @@ const getAdminAccount = async (req, res) => {
 const createSubscription = async (req, res) => {
   const { user_id, plan_id, username, amount } = req.body;
 
+  console.log("Received subscription request:", { user_id, plan_id, username, amount });
+
   try {
     // Validate ObjectIds
-    if (
-      !mongoose.Types.ObjectId.isValid(user_id) ||
-      !mongoose.Types.ObjectId.isValid(plan_id)
-    ) {
-      return res
-        .status(400)
-        .json({ message: "Invalid user_id or plan_id format" });
+    if (!user_id || !plan_id) {
+      console.log("Missing user_id or plan_id:", { user_id, plan_id });
+      return res.status(400).json({ message: "user_id and plan_id are required" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(user_id) || !mongoose.Types.ObjectId.isValid(plan_id)) {
+      console.log("Invalid ObjectId format:", { user_id, plan_id });
+      return res.status(400).json({ message: "Invalid user_id or plan_id format" });
     }
 
     // Validate amount
     if (isNaN(amount) || Number(amount) <= 0) {
+      console.log("Invalid amount:", amount);
       return res.status(400).json({ message: "Invalid amount" });
     }
 
     // Check if user exists
     const userExists = await User.findById(user_id);
     if (!userExists) {
+      console.log("User not found:", user_id);
       return res.status(404).json({ message: "User not found" });
     }
 
     // Check if plan exists
     const planExists = await Plan.findById(plan_id);
     if (!planExists) {
+      console.log("Plan not found:", plan_id);
       return res.status(404).json({ message: "Plan not found" });
     }
 
-    // ✅ Check INR account existence before purchase
+    // Check INR account existence before purchase
     const inrAccount = await Account.findOne({ user_id, account_type: "INR" });
     if (!inrAccount) {
+      console.log("INR account not found for user_id:", user_id);
       return res.status(400).json({
         message: "User must add INR account details before purchasing a plan",
       });
@@ -249,17 +249,18 @@ const createSubscription = async (req, res) => {
       expires_at: { $gt: new Date() },
     });
     if (activeSubscription) {
-      return res
-        .status(400)
-        .json({ message: "User already has an active subscription" });
+      console.log("Active subscription exists for user_id:", user_id);
+      return res.status(400).json({ message: "User already has an active subscription" });
     }
-
+    
     // Fetch profit percentage from Percentage model
     const percentage = await Percentage.findOne({
-      category: planExists.plan_name.toLowerCase(),
-      amount_type: planExists.amount_type,
-    });
+  category: planExists.plan_name.toLowerCase(),
+  amount_type: planExists.amount_type,
+});
+
     if (!percentage) {
+      console.log("Profit percentage not found for plan:", planExists.plan_name);
       return res.status(404).json({
         message: "Profit percentage not found for this plan",
       });
@@ -267,9 +268,7 @@ const createSubscription = async (req, res) => {
 
     // Calculate expires_at based on capital_lockin
     const expires_at = new Date();
-    expires_at.setDate(
-      expires_at.getDate() + (planExists.capital_lockin || 30) // default 30 days
-    );
+    expires_at.setDate(expires_at.getDate() + (planExists.capital_lockin || 30));
 
     // Create new subscription
     const subscription = new UserPlanSubscription({
@@ -281,17 +280,14 @@ const createSubscription = async (req, res) => {
     });
 
     await subscription.save();
+    console.log("Subscription created:", { subscription_id: subscription._id });
 
-    res
-      .status(201)
-      .json({ message: "Subscription initiated", subscription });
-
+    res.status(201).json({ message: "Subscription initiated", subscription });
   } catch (error) {
     console.error("Create subscription error:", error);
     res.status(500).json({ message: error.message });
   }
 };
-
 const getPurchasedPlans = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   try {

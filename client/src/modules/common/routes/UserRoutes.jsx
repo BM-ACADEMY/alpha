@@ -5,6 +5,7 @@ import UserPlans from '@/modules/user/pages/plans/Plans';
 import UserWallet from '@/modules/user/pages/wallet/Wallet';
 import UserProfile from '@/modules/user/pages/settings/UserProfile';
 import Profile from '@/modules/user/pages/settings/Profile';
+import Subscription from '@/modules/user/pages/Subscription/Subscription';
 
 
 export const userRoutes = [
@@ -29,6 +30,14 @@ export const userRoutes = [
     element: (
       <PrivateRoute allowedRole="user">
         <UserPlans />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: '/user-dashboard/subscription',
+    element: (
+      <PrivateRoute allowedRole="user">
+        <Subscription />
       </PrivateRoute>
     ),
   },
