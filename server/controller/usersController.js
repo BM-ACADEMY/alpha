@@ -502,3 +502,31 @@ exports.getUserDetails = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+exports.getAdminInfo = async (req, res) => {
+  try {
+    // Step 1: Fetch role ObjectId for "admin"
+    const adminRole = await Role.findOne({ role_name: 'admin' });
+    if (!adminRole) {
+      return res.status(404).json({ message: 'Admin role not found' });
+    }
+
+    // Step 2: Fetch user where role_id matches adminRole._id
+    const adminUser = await User.findOne({ role_id: adminRole._id });
+    if (!adminUser) {
+      return res.status(404).json({ message: 'Admin user not found' });
+    }
+
+    // Step 3: Fetch accounts where user_id matches adminUser._id
+    const accounts = await Account.find({ user_id: adminUser._id });
+
+    // Step 4: Return combined data
+    res.status(200).json({
+      admin: adminUser,
+      accounts: accounts
+    });
+  } catch (error) {
+    console.error('Error fetching admin info:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};

@@ -4,6 +4,7 @@ const { upload } = require("../utils/profileUpload"); // Use profileUpload's upl
 const accountController = require("../controller/accountController");
 
 router.get("/", accountController.getAccounts);
+
 // router.get("/:id", accountController.getAccountById);
 router.post("/", upload.single('qrcode'), accountController.createAccount);
 router.put("/:id", upload.single('qrcode'), accountController.updateAccount);

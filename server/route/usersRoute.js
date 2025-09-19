@@ -6,6 +6,7 @@ const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 
 router.post('/register', userController.registerUser);
+router.get('/admin-info', userController.getAdminInfo);
 router.post('/verify-email', userController.verifyEmail);
 router.post('/login', userController.loginUser);
 router.post('/forgot-password', userController.forgotPassword);

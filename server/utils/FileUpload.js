@@ -8,16 +8,23 @@ dotenv.config();
 
 const SERVER_URL = process.env.SERVER_URL || "http://localhost:5000";
 
-// Create upload folder with user_id
-const createUploadFolder = (user_id, folderPrefix = "complaints") => {
-  const folderName = path.join(folderPrefix, user_id); // e.g., complaints/[user_id]
-  const uploadDir = path.join(__dirname, "../Uploads", folderName);
+// Create upload folder
+const createUploadFolder = (folderPrefix = "complaints") => {
+  const uploadDir = path.join(__dirname, "../Uploads", folderPrefix); // e.g., Uploads/payments
 
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+  try {
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+      console.log(`Created directory: ${uploadDir}`);
+    }
+    // Verify write permissions
+    fs.accessSync(uploadDir, fs.constants.W_OK);
+    console.log(`Directory ${uploadDir} is writable`);
+    return { uploadDir, folderName: folderPrefix };
+  } catch (error) {
+    console.error(`Failed to create or access directory ${uploadDir}:`, error.message);
+    throw new Error(`Directory creation failed: ${error.message}`);
   }
-
-  return { uploadDir, folderName };
 };
 
 // Multer configuration
@@ -56,23 +63,30 @@ const compressImage = async (buffer, outputPath) => {
     return outputPath;
   } catch (error) {
     console.error("Image compression failed:", error.message);
-    throw new Error("Image compression failed: " + error.message);
+    throw new Error(`Image compression failed: ${error.message}`);
   }
 };
 
 // Process file and return public URL
 const processFile = async (buffer, filename, user_id, username, folderPrefix = "complaints") => {
-  const { uploadDir, folderName } = createUploadFolder(user_id, folderPrefix);
-  const sanitizedUsername = username ? username.replace(/\s+/g, "_") : "default";
+  const { uploadDir, folderName } = createUploadFolder(folderPrefix);
   const randomDigits = Math.floor(100000 + Math.random() * 900000).toString();
-  const finalFileName = filename.replace(/\.\w+$/, ".webp"); // Use provided filename, convert to .webp
+  
+  // Ensure proper file extension handling
+  const ext = path.extname(filename).toLowerCase();
+  const baseName = path.basename(filename, ext);
+  const finalFileName = `${baseName}_${randomDigits}.webp`; // Removed sanitizedUsername
   const filePath = path.join(uploadDir, finalFileName);
 
-  await compressImage(buffer, filePath);
-
-  const publicUrl = `${SERVER_URL}/Uploads/${folderName}/${finalFileName}`;
-  console.log("File processed:", publicUrl);
-  return publicUrl;
+  try {
+    await compressImage(buffer, filePath);
+    const publicUrl = `${SERVER_URL}/Uploads/${folderName}/${finalFileName}`;
+    console.log("File processed:", publicUrl);
+    return publicUrl;
+  } catch (error) {
+    console.error("Process file error:", error.message);
+    throw error;
+  }
 };
 
 module.exports = { upload, createUploadFolder, processFile };

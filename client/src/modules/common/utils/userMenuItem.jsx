@@ -11,6 +11,7 @@ import {
   Database,
   FileBarChart,
   FilePen,
+  BadgeDollarSign
 } from 'lucide-react';
 
 export const userMenuItems = {
@@ -34,6 +35,11 @@ export const userMenuItems = {
       title: 'Plans',
       url: '/user-dashboard/plans',
       icon: List,
+    },
+    {
+      title: 'Subscription',
+      url: '/user-dashboard/subscription',
+      icon: BadgeDollarSign,
     },
     {
       title: 'Wallet',

@@ -1,9 +1,48 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
+import React, { useState, useEffect, useRef, useContext, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, Tag, DollarSign, Percent, Lock, Clock, TrendingUp, Wallet, FileText, ArrowRightCircle, Upload } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"; // Assuming you have a Select component
+import {
+  CreditCard,
+  Tag,
+  DollarSign,
+  Percent,
+  Lock,
+  Clock,
+  TrendingUp,
+  Wallet,
+  FileText,
+  ArrowRightCircle,
+  Upload,
+  Copy,
+  Image as ImageIcon,
+} from "lucide-react";
 import axiosInstance from "@/modules/common/lib/axios";
 import { AuthContext } from "@/modules/common/context/AuthContext";
 
@@ -17,7 +56,12 @@ const PlanPurchase = () => {
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
   const [subscriptionId, setSubscriptionId] = useState(null);
   const [file, setFile] = useState(null);
-  const debounceTimer = useRef(null);
+  const [adminInfo, setAdminInfo] = useState(null);
+  const [qrCodeErrors, setQrCodeErrors] = useState({});
+  const [selectedAccountType, setSelectedAccountType] = useState(null); // State for dropdown
+
+  // Cache-busting timestamp ref to prevent repeated requests
+  const cacheBusterRef = useRef(Date.now());
 
   // Validate role_id
   useEffect(() => {
@@ -37,8 +81,12 @@ const PlanPurchase = () => {
           setPlans(res.data);
           const calculations = {};
           res.data.forEach((plan) => {
-            const minInvestment = parseFloat(plan.min_investment?.$numberDecimal || 0);
-            const profitPercentage = parseFloat(plan.profit_percentage?.$numberDecimal || 0);
+            const minInvestment = parseFloat(
+              plan.min_investment?.$numberDecimal || 0
+            );
+            const profitPercentage = parseFloat(
+              plan.profit_percentage?.$numberDecimal || 0
+            );
             const capitalLockin = plan.capital_lockin || 30;
             const profitWithdrawal = plan.profit_withdrawal || "daily";
 
@@ -83,70 +131,344 @@ const PlanPurchase = () => {
   // Handle opening of dialogs
   const handleOpenPurchaseDialog = (plan) => {
     setSelectedPlan(plan);
-    setSubscriptionId(null); // Reset subscription ID
-    setFile(null); // Reset file
+    setSubscriptionId(null);
+    setFile(null);
+    setAdminInfo(null);
+    setStatusMessage("");
+    setQrCodeErrors({});
+    setSelectedAccountType(null); // Reset dropdown
     setShowPurchaseDialog(true);
   };
 
   // Handle Proceed Payment button click
- const handleProceedPayment = async () => {
-  if (!selectedPlan || !user) {
-    setStatusMessage("User or plan not selected");
-    return;
-  }
-
-  console.log("Proceeding with payment - User ID:", user._id, "Plan ID:", selectedPlan._id);
-
-  try {
-    const response = await axiosInstance.post("/user-subscription-plan/subscribe", {
-      user_id: user._id,
-      plan_id: selectedPlan._id,
-      username: user.username,
-      amount: parseFloat(selectedPlan.min_investment.$numberDecimal),
-    });
-
-    if (response.status === 201) {
-      setSubscriptionId(response.data.subscription._id);
-      setStatusMessage("Subscription created successfully! Please upload your payment screenshot.");
+  const handleProceedPayment = async () => {
+    if (!selectedPlan || !user) {
+      setStatusMessage("User or plan not selected");
+      return;
     }
-  } catch (error) {
-    console.error("Create subscription error:", error.message, error.response?.data);
-    setStatusMessage(error.response?.data?.message || "Failed to create subscription");
-  }
-};
+
+    try {
+      const response = await axiosInstance.post(
+        "/user-subscription-plan/subscribe",
+        {
+          user_id: user.id,
+          plan_id: selectedPlan._id,
+          username: user.username,
+          amount: parseFloat(selectedPlan.min_investment.$numberDecimal),
+        }
+      );
+
+      if (response.status === 201) {
+        setSubscriptionId(response.data.subscription._id);
+        setStatusMessage(
+          "Subscription created successfully! Please upload your payment screenshot."
+        );
+
+        // Fetch admin info
+        try {
+          const adminRes = await axiosInstance.get("/users/admin-info");
+          console.log("Admin Info Response:", adminRes.data);
+          setAdminInfo(adminRes.data);
+          // Preselect INR if available, else USDT
+          if (adminRes.data.accounts?.length > 0) {
+            const inrAccount = adminRes.data.accounts.find(
+              (acc) => acc.account_type === "INR"
+            );
+            setSelectedAccountType(inrAccount ? "INR" : "USDT");
+          }
+        } catch (err) {
+          console.error("Failed to fetch admin info:", err.message, err.response?.data);
+          setStatusMessage("Failed to fetch admin account details");
+        }
+      }
+    } catch (error) {
+      console.error(
+        "Create subscription error:",
+        error.message,
+        error.response?.data
+      );
+      setStatusMessage(
+        error.response?.data?.message || "Failed to create subscription"
+      );
+    }
+  };
+
+  // Retry fetching admin info
+  const handleRetryFetchAdminInfo = async () => {
+    setStatusMessage("");
+    setQrCodeErrors({});
+    try {
+      const adminRes = await axiosInstance.get("/users/admin-info");
+      console.log("Admin Info Response (Retry):", adminRes.data);
+      setAdminInfo(adminRes.data);
+      // Preselect INR if available, else USDT
+      if (adminRes.data.accounts?.length > 0) {
+        const inrAccount = adminRes.data.accounts.find(
+          (acc) => acc.account_type === "INR"
+        );
+        setSelectedAccountType(inrAccount ? "INR" : "USDT");
+      }
+    } catch (err) {
+      console.error("Retry fetch admin info failed:", err.message, err.response?.data);
+      setStatusMessage("Failed to fetch admin account details");
+    }
+  };
 
   // Handle file selection
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      const isImage = /\.(jpg|jpeg|png|gif|bmp|tiff)$/i.test(selectedFile.name);
+      if (!isImage) {
+        setStatusMessage("Only image files are allowed");
+        setFile(null);
+        return;
+      }
+      setFile(selectedFile);
+      setStatusMessage("");
+    }
   };
 
   // Handle screenshot upload
   const handleUploadScreenshot = async () => {
-    if (!file || !subscriptionId) {
-      setStatusMessage("No file selected or subscription not created");
+    if (!file || !subscriptionId || !user || !selectedPlan) {
+      setStatusMessage("Please select a file and ensure subscription is created");
       return;
     }
 
     const formData = new FormData();
-    formData.append("screenshot", file);
+    formData.append("payment_screenshot", file);
     formData.append("subscription_id", subscriptionId);
+    formData.append("username", user.username);
+    formData.append(
+      "amount",
+      parseFloat(selectedPlan.min_investment.$numberDecimal)
+    );
 
     try {
-      const response = await axiosInstance.post("/user-subscription-plan/upload-screenshot", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const response = await axiosInstance.post(
+        "/user-subscription-plan/upload-screenshot",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
       if (response.status === 200) {
-        setStatusMessage("Screenshot uploaded successfully!");
-        setShowPurchaseDialog(false); // Close dialog after successful upload
+        setStatusMessage(
+          "Screenshot uploaded successfully! Awaiting verification."
+        );
+        setShowPurchaseDialog(false);
         setFile(null);
         setSubscriptionId(null);
+        setSelectedPlan(null);
+        setAdminInfo(null);
+        setQrCodeErrors({});
+        setSelectedAccountType(null);
       }
     } catch (error) {
-      console.error("Upload screenshot error:", error.message, error.response?.data);
-      setStatusMessage(error.response?.data?.message || "Failed to upload screenshot");
+      console.error(
+        "Upload screenshot error:",
+        error.message,
+        error.response?.data
+      );
+      setStatusMessage(
+        error.response?.data?.message || "Failed to upload screenshot"
+      );
     }
   };
+
+  const handleCopy = (text) => {
+    navigator.clipboard.writeText(text);
+    setStatusMessage("Copied to clipboard!");
+  };
+
+  // Memoize account details to prevent re-renders
+  const renderAccountDetails = useMemo(
+    () => (account) => {
+      const isINR = account.account_type === "INR";
+      const isUSDT = account.account_type === "USDT";
+      const hasQrCodeError = qrCodeErrors[account._id];
+
+      return (
+        <div className="space-y-2" key={account._id}>
+          <div className="flex items-center justify-between">
+            <span>
+              <strong>Type:</strong> {account.account_type}
+            </span>
+          </div>
+          {isINR && (
+            <>
+              {account.bank_name && (
+                <div className="flex items-center justify-between">
+                  <span>
+                    <strong>Bank Name:</strong> {account.bank_name}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCopy(account.bank_name)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              {account.account_holder_name && (
+                <div className="flex items-center justify-between">
+                  <span>
+                    <strong>Account Holder:</strong> {account.account_holder_name}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCopy(account.account_holder_name)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              {account.account_number && (
+                <div className="flex items-center justify-between">
+                  <span>
+                    <strong>Account Number:</strong> {account.account_number}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCopy(account.account_number)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              {account.ifsc_code && (
+                <div className="flex items-center justify-between">
+                  <span>
+                    <strong>IFSC Code:</strong> {account.ifsc_code}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCopy(account.ifsc_code)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              {account.upi_id && (
+                <div className="flex items-center justify-between">
+                  <span>
+                    <strong>UPI ID:</strong> {account.upi_id}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCopy(account.upi_id)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              {account.upi_number && (
+                <div className="flex items-center justify-between">
+                  <span>
+                    <strong>UPI Number:</strong> {account.upi_number}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCopy(account.upi_number)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              {account.linked_phone_number && (
+                <div className="flex items-center justify-between">
+                  <span>
+                    <strong>Linked Phone:</strong> {account.linked_phone_number}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCopy(account.linked_phone_number)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+          {isUSDT && (
+            <>
+              {account.usdt_account_number && (
+                <div className="flex items-center justify-between">
+                  <span>
+                    <strong>USDT Address:</strong> {account.usdt_account_number}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCopy(account.usdt_account_number)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+          {account.qrcode && (
+            <div className="mt-2">
+              <strong>QR Code:</strong>
+              <div className="mt-1">
+                {hasQrCodeError ? (
+                  <div className="flex flex-col items-center">
+                    <p className="text-red-600">
+                      Failed to load QR code for {account.account_type} account
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => {
+                        setQrCodeErrors((prev) => ({
+                          ...prev,
+                          [account._id]: false,
+                        }));
+                        cacheBusterRef.current = Date.now(); // Update cache buster
+                      }}
+                    >
+                      Retry QR Code
+                    </Button>
+                  </div>
+                ) : (
+                  <img
+                    src={`${account.qrcode}?t=${cacheBusterRef.current}`}
+                    alt={`${account.account_type} QR Code`}
+                    className="w-32 h-32 object-contain border rounded"
+                    onError={() => {
+                      setQrCodeErrors((prev) => ({
+                        ...prev,
+                        [account._id]: true,
+                      }));
+                      console.error(`Failed to load QR code: ${account.qrcode}`);
+                    }}
+                    onLoad={() =>
+                      setQrCodeErrors((prev) => ({
+                        ...prev,
+                        [account._id]: false,
+                      }))
+                    }
+                  />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    },
+    [qrCodeErrors, handleCopy]
+  );
 
   return (
     <div className="p-6 space-y-8">
@@ -177,13 +499,18 @@ const PlanPurchase = () => {
                   <TableCell>{plan?.profit_percentage?.$numberDecimal}%</TableCell>
                   <TableCell>{plan?.capital_lockin || "N/A"}</TableCell>
                   <TableCell>
-                    {profitCalculations[plan._id]?.profitAmount} {plan?.amount_type}
+                    {profitCalculations[plan._id]?.profitAmount}{" "}
+                    {plan?.amount_type}
                   </TableCell>
                   <TableCell>
-                    {profitCalculations[plan._id]?.totalReturn} {plan?.amount_type}
+                    {profitCalculations[plan._id]?.totalReturn}{" "}
+                    {plan?.amount_type}
                   </TableCell>
                   <TableCell>
-                    <Dialog open={showPurchaseDialog && selectedPlan?._id === plan._id} onOpenChange={setShowPurchaseDialog}>
+                    <Dialog
+                      open={showPurchaseDialog && selectedPlan?._id === plan._id}
+                      onOpenChange={setShowPurchaseDialog}
+                    >
                       <DialogTrigger asChild>
                         <Button
                           onClick={() => handleOpenPurchaseDialog(plan)}
@@ -199,43 +526,74 @@ const PlanPurchase = () => {
                         <div className="space-y-4">
                           {!subscriptionId ? (
                             <>
+                              {/* Plan Details */}
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="flex items-center">
                                   <Tag className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Plan Name:</strong> {plan?.plan_name}</span>
+                                  <span>
+                                    <strong>Plan Name:</strong>{" "}
+                                    {plan?.plan_name}
+                                  </span>
                                 </div>
                                 <div className="flex items-center">
                                   <DollarSign className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Minimum Investment:</strong> {plan?.min_investment?.$numberDecimal} {plan?.amount_type}</span>
+                                  <span>
+                                    <strong>Minimum Investment:</strong>{" "}
+                                    {plan?.min_investment?.$numberDecimal}{" "}
+                                    {plan?.amount_type}
+                                  </span>
                                 </div>
                                 <div className="flex items-center">
                                   <Percent className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Profit Percentage:</strong> {plan?.profit_percentage?.$numberDecimal}%</span>
+                                  <span>
+                                    <strong>Profit Percentage:</strong>{" "}
+                                    {plan?.profit_percentage?.$numberDecimal}%
+                                  </span>
                                 </div>
                                 <div className="flex items-center">
                                   <Lock className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Capital Lock-in Period:</strong> {plan?.capital_lockin || "N/A"} days</span>
+                                  <span>
+                                    <strong>Capital Lock-in Period:</strong>{" "}
+                                    {plan?.capital_lockin || "N/A"} days
+                                  </span>
                                 </div>
                                 <div className="flex items-center">
                                   <Clock className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Profit Withdrawal:</strong> {plan?.profit_withdrawal || "daily"}</span>
+                                  <span>
+                                    <strong>Profit Withdrawal:</strong>{" "}
+                                    {plan?.profit_withdrawal || "daily"}
+                                  </span>
                                 </div>
                                 <div className="flex items-center">
                                   <TrendingUp className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Estimated Profit:</strong> {profitCalculations[plan._id]?.profitAmount} {plan?.amount_type} ({plan?.profit_withdrawal || "daily"})</span>
+                                  <span>
+                                    <strong>Estimated Profit:</strong>{" "}
+                                    {profitCalculations[plan._id]?.profitAmount}{" "}
+                                    {plan?.amount_type} (
+                                    {plan?.profit_withdrawal || "daily"})
+                                  </span>
                                 </div>
                                 <div className="flex items-center">
                                   <Wallet className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Total Return:</strong> {profitCalculations[plan._id]?.totalReturn} {plan?.amount_type}</span>
+                                  <span>
+                                    <strong>Total Return:</strong>{" "}
+                                    {profitCalculations[plan._id]?.totalReturn}{" "}
+                                    {plan?.amount_type}
+                                  </span>
                                 </div>
                                 {plan?.notes && (
                                   <div className="col-span-2 flex items-start">
                                     <FileText className="mr-2 h-4 w-4 text-gray-500 mt-1" />
-                                    <span><strong>Notes:</strong> {plan?.notes}</span>
+                                    <span>
+                                      <strong>Notes:</strong> {plan?.notes}
+                                    </span>
                                   </div>
                                 )}
                               </div>
-                              <Button onClick={handleProceedPayment} className="w-full">
+                              <Button
+                                onClick={handleProceedPayment}
+                                className="w-full"
+                              >
                                 <ArrowRightCircle className="mr-2 h-4 w-4" />
                                 Proceed to Payment
                               </Button>
@@ -243,16 +601,96 @@ const PlanPurchase = () => {
                           ) : (
                             <>
                               <div className="text-green-600">
-                                Subscription created successfully! Please upload your payment screenshot.
+                                Subscription created successfully! Please upload
+                                your payment screenshot.
                               </div>
-                              <div className="flex flex-col space-y-4">
+
+                              {/* Admin Info */}
+                              {adminInfo ? (
+                                <div className="p-3 border rounded bg-gray-50 text-sm text-left">
+                                  <p>
+                                    <strong>Admin Name:</strong>{" "}
+                                    {adminInfo.admin?.username || "N/A"}
+                                  </p>
+                                  <p>
+                                    <strong>Email:</strong>{" "}
+                                    {adminInfo.admin?.email || "N/A"}
+                                  </p>
+                                  {adminInfo.accounts?.length > 0 ? (
+                                    <div className="mt-2">
+                                      <strong>Accounts:</strong>
+                                      <div className="mt-2">
+                                        <Select
+                                          value={selectedAccountType}
+                                          onValueChange={setSelectedAccountType}
+                                        >
+                                          <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select account type" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {adminInfo.accounts.map((acc) => (
+                                              <SelectItem
+                                                key={acc._id}
+                                                value={acc.account_type}
+                                              >
+                                                {acc.account_type}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        {selectedAccountType && (
+                                          <div className="mt-4">
+                                            {adminInfo.accounts
+                                              .filter(
+                                                (acc) =>
+                                                  acc.account_type ===
+                                                  selectedAccountType
+                                              )
+                                              .map((acc) =>
+                                                renderAccountDetails(acc)
+                                              )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="text-red-600">
+                                      No accounts found for admin.
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-red-600">
+                                  Loading admin account details...
+                                </p>
+                              )}
+
+                              {/* Retry Button for Admin Info */}
+                              {statusMessage.includes(
+                                "Failed to fetch admin account details"
+                              ) && (
+                                <Button
+                                  onClick={handleRetryFetchAdminInfo}
+                                  className="mt-4"
+                                  variant="outline"
+                                >
+                                  Retry Fetching Admin Info
+                                </Button>
+                              )}
+
+                              {/* Upload Screenshot */}
+                              <div className="flex flex-col space-y-4 mt-4">
                                 <input
                                   type="file"
                                   accept="image/*"
                                   onChange={handleFileChange}
                                   className="border p-2 rounded"
                                 />
-                                <Button onClick={handleUploadScreenshot} disabled={!file} className="w-full">
+                                <Button
+                                  onClick={handleUploadScreenshot}
+                                  disabled={!file}
+                                  className="w-full"
+                                >
                                   <Upload className="mr-2 h-4 w-4" />
                                   Upload Screenshot
                                 </Button>
@@ -260,7 +698,14 @@ const PlanPurchase = () => {
                             </>
                           )}
                           {statusMessage && (
-                            <div className={statusMessage.includes("Failed") ? "text-red-600" : "text-green-600"}>
+                            <div
+                              className={
+                                statusMessage.includes("Failed") ||
+                                statusMessage.includes("error")
+                                  ? "text-red-600"
+                                  : "text-green-600"
+                              }
+                            >
                               {statusMessage}
                             </div>
                           )}
@@ -273,7 +718,14 @@ const PlanPurchase = () => {
             </TableBody>
           </Table>
           {statusMessage && (
-            <div className={statusMessage.includes("Failed") ? "text-red-600" : "text-green-600"}>
+            <div
+              className={
+                statusMessage.includes("Failed") ||
+                statusMessage.includes("error")
+                  ? "text-red-600"
+                  : "text-green-600"
+              }
+            >
               {statusMessage}
             </div>
           )}
