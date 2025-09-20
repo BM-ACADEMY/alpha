@@ -8,7 +8,8 @@ import {
   User,
   LogOut,
   Percent ,
-  MessageSquareWarning
+  MessageSquareWarning,
+  ShieldUser 
 } from 'lucide-react';
 
 export const adminMenuItems = {
@@ -44,6 +45,11 @@ export const adminMenuItems = {
       icon: Percent ,
     },
     {
+      title: 'Users Verified',
+      url: '/admin-dashboard/user-verified',
+      icon:  ShieldUser,
+    },
+    {
       title: 'Reports',
       url: '/admin-dashboard/reports',
       icon: FileBarChart,
@@ -52,11 +58,6 @@ export const adminMenuItems = {
       title: 'Plans',
       url: '/admin-dashboard/plans',
       icon: List,
-    },
-    {
-      title: 'Complaints',
-      url: '/admin-dashboard/complaint',
-      icon: MessageSquareWarning,
     },
     {
       title: 'Complaints',
