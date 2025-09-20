@@ -289,9 +289,10 @@ const createSubscription = async (req, res) => {
   }
 };
 const getPurchasedPlans = async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
+  const { page = 1, limit = 10, user_id } = req.query;
   try {
-    const subscriptions = await UserPlanSubscription.find()
+    const query = user_id ? { user_id, planStatus: "Active", expires_at: { $gt: new Date() } } : {};
+    const subscriptions = await UserPlanSubscription.find(query)
       .populate("user_id", "username email phone_number")
       .populate(
         "plan_id",
@@ -300,7 +301,7 @@ const getPurchasedPlans = async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .exec();
-    const count = await UserPlanSubscription.countDocuments();
+    const count = await UserPlanSubscription.countDocuments(query);
     res.json({
       subscriptions,
       totalPages: Math.ceil(count / limit),

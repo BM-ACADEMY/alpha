@@ -27,6 +27,7 @@ const Subscription = () => {
       if (!user?.id) {
         setError("User not logged in");
         setLoading(false);
+        navigate("/login");
         return;
       }
 
@@ -35,20 +36,14 @@ const Subscription = () => {
           params: {
             page: 1,
             limit: 10,
+            user_id: user.id,
           },
           withCredentials: true,
         });
 
         const subscriptions = response.data.subscriptions;
-        const activeSubscription = subscriptions.find(
-          (sub) =>
-            sub.user_id._id === user.id &&
-            sub.planStatus === "Active" &&
-            new Date(sub.expires_at) > new Date()
-        );
-
-        if (activeSubscription) {
-          setActivePlan(activeSubscription);
+        if (subscriptions.length > 0) {
+          setActivePlan(subscriptions[0]);
         } else {
           setError("No active subscription found");
         }
@@ -90,7 +85,7 @@ const Subscription = () => {
     const timer = setInterval(calculateCountdown, 1000);
 
     return () => clearInterval(timer);
-  }, [activePlan]);
+  }, [activePlan?.expires_at]);
 
   // Handle navigation to plan purchase page
   const handlePurchasePlan = () => {
@@ -140,8 +135,8 @@ const Subscription = () => {
     }
 
     const plan = activePlan.plan_id;
-    const amount = parseFloat(activePlan.amount);
-    const profitPercentage = parseFloat(activePlan.profit_percentage?.$numberDecimal || 0);
+    const amount = Number(activePlan.amount) || 0;
+    const profitPercentage = Number(activePlan.profit_percentage?.$numberDecimal || 0);
     const capitalLockin = plan.capital_lockin || 30;
     const totalProfit = (amount * profitPercentage) / 100;
     const dailyProfit = totalProfit / capitalLockin;
@@ -218,7 +213,7 @@ const Subscription = () => {
                 <div>
                   <p className="text-sm text-gray-500">Amount</p>
                   <p className="font-semibold text-gray-800">
-                    {parseFloat(activePlan.amount).toFixed(2)} {activePlan.plan_id.amount_type}
+                    {Number(activePlan.amount).toFixed(2)} {activePlan.plan_id.amount_type}
                   </p>
                 </div>
               </div>
@@ -226,7 +221,7 @@ const Subscription = () => {
                 <Percent className="mr-3 h-5 w-5 text-blue-500" aria-hidden="true" />
                 <div>
                   <p className="text-sm text-gray-500">Profit Percentage</p>
-                  <p className="font-semibold text-gray-800">{parseFloat(activePlan.profit_percentage?.$numberDecimal || 0)}%</p>
+                  <p className="font-semibold text-gray-800">{Number(activePlan.profit_percentage?.$numberDecimal || 0)}%</p>
                 </div>
               </div>
               <div className="flex items-center p-4 bg-white rounded-lg shadow-sm">
