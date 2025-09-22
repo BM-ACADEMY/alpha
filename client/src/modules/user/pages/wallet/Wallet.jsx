@@ -8,10 +8,12 @@ import axiosInstance from '@/modules/common/lib/axios';
 import { showToast } from '@/modules/common/toast/customToast';
 import { Label } from '@/components/ui/label';
 import { AuthContext } from '@/modules/common/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const WalletPage = () => {
   const { user } = useContext(AuthContext);
   const userId = user?.id;
+  const navigate = useNavigate();
 
   const [wallet, setWallet] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,6 +22,7 @@ const WalletPage = () => {
   const [accountType, setAccountType] = useState('INR');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [profileData, setProfileData] = useState(null);
 
   // Fetch wallet data
   useEffect(() => {
@@ -37,6 +40,28 @@ const WalletPage = () => {
     if (userId) fetchWallet();
   }, [userId]);
 
+  // Fetch user profile to check KYC details and admin verification
+  useEffect(() => {
+    if (!userId) {
+      showToast('error', 'User not logged in');
+      return;
+    }
+
+    const fetchProfile = async () => {
+      try {
+        const response = await axiosInstance.get(`/users/${userId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        setProfileData(response.data);
+      } catch (error) {
+        console.error('Failed to fetch profile:', error);
+        showToast('error', 'Failed to load profile data');
+      }
+    };
+
+    fetchProfile();
+  }, [userId]);
+
   // Calculate available profit
   const availableProfit = wallet ? wallet.totalWalletPoint - wallet.userPlanCapitalAmount : 0;
 
@@ -47,8 +72,10 @@ const WalletPage = () => {
       setError('Please enter a valid amount');
     } else if (wallet && parseFloat(value) > availableProfit) {
       setError(`Amount cannot exceed available profit (${availableProfit.toFixed(2)} INR)`);
-    } else if (parseFloat(value) < 1000) {
+    } else if (accountType === 'INR' && parseFloat(value) < 1000) {
       setError('Minimum redeem amount is 1000 INR');
+    } else if (accountType === 'USDT' && parseFloat(value) < 10) {
+      setError('Minimum redeem amount is 10 USDT');
     } else {
       setError('');
     }
@@ -64,8 +91,12 @@ const WalletPage = () => {
       setError(`Amount cannot exceed available profit (${availableProfit.toFixed(2)} INR)`);
       return;
     }
-    if (parseFloat(redeemAmount) < 1000) {
+    if (accountType === 'INR' && parseFloat(redeemAmount) < 1000) {
       setError('Minimum redeem amount is 1000 INR');
+      return;
+    }
+    if (accountType === 'USDT' && parseFloat(redeemAmount) < 10) {
+      setError('Minimum redeem amount is 10 USDT');
       return;
     }
 
@@ -92,6 +123,33 @@ const WalletPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle redeem button click with KYC and admin verification check
+  const handleOpenRedeemDialog = () => {
+    // Check KYC details
+    if (
+      !profileData?.pan_number ||
+      !profileData?.pan_image ||
+      !profileData?.aadhar_number ||
+      !profileData?.aadhar_image
+    ) {
+      showToast('error', 'Please complete your KYC verification first');
+      setTimeout(() => {
+        navigate('/user-dashboard/profile');
+      }, 2000);
+      return;
+    }
+
+    // Check admin verification
+    if (!profileData?.verified_by_admin) {
+      showToast('error', 'Account must be verified by admin. Wait 24-48 hrs.');
+      return;
+    }
+
+    // Open the modal with instructions
+    setShowInstructions(true);
+    setIsModalOpen(true);
   };
 
   if (!wallet) {
@@ -135,9 +193,15 @@ const WalletPage = () => {
         <p className="text-sm text-gray-700">
           <strong>Redeemable Amount:</strong> You can redeem up to{' '}
           <strong>{availableProfit.toFixed(2)} INR</strong> from your accumulated profit.
-          {availableProfit < 1000 && (
+          {availableProfit < 1000 && accountType === 'INR' && (
             <span className="text-red-600 block mt-1">
               Your accumulated profit ({availableProfit.toFixed(2)} INR) is below the minimum redeem amount of 1000 INR. 
+              Please wait for more profit to accumulate or increase your investment.
+            </span>
+          )}
+          {availableProfit < 10 && accountType === 'USDT' && (
+            <span className="text-red-600 block mt-1">
+              Your accumulated profit ({availableProfit.toFixed(2)} INR) is below the minimum redeem amount of 10 USDT. 
               Please wait for more profit to accumulate or increase your investment.
             </span>
           )}
@@ -145,11 +209,8 @@ const WalletPage = () => {
       </div>
 
       <Button
-        disabled={availableProfit < 1000}
-        onClick={() => {
-          setShowInstructions(true);
-          setIsModalOpen(true);
-        }}
+        disabled={(accountType === 'INR' && availableProfit < 1000) || (accountType === 'USDT' && availableProfit < 10)}
+        onClick={handleOpenRedeemDialog}
         className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
         <Send className="h-5 w-5 mr-2" />
@@ -157,30 +218,47 @@ const WalletPage = () => {
       </Button>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto p-6">
           {showInstructions ? (
             <>
               <DialogHeader>
-                <DialogTitle className="text-xl font-semibold">Withdrawal Instructions</DialogTitle>
+                <DialogTitle className="text-2xl font-bold text-center">Withdrawal Instructions</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 text-sm text-gray-700">
-                <p><strong>INR Withdrawals:</strong></p>
-                <ul className="list-disc pl-5">
-                  <li>Processed only to the user’s verified bank account.</li>
-                  <li>Min Withdrawal: ₹1,000.</li>
-                  <li>Fees: 3% Withdrawal Fee + 2% Platform Fee (configurable).</li>
-                  <li>Processing time: 24–48 hours.</li>
-                </ul>
-                <p><strong>USDT Withdrawals:</strong></p>
-                <ul className="list-disc pl-5">
-                  <li>Processed only to the user’s verified wallet address.</li>
-                  <li>Min Withdrawal: 10 USDT.</li>
-                  <li>Network fees apply.</li>
-                  <li>Processing time: 24–48 hours.</li>
-                </ul>
+              <div className="space-y-6 mt-4 text-sm text-gray-700">
+                <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
+                  <h3 className="font-semibold text-lg text-indigo-600 mb-2">INR Withdrawal Policy</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Payout Time:</strong> Within 0 to 7 days from withdrawal request</li>
+                    <li><strong>Request Days:</strong> Any day (Monday to Sunday)</li>
+                    <li><strong>Limit:</strong> 1 withdrawal per investor per day</li>
+                    <li><strong>Minimum Withdrawal:</strong> ₹1,000</li>
+                    <li><strong>Maximum Limit:</strong> No maximum limit</li>
+                    <li><strong>Payout Mode:</strong> Bank Transfer (NEFT / IMPS / RTGS)</li>
+                    <li><strong>Withdrawal Fee:</strong> 3%</li>
+                    <li><strong>Platform Fee:</strong> 2%</li>
+                    <li><strong>Total Fee:</strong> 5% deducted from withdrawal amount</li>
+                    <li><strong>Queue:</strong> First-Come, First-Serve</li>
+                    <li><strong>Example:</strong> ₹10,000 request &gt; ₹500 fees &gt; ₹9,500 credited</li>
+                  </ul>
+                </div>
+                <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
+                  <h3 className="font-semibold text-lg text-green-600 mb-2">USDT Withdrawal Policy</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Payout Time:</strong> Within 0 to 7 days</li>
+                    <li><strong>Request Days:</strong> Any day (24/7)</li>
+                    <li><strong>Limit:</strong> 1 withdrawal per day per wallet</li>
+                    <li><strong>Minimum Withdrawal:</strong> 10 USDT</li>
+                    <li><strong>Maximum Limit:</strong> No maximum limit</li>
+                    <li><strong>Payout Mode:</strong> USDT (TRC20) Wallet</li>
+                    <li><strong>Fees:</strong> No withdrawal or platform fees</li>
+                    <li><strong>Requirement:</strong> Wallet must be verified during onboarding</li>
+                  </ul>
+                </div>
               </div>
-              <DialogFooter>
-                <Button onClick={() => setShowInstructions(false)}>Proceed to Redeem</Button>
+              <DialogFooter className="mt-6">
+                <Button onClick={() => setShowInstructions(false)} className="w-full">
+                  Proceed to Redeem
+                </Button>
               </DialogFooter>
             </>
           ) : (
@@ -198,7 +276,7 @@ const WalletPage = () => {
                     type="number"
                     value={redeemAmount}
                     onChange={(e) => handleAmountChange(e.target.value)}
-                    placeholder="Enter amount (min 1000 INR)"
+                    placeholder={accountType === 'INR' ? 'Enter amount (min 1000 INR)' : 'Enter amount (min 10 USDT)'}
                     className="mt-1"
                     aria-invalid={error ? 'true' : 'false'}
                     aria-describedby="redeemAmount-error"
@@ -214,7 +292,10 @@ const WalletPage = () => {
                   <Label htmlFor="accountType" className="block text-sm font-medium text-gray-700">
                     Account Type
                   </Label>
-                  <Select value={accountType} onValueChange={setAccountType}>
+                  <Select value={accountType} onValueChange={(value) => {
+                    setAccountType(value);
+                    handleAmountChange(redeemAmount); // Re-validate amount when account type changes
+                  }}>
                     <SelectTrigger id="accountType" className="mt-1">
                       <SelectValue placeholder="Select account type" />
                     </SelectTrigger>

@@ -36,6 +36,7 @@ import {
   Users,
   Edit,
   Trash2,
+  Tag,
 } from 'lucide-react';
 import ReferralCard from '@/modules/user/pages/settings/ReferralCard';
 import Zoom from "react-medium-image-zoom";
@@ -54,6 +55,8 @@ const BasicInfo = ({
 }) => {
   const [editData, setEditData] = useState({});
   const [open, setOpen] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
 
   useEffect(() => {
     if (profileData) {
@@ -66,6 +69,43 @@ const BasicInfo = ({
       });
     }
   }, [profileData]);
+
+  // Fetch subscription status
+  useEffect(() => {
+    const fetchSubscriptionStatus = async () => {
+      if (!user?.id) {
+        setSubscriptionStatus(null);
+        setLoadingSubscription(false);
+        return;
+      }
+
+      try {
+        const response = await axiosInstance.get("/user-subscription-plan/purchased-plans", {
+          params: {
+            page: 1,
+            limit: 1,
+            user_id: user.id,
+          },
+          withCredentials: true,
+        });
+
+        const subscriptions = response.data.subscriptions;
+        if (subscriptions.length > 0 && subscriptions[0].status === "verified") {
+          setSubscriptionStatus("Active");
+        } else {
+          setSubscriptionStatus("Not Active");
+        }
+      } catch (error) {
+        console.error("Fetch subscription status error:", error);
+        setSubscriptionStatus("Not Active");
+        showToast("error", "Failed to fetch subscription status");
+      } finally {
+        setLoadingSubscription(false);
+      }
+    };
+
+    fetchSubscriptionStatus();
+  }, [user]);
 
   const handleChange = (e) => {
     setEditData({ ...editData, [e.target.id]: e.target.value });
@@ -403,6 +443,20 @@ const BasicInfo = ({
                     </Badge>
                   ),
                   icon: Users,
+                },
+                {
+                  label: "Subscription Plan",
+                  value: loadingSubscription ? (
+                    <span className="text-gray-500 italic">Loading...</span>
+                  ) : (
+                    <Badge
+                      variant={subscriptionStatus === "Active" ? "success" : "destructive"}
+                      className={subscriptionStatus === "Active" ? "bg-green-500 text-white" : ""}
+                    >
+                      {subscriptionStatus}
+                    </Badge>
+                  ),
+                  icon: Tag,
                 },
               ].map((item, index) => (
                 <div

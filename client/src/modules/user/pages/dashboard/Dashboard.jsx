@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/modules/common/toast/customToast";
 import axiosInstance from "@/modules/common/lib/axios";
 import { AuthContext } from "@/modules/common/context/AuthContext";
@@ -28,16 +29,17 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { PieChart, Pie, Cell, Legend } from "recharts";
 
 const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useContext(AuthContext);
   const userId = user?.id;
-
   const [data, setData] = useState(null);
   const [redeemRequests, setRedeemRequests] = useState([]);
   const [isOpen, setIsOpen] = useState(true);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
+  const [profitView, setProfitView] = useState("monthly"); // State for toggle: 'daily' or 'monthly'
 
   const handleClose = () => setIsOpen(false);
 
@@ -60,26 +62,47 @@ const Dashboard = () => {
         );
         setRedeemRequests(redeemResponse.data.redeemRequests || []);
 
+        // Fetch subscription status
+        const subscriptionResponse = await axiosInstance.get(
+          "/user-subscription-plan/purchased-plans",
+          {
+            params: {
+              page: 1,
+              limit: 1,
+              user_id: userId,
+            },
+            withCredentials: true,
+          }
+        );
+
+        const subscriptions = subscriptionResponse.data.subscriptions;
+        if (subscriptions.length > 0 && subscriptions[0].status === "verified") {
+          setSubscriptionStatus("Active");
+        } else {
+          setSubscriptionStatus("Not Active");
+        }
+
         showToast("success", "Dashboard data loaded successfully!");
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
         showToast("error", error.response?.data?.message || "Failed to load dashboard data");
+        setSubscriptionStatus("Not Active");
       } finally {
         setIsLoading(false);
+        setLoadingSubscription(false);
       }
     };
 
     if (userId) fetchData();
   }, [userId]);
 
-  // Pie chart data (Approved removed)
-  const redeemStatusData = [
-    { name: "Pending", value: redeemRequests.filter(r => r.status === "pending").length },
-    { name: "Rejected", value: redeemRequests.filter(r => r.status === "rejected").length },
-  ].filter(item => item.value > 0);
+  // Toggle handler for Daily/Monthly view
+  const handleToggleView = (view) => {
+    setProfitView(view);
+  };
 
-  // Colors: Pending = Yellow, Rejected = Red
-  const COLORS = ["#FBBF24", "#EF4444"];
+  // Prepare chart data based on view
+  const chartData = profitView === "monthly" ? data?.profitOverTime || [] : data?.dailyProfitOverTime || [];
 
   return (
     <div className="p-6 space-y-6">
@@ -164,7 +187,21 @@ const Dashboard = () => {
 
       {/* Active Plans */}
       <Card>
-        <CardHeader><CardTitle>Your Active Plans</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            Your Active Plans
+            {loadingSubscription ? (
+              <span className="text-gray-500 italic">Loading...</span>
+            ) : (
+              <Badge
+                variant={subscriptionStatus === "Active" ? "success" : "destructive"}
+                className={subscriptionStatus === "Active" ? "bg-green-500 text-white" : ""}
+              >
+                {subscriptionStatus}
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           {isLoading ? <Skeleton className="h-64 w-full" /> : (
             data?.activePlans?.length ? (
@@ -210,15 +247,33 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-    
-
       {/* Profit Over Time */}
       <Card>
-        <CardHeader><CardTitle>Profit Over Time</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            Profit Over Time
+            <div className="flex gap-2">
+              <Button
+                variant={profitView === "monthly" ? "default" : "outline"}
+                onClick={() => handleToggleView("monthly")}
+                className="text-sm"
+              >
+                Monthly
+              </Button>
+              <Button
+                variant={profitView === "daily" ? "default" : "outline"}
+                onClick={() => handleToggleView("daily")}
+                className="text-sm"
+              >
+                Daily
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           {isLoading ? <Skeleton className="h-64 w-full" /> : (
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={data?.profitOverTime || []}>
+              <AreaChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />

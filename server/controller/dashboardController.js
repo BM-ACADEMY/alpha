@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
-const User = require("../model/usersModel"); // Adjust path as needed
-const Plan = require("../model/planModel"); // Adjust path as needed
-const UserPlanSubscription = require("../model/userSubscriptionPlanModel"); // Adjust path as needed
+const User = require("../model/usersModel");
+const Plan = require("../model/planModel");
+const UserPlanSubscription = require("../model/userSubscriptionPlanModel");
 const Wallet = require("../model/walletModel");
 
 const getDashboardData = async (req, res) => {
@@ -72,7 +72,7 @@ const getDashboardData = async (req, res) => {
       },
     ]);
 
-    // New Users Today (using created_at from User schema)
+    // New Users Today
     const newUsersToday = await User.countDocuments({
       created_at: { $gte: startOfToday, $lte: endOfToday },
     });
@@ -220,7 +220,7 @@ const getDashboardData = async (req, res) => {
 
 const getUserDashboardData = async (req, res) => {
   try {
-    const userId = req.params.id; // Assuming user ID is available from authentication middleware
+    const userId = req.params.id;
 
     // Fetch user profile
     const user = await User.findById(userId).select(
@@ -274,13 +274,49 @@ const getUserDashboardData = async (req, res) => {
           0
         );
 
-        const walletData = await Wallet.findOne({
+        const walletData = await Wallet.find({
           user_id: userId,
-          created_at: { $gte: startOfMonth, $lte: endOfMonth },
-        }).select("dailyProfitAmount");
+          updated_at: { $gte: startOfMonth, $lte: endOfMonth },
+        }).select("dailyProfitAmount updated_at");
+
+        // Sum daily profits for the month
+        const totalProfit = walletData.reduce(
+          (sum, data) => sum + Number(data.dailyProfitAmount || 0),
+          0
+        );
 
         return {
           name: month.name,
+          profit: totalProfit,
+        };
+      })
+    );
+
+    // Fetch daily profit for the last 30 days
+    const days = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      days.push({
+        name: date.toLocaleString("default", { day: "numeric", month: "short" }),
+        date: date,
+      });
+    }
+
+    const dailyProfitOverTime = await Promise.all(
+      days.map(async (day) => {
+        const startOfDay = new Date(day.date);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(day.date);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const walletData = await Wallet.findOne({
+          user_id: userId,
+          updated_at: { $gte: startOfDay, $lte: endOfDay },
+        }).select("dailyProfitAmount");
+
+        return {
+          name: day.name,
           profit: walletData ? Number(walletData.dailyProfitAmount) : 0,
         };
       })
@@ -317,6 +353,7 @@ const getUserDashboardData = async (req, res) => {
       })),
       referralCount,
       profitOverTime,
+      dailyProfitOverTime,
     };
 
     res.status(200).json(dashboardData);
