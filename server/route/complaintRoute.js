@@ -31,4 +31,9 @@ router.get('/complaint-image/:user_id/:filename',authMiddleware, complaintContro
 // DELETE /complaints/:id - Delete
 router.delete('/delete-complaint/:id', complaintController.deleteComplaint);
 
+
+
+// complaint status
+router.patch('/update-status/:id', authMiddleware, complaintController.updateComplaintStatus);
+
 module.exports = router;

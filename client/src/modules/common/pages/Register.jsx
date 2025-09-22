@@ -4,8 +4,6 @@ import { showToast } from "@/modules/common/toast/customToast";
 import logo from "@/assets/images/alphalogo.png";
 import bg from "@/assets/images/bg.jpg";
 import axiosInstance from "../lib/axios";
-
-// Lucide Icons
 import { User, Mail, Phone, Lock, Eye, EyeOff } from "lucide-react";
 
 function Register() {
@@ -28,7 +26,6 @@ function Register() {
     label: "",
     color: "",
   });
-
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -71,6 +68,8 @@ function Register() {
     const newErrors = {};
     if (!formData.username.trim()) newErrors.username = "Username is required";
     if (!formData.email.trim()) newErrors.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(formData.email))
+      newErrors.email = "Invalid email format";
     if (!formData.phone_number.trim())
       newErrors.phone_number = "Phone number is required";
     if (!formData.password) newErrors.password = "Password is required";
@@ -80,8 +79,10 @@ function Register() {
       formData.password &&
       formData.confirmPassword &&
       formData.password !== formData.confirmPassword
-    )
+    ) {
       newErrors.confirmPassword = "Passwords do not match";
+      showToast("error", "Passwords do not match");
+    }
     if (!formData.agreeTerms)
       newErrors.agreeTerms = "You must agree to the Terms & Conditions";
 
@@ -108,7 +109,6 @@ function Register() {
     }
   };
 
-  // Helper to show error as placeholder
   const getInputProps = (field, type = "text") => ({
     type,
     placeholder:
@@ -172,7 +172,8 @@ function Register() {
               setPasswordStrength(checkPasswordStrength(val));
             }}
           />
-          <span
+          <button
+            type="button"
             className="cursor-pointer text-gray-500"
             onClick={() => setShowPassword(!showPassword)}
           >
@@ -181,7 +182,7 @@ function Register() {
             ) : (
               <Eye className="w-5 h-5" />
             )}
-          </span>
+          </button>
         </div>
 
         {/* Password Strength */}
@@ -189,7 +190,7 @@ function Register() {
           <div className="mt-2 px-4 w-full">
             <div className="w-full h-2 bg-gray-300 rounded-full overflow-hidden">
               <div
-                className={`h-2 ${passwordStrength.color} transition-all`}
+                className={`h-2 ${passwordStrength.color} transition-all duration-300`}
                 style={{ width: `${(passwordStrength.score / 4) * 100}%` }}
               />
             </div>
@@ -213,7 +214,8 @@ function Register() {
               showConfirmPassword ? "text" : "password"
             )}
           />
-          <span
+          <button
+            type="button"
             className="cursor-pointer text-gray-500"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
           >
@@ -222,7 +224,7 @@ function Register() {
             ) : (
               <Eye className="w-5 h-5" />
             )}
-          </span>
+          </button>
         </div>
 
         {/* Referral */}
@@ -245,24 +247,49 @@ function Register() {
             I agree to the{" "}
             <span
               onClick={() => navigate("/terms")}
-              className="text-gray-200 underline"
+              className="text-gray-200 underline hover:text-gray-300"
             >
               Terms & Conditions
             </span>
           </label>
-
-          {/* Error message */}
           {errors.agreeTerms && (
             <p className="text-xs text-red-500 mt-1">{errors.agreeTerms}</p>
           )}
         </div>
 
+        {/* Submit Button with Loading Animation */}
         <button
           type="submit"
           disabled={isLoading}
-          className="mt-4 w-full h-12 rounded-full text-white bg-[#0F1C3F] hover:bg-[#1A2B5C] transition-colors shadow-md hover:shadow-lg font-medium disabled:opacity-50"
+          className="mt-4 w-full h-12 rounded-full text-white bg-[#0F1C3F] hover:bg-[#1A2B5C] transition-colors shadow-md hover:shadow-lg font-medium disabled:opacity-50 flex items-center justify-center"
         >
-          {isLoading ? "Registering..." : "Register"}
+          {isLoading ? (
+            <div className="flex items-center gap-2">
+              <svg
+                className="animate-spin h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v8h8a8 8 0 01-16 0z"
+                />
+              </svg>
+              <span>Registering...</span>
+            </div>
+          ) : (
+            "Register"
+          )}
         </button>
 
         <p className="text-gray-200 text-sm mt-4">

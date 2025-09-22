@@ -1,4 +1,4 @@
-
+// ComplaintsTable.jsx
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '@/modules/common/lib/axios';
 import {
@@ -24,6 +24,7 @@ import {
 import { Eye, Mail, CheckCircle, Trash, Send } from 'lucide-react';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showToast } from '@/modules/common/toast/customToast';
 import ConfirmationDialog from '@/modules/common/reusable/ConfirmationDialog';
 import LightGallery from 'lightgallery/react';
@@ -32,7 +33,7 @@ import 'lightgallery/css/lg-zoom.css';
 import 'lightgallery/css/lg-thumbnail.css';
 import lgThumbnail from 'lightgallery/plugins/thumbnail';
 import lgZoom from 'lightgallery/plugins/zoom';
-import { getImageUrl } from './ImageUtils'; // Import getImageUrl
+import { getImageUrl } from './ImageUtils';
 
 const ComplaintsTable = () => {
   const [complaints, setComplaints] = useState([]);
@@ -44,20 +45,18 @@ const ComplaintsTable = () => {
   const [replyData, setReplyData] = useState({ email: '', username: '', phone: '', message: '' });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [complaintToDelete, setComplaintToDelete] = useState(null);
-  const [imageUrls, setImageUrls] = useState({}); // Store blob URLs for images
+  const [imageUrls, setImageUrls] = useState({});
 
   useEffect(() => {
     fetchComplaints();
   }, [page]);
 
-  // Fetch complaints and preload images
   const fetchComplaints = async () => {
     try {
       const res = await axiosInstance.get(`/complaints/fetch-all-complaints?page=${page}&limit=${limit}`);
       setComplaints(res.data.complaints);
       setTotal(res.data.total);
 
-      // Preload images for all complaints
       const newImageUrls = {};
       for (const complaint of res.data.complaints) {
         if (complaint.image_urls && complaint.image_urls.length > 0) {
@@ -83,6 +82,17 @@ const ComplaintsTable = () => {
     } catch (err) {
       console.error('Failed to mark as read:', err);
       showToast('error', 'Failed to mark as read');
+    }
+  };
+
+  const handleUpdateStatus = async (id, status) => {
+    try {
+      await axiosInstance.patch(`/complaints/update-status/${id}`, { status });
+      fetchComplaints();
+      showToast('success', `Complaint status updated to ${status}`);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      showToast('error', 'Failed to update status');
     }
   };
 
@@ -163,8 +173,8 @@ const ComplaintsTable = () => {
             <TableHead>User</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Description</TableHead>
-            <TableHead>Created At</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Created At</TableHead>
             <TableHead className="text-center">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -186,14 +196,22 @@ const ComplaintsTable = () => {
                 {c.description}
               </TableCell>
               <TableCell>
-                {new Date(c.created_at).toLocaleString()}
+                <Select
+                  value={c.status}
+                  onValueChange={(value) => handleUpdateStatus(c._id, value)}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Resolved">Resolved</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
               </TableCell>
               <TableCell>
-                {c.is_read ? (
-                  <Badge className="bg-green-500 hover:bg-green-600">Read</Badge>
-                ) : (
-                  <Badge className="bg-red-500 hover:bg-red-600">Unread</Badge>
-                )}
+                {new Date(c.created_at).toLocaleString()}
               </TableCell>
               <TableCell className="flex justify-center gap-2">
                 {!c.is_read && (
@@ -267,6 +285,22 @@ const ComplaintsTable = () => {
                   <TableRow>
                     <TableCell><strong>Description</strong></TableCell>
                     <TableCell>{selectedComplaint.description}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell><strong>Status</strong></TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          selectedComplaint.status === 'Resolved'
+                            ? 'success'
+                            : selectedComplaint.status === 'Rejected'
+                            ? 'destructive'
+                            : 'warning'
+                        }
+                      >
+                        {selectedComplaint.status}
+                      </Badge>
+                    </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
