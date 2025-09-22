@@ -177,12 +177,271 @@
 
 
 
+
+// 1min format
+// const mongoose = require('mongoose');
+// const UserPlanSubscription = require('../model/userSubscriptionPlanModel');
+// const Wallet = require('../model/walletModel');
+// const User = require('../model/usersModel');
+// const Plan = require('../model/planModel');
+// const cron = require('node-cron');
+// const fs = require('fs');
+// const path = require('path');
+
+// // Log cron runs to a file for debugging
+// const logCronRun = (message) => {
+//   const logMessage = `${new Date().toISOString()}: ${message}\n`;
+//   fs.appendFileSync(path.join(__dirname, 'cron.log'), logMessage);
+// };
+
+// // Search user subscriptions by email, phone number, or customerId
+// const searchUserSubscriptions = async (req, res) => {
+//   const { query } = req.query;
+//   try {
+//     const user = await User.findOne({
+//       $or: [{ email: query }, { phone_number: query }, { customerId: query }],
+//     }).select('_id username email phone_number');
+
+//     if (!user) return res.status(404).json({ message: 'User not found' });
+
+//     const subscriptions = await UserPlanSubscription.find({
+//       user_id: user._id,
+//       status: 'verified',
+//       expires_at: { $gt: new Date() },
+//     })
+//       .populate('plan_id', 'plan_name capital_lockin')
+//       .lean();
+
+//     if (!subscriptions.length)
+//       return res.status(404).json({ message: 'No active verified subscriptions found' });
+
+//     res.json({
+//       user: {
+//         _id: user._id,
+//         username: user.username,
+//         email: user.email,
+//         phone_number: user.phone_number,
+//       },
+//       subscriptions,
+//     });
+//   } catch (error) {
+//     console.error('Search user subscriptions error:', error);
+//     res.status(500).json({ message: error.message || 'Internal server error' });
+//   }
+// };
+
+// // Add points to wallet manually
+// const addPointsToWallet = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+//   try {
+//     const { user_id, subscription_id, amount, profit_percentage } = req.body;
+
+//     if (!mongoose.Types.ObjectId.isValid(user_id) || !mongoose.Types.ObjectId.isValid(subscription_id)) {
+//       return res.status(400).json({ message: 'Invalid user_id or subscription_id format' });
+//     }
+//     if (isNaN(amount) || Number(amount) <= 0) {
+//       return res.status(400).json({ message: 'Invalid amount' });
+//     }
+//     if (isNaN(profit_percentage) || Number(profit_percentage) <= 0) {
+//       return res.status(400).json({ message: 'Invalid profit percentage' });
+//     }
+
+//     const subscription = await UserPlanSubscription.findById(subscription_id).session(session);
+//     if (
+//       !subscription ||
+//       subscription.user_id.toString() !== user_id ||
+//       subscription.status !== 'verified' ||
+//       subscription.expires_at <= new Date()
+//     ) {
+//       return res.status(404).json({ message: 'Valid subscription not found' });
+//     }
+
+//     const plan = await Plan.findById(subscription.plan_id).session(session);
+//     if (!plan) return res.status(404).json({ message: 'Plan not found' });
+
+//     const capitalLockin = plan.capital_lockin || 30;
+//     const totalProfit = (amount * Number(profit_percentage)) / 100;
+//     const dailyProfit = totalProfit / capitalLockin;
+
+//     let wallet = await Wallet.findOne({ user_id }).session(session);
+//     if (!wallet) {
+//       wallet = new Wallet({
+//         user_id,
+//         userPlanCapitalAmount: amount,
+//         dailyProfitAmount: dailyProfit,
+//         totalWalletPoint: amount + dailyProfit,
+//       });
+//     } else {
+//       wallet.userPlanCapitalAmount += amount; // Add to existing capital
+//       wallet.dailyProfitAmount = dailyProfit;
+//       wallet.totalWalletPoint += dailyProfit;
+//     }
+
+//     await wallet.save({ session });
+
+//     await session.commitTransaction();
+//     res.status(200).json({
+//       message: 'Points added to wallet successfully',
+//       wallet: {
+//         user_id: wallet.user_id,
+//         userPlanCapitalAmount: wallet.userPlanCapitalAmount,
+//         dailyProfitAmount: wallet.dailyProfitAmount,
+//         totalWalletPoint: wallet.totalWalletPoint,
+//       },
+//     });
+//   } catch (error) {
+//     await session.abortTransaction();
+//     console.error('Add points to wallet error:', error);
+//     res.status(500).json({ message: error.message || 'Internal server error' });
+//   } finally {
+//     session.endSession();
+//   }
+// };
+
+// // Get all wallet points with pagination
+// const getAllWallets = async (req, res) => {
+//   const { page = 1, limit = 10 } = req.query;
+//   try {
+//     const wallets = await Wallet.find()
+//       .populate('user_id', 'username email phone_number')
+//       .limit(limit * 1)
+//       .skip((page - 1) * limit)
+//       .exec();
+//     const count = await Wallet.countDocuments();
+//     res.json({
+//       wallets,
+//       totalPages: Math.ceil(count / limit),
+//       currentPage: page * 1,
+//     });
+//   } catch (error) {
+//     console.error('Get wallets error:', error);
+//     res.status(500).json({ message: error.message || 'Internal server error' });
+//   }
+// };
+
+// // Scheduler: Update wallets every minute for testing
+// cron.schedule(
+//   '* * * * *', // Changed to every minute for testing
+//   async () => {
+//     console.log('Daily profit scheduler started at:', new Date().toISOString());
+//     logCronRun('Daily profit scheduler started');
+//     const session = await mongoose.startSession();
+//     session.startTransaction();
+//     try {
+//       const now = new Date();
+//       const activeSubscriptions = await UserPlanSubscription.find({
+//         status: 'verified',
+//         planStatus: 'Active',
+//         expires_at: { $gt: now },
+//       })
+//         .populate('plan_id')
+//         .session(session);
+
+//       console.log(`Found ${activeSubscriptions.length} active subscriptions`);
+//       logCronRun(`Found ${activeSubscriptions.length} active subscriptions`);
+
+//       for (const subscription of activeSubscriptions) {
+//         const plan = subscription.plan_id;
+//         if (!plan) {
+//           console.warn(`Plan not found for subscription ${subscription._id}`);
+//           logCronRun(`Plan not found for subscription ${subscription._id}`);
+//           continue;
+//         }
+
+//         const capitalLockin = plan.capital_lockin || 30;
+//         const totalProfit = (subscription.amount * Number(plan.profit_percentage)) / 100;
+//         const dailyProfit = totalProfit / capitalLockin;
+
+//         let wallet = await Wallet.findOne({ user_id: subscription.user_id }).session(session);
+//         if (!wallet) {
+//           wallet = new Wallet({
+//             user_id: subscription.user_id,
+//             userPlanCapitalAmount: subscription.amount,
+//             dailyProfitAmount: dailyProfit,
+//             totalWalletPoint: subscription.amount + dailyProfit,
+//           });
+//         } else {
+//           wallet.dailyProfitAmount = dailyProfit;
+//           wallet.totalWalletPoint += dailyProfit;
+//         }
+//         await wallet.save({ session });
+//         console.log(`Updated wallet for user ${subscription.user_id}: Daily Profit = ${dailyProfit}`);
+//         logCronRun(`Updated wallet for user ${subscription.user_id}: Daily Profit = ${dailyProfit}`);
+
+//         const user = await User.findById(subscription.user_id).session(session);
+//         if (user?.referred_by) {
+//           const referralProfit = dailyProfit * 1;
+//           let referrerWallet = await Wallet.findOne({ user_id: user.referred_by }).session(session);
+//           if (!referrerWallet) {
+//             referrerWallet = new Wallet({
+//               user_id: user.referred_by,
+//               userPlanCapitalAmount: 0,
+//               dailyProfitAmount: referralProfit,
+//               totalWalletPoint: referralProfit,
+//             });
+//           } else {
+//             referrerWallet.dailyProfitAmount += referralProfit;
+//             referrerWallet.totalWalletPoint += referralProfit;
+//           }
+//           await referrerWallet.save({ session });
+//           console.log(
+//             `Added referral profit ${referralProfit.toFixed(2)} to referrer ${user.referred_by} from user ${subscription.user_id}`
+//           );
+//           logCronRun(
+//             `Added referral profit ${referralProfit.toFixed(2)} to referrer ${user.referred_by} from user ${subscription.user_id}`
+//           );
+//         }
+//       }
+
+//       const inactiveUpdate = await UserPlanSubscription.updateMany(
+//         { status: 'verified', planStatus: 'Active', expires_at: { $lte: now } },
+//         { planStatus: 'Inactive' },
+//         { session }
+//       );
+//       console.log(`Updated ${inactiveUpdate.modifiedCount} subscriptions to Inactive`);
+//       logCronRun(`Updated ${inactiveUpdate.modifiedCount} subscriptions to Inactive`);
+
+//       await session.commitTransaction();
+//       console.log('Daily profit scheduler completed successfully');
+//       logCronRun('Daily profit scheduler completed successfully');
+//     } catch (error) {
+//       await session.abortTransaction();
+//       console.error('Daily profit scheduler error:', error);
+//       logCronRun(`Daily profit scheduler error: ${error.message}`);
+//     } finally {
+//       session.endSession();
+//     }
+//   },
+//   {
+//     scheduled: true,
+//     timezone: 'Asia/Kolkata', // Ensure correct timezone (IST)
+//   }
+// );
+
+// module.exports = {
+//   searchUserSubscriptions,
+//   addPointsToWallet,
+//   getAllWallets,
+// };
+
+
+
+
 const mongoose = require('mongoose');
 const UserPlanSubscription = require('../model/userSubscriptionPlanModel');
 const Wallet = require('../model/walletModel');
 const User = require('../model/usersModel');
 const Plan = require('../model/planModel');
 const cron = require('node-cron');
+const fs = require('fs');
+const path = require('path');
+
+// Log cron runs to a file for debugging
+const logCronRun = (message) => {
+  const logMessage = `${new Date().toISOString()}: ${message}\n`;
+  fs.appendFileSync(path.join(__dirname, 'cron.log'), logMessage);
+};
 
 // Search user subscriptions by email, phone number, or customerId
 const searchUserSubscriptions = async (req, res) => {
@@ -222,34 +481,39 @@ const searchUserSubscriptions = async (req, res) => {
 
 // Add points to wallet manually
 const addPointsToWallet = async (req, res) => {
-  const { user_id, subscription_id, amount, profit_percentage } = req.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
-    if (!mongoose.Types.ObjectId.isValid(user_id) || !mongoose.Types.ObjectId.isValid(subscription_id))
+    const { user_id, subscription_id, amount, profit_percentage } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(user_id) || !mongoose.Types.ObjectId.isValid(subscription_id)) {
       return res.status(400).json({ message: 'Invalid user_id or subscription_id format' });
-
-    if (isNaN(amount) || Number(amount) <= 0)
+    }
+    if (isNaN(amount) || Number(amount) <= 0) {
       return res.status(400).json({ message: 'Invalid amount' });
-
-    if (isNaN(profit_percentage) || Number(profit_percentage) <= 0)
+    }
+    if (isNaN(profit_percentage) || Number(profit_percentage) <= 0) {
       return res.status(400).json({ message: 'Invalid profit percentage' });
+    }
 
-    const subscription = await UserPlanSubscription.findById(subscription_id);
+    const subscription = await UserPlanSubscription.findById(subscription_id).session(session);
     if (
       !subscription ||
       subscription.user_id.toString() !== user_id ||
       subscription.status !== 'verified' ||
       subscription.expires_at <= new Date()
-    )
+    ) {
       return res.status(404).json({ message: 'Valid subscription not found' });
+    }
 
-    const plan = await Plan.findById(subscription.plan_id);
+    const plan = await Plan.findById(subscription.plan_id).session(session);
     if (!plan) return res.status(404).json({ message: 'Plan not found' });
 
     const capitalLockin = plan.capital_lockin || 30;
     const totalProfit = (amount * Number(profit_percentage)) / 100;
     const dailyProfit = totalProfit / capitalLockin;
 
-    let wallet = await Wallet.findOne({ user_id });
+    let wallet = await Wallet.findOne({ user_id }).session(session);
     if (!wallet) {
       wallet = new Wallet({
         user_id,
@@ -258,13 +522,14 @@ const addPointsToWallet = async (req, res) => {
         totalWalletPoint: amount + dailyProfit,
       });
     } else {
-      wallet.userPlanCapitalAmount = amount;
+      wallet.userPlanCapitalAmount += amount; // Add to existing capital
       wallet.dailyProfitAmount = dailyProfit;
       wallet.totalWalletPoint += dailyProfit;
     }
 
-    await wallet.save();
+    await wallet.save({ session });
 
+    await session.commitTransaction();
     res.status(200).json({
       message: 'Points added to wallet successfully',
       wallet: {
@@ -275,8 +540,11 @@ const addPointsToWallet = async (req, res) => {
       },
     });
   } catch (error) {
+    await session.abortTransaction();
     console.error('Add points to wallet error:', error);
     res.status(500).json({ message: error.message || 'Internal server error' });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -301,74 +569,104 @@ const getAllWallets = async (req, res) => {
   }
 };
 
-// Scheduler: update wallets daily at 12:00 AM
-cron.schedule('0 0 * * *', async () => {
-  try {
-    const now = new Date();
+// Scheduler: Update wallets daily at 12:00 AM
+cron.schedule(
+  '0 0 * * *',
+  async () => {
+    console.log('Daily profit scheduler started at:', new Date().toISOString());
+    logCronRun('Daily profit scheduler started');
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const now = new Date();
+      const activeSubscriptions = await UserPlanSubscription.find({
+        status: 'verified',
+        planStatus: 'Active',
+        expires_at: { $gt: now },
+      })
+        .populate('plan_id')
+        .session(session);
 
-    // 1️⃣ Get all active subscriptions
-    const activeSubscriptions = await UserPlanSubscription.find({
-      status: 'verified',
-      planStatus: 'Active',
-      expires_at: { $gt: now },
-    }).populate('plan_id');
+      console.log(`Found ${activeSubscriptions.length} active subscriptions`);
+      logCronRun(`Found ${activeSubscriptions.length} active subscriptions`);
 
-    for (const subscription of activeSubscriptions) {
-      const plan = subscription.plan_id;
-      if (!plan) continue;
+      for (const subscription of activeSubscriptions) {
+        const plan = subscription.plan_id;
+        if (!plan) {
+          console.warn(`Plan not found for subscription ${subscription._id}`);
+          logCronRun(`Plan not found for subscription ${subscription._id}`);
+          continue;
+        }
 
-      // Calculate user's daily profit
-      const capitalLockin = plan.capital_lockin || 30;
-      const totalProfit = (subscription.amount * Number(plan.profit_percentage)) / 100;
-      const dailyProfit = totalProfit / capitalLockin;
+        const capitalLockin = plan.capital_lockin || 30;
+        const totalProfit = (subscription.amount * Number(plan.profit_percentage)) / 100;
+        const dailyProfit = totalProfit / capitalLockin;
 
-      // Update subscription owner's wallet
-      let wallet = await Wallet.findOne({ user_id: subscription.user_id });
-      if (!wallet) {
-        wallet = new Wallet({
-          user_id: subscription.user_id,
-          userPlanCapitalAmount: subscription.amount,
-          dailyProfitAmount: dailyProfit,
-          totalWalletPoint: subscription.amount + dailyProfit,
-        });
-      } else {
-        wallet.dailyProfitAmount = dailyProfit;
-        wallet.totalWalletPoint += dailyProfit;
-      }
-      await wallet.save();
-
-      // 2️⃣ Handle referral profit
-      const user = await User.findById(subscription.user_id);
-      if (user?.referred_by) {
-        const referralProfit = dailyProfit * 0.01; // 1% of daily profit
-        let referrerWallet = await Wallet.findOne({ user_id: user.referred_by });
-        if (!referrerWallet) {
-          referrerWallet = new Wallet({
-            user_id: user.referred_by,
-            userPlanCapitalAmount: 0,
-            dailyProfitAmount: referralProfit,
-            totalWalletPoint: referralProfit,
+        let wallet = await Wallet.findOne({ user_id: subscription.user_id }).session(session);
+        if (!wallet) {
+          wallet = new Wallet({
+            user_id: subscription.user_id,
+            userPlanCapitalAmount: subscription.amount,
+            dailyProfitAmount: dailyProfit,
+            totalWalletPoint: subscription.amount + dailyProfit,
           });
         } else {
-          referrerWallet.dailyProfitAmount += referralProfit;
-          referrerWallet.totalWalletPoint += referralProfit;
+          wallet.dailyProfitAmount = dailyProfit;
+          wallet.totalWalletPoint += dailyProfit;
         }
-        await referrerWallet.save();
-        console.log(
-          `Added referral profit ${referralProfit.toFixed(2)} to referrer ${user.referred_by} from user ${subscription.user_id}`
-        );
-      }
-    }
+        await wallet.save({ session });
+        console.log(`Updated wallet for user ${subscription.user_id}: Daily Profit = ${dailyProfit}`);
+        logCronRun(`Updated wallet for user ${subscription.user_id}: Daily Profit = ${dailyProfit}`);
 
-    // Update inactive subscriptions
-    await UserPlanSubscription.updateMany(
-      { status: 'verified', planStatus: 'Active', expires_at: { $lte: now } },
-      { planStatus: 'Inactive' }
-    );
-  } catch (error) {
-    console.error('Daily profit scheduler error:', error);
+        const user = await User.findById(subscription.user_id).session(session);
+        if (user?.referred_by) {
+          const referralProfit = dailyProfit * 0.01;
+          let referrerWallet = await Wallet.findOne({ user_id: user.referred_by }).session(session);
+          if (!referrerWallet) {
+            referrerWallet = new Wallet({
+              user_id: user.referred_by,
+              userPlanCapitalAmount: 0,
+              dailyProfitAmount: referralProfit,
+              totalWalletPoint: referralProfit,
+            });
+          } else {
+            referrerWallet.dailyProfitAmount += referralProfit;
+            referrerWallet.totalWalletPoint += referralProfit;
+          }
+          await referrerWallet.save({ session });
+          console.log(
+            `Added referral profit ${referralProfit.toFixed(2)} to referrer ${user.referred_by} from user ${subscription.user_id}`
+          );
+          logCronRun(
+            `Added referral profit ${referralProfit.toFixed(2)} to referrer ${user.referred_by} from user ${subscription.user_id}`
+          );
+        }
+      }
+
+      const inactiveUpdate = await UserPlanSubscription.updateMany(
+        { status: 'verified', planStatus: 'Active', expires_at: { $lte: now } },
+        { planStatus: 'Inactive' },
+        { session }
+      );
+      console.log(`Updated ${inactiveUpdate.modifiedCount} subscriptions to Inactive`);
+      logCronRun(`Updated ${inactiveUpdate.modifiedCount} subscriptions to Inactive`);
+
+      await session.commitTransaction();
+      console.log('Daily profit scheduler completed successfully');
+      logCronRun('Daily profit scheduler completed successfully');
+    } catch (error) {
+      await session.abortTransaction();
+      console.error('Daily profit scheduler error:', error);
+      logCronRun(`Daily profit scheduler error: ${error.message}`);
+    } finally {
+      session.endSession();
+    }
+  },
+  {
+    scheduled: true,
+    timezone: 'Asia/Kolkata', // Ensure correct timezone
   }
-});
+);
 
 module.exports = {
   searchUserSubscriptions,

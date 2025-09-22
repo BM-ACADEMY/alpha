@@ -16,9 +16,7 @@ exports.createRedeemRequest = async (req, res) => {
       return res.status(400).json({ message: "Invalid account type" });
     }
     if (redeem_amount <= 0) {
-      return res
-        .status(400)
-        .json({ message: "Redeem amount must be greater than 0" });
+      return res.status(400).json({ message: "Redeem amount must be greater than 0" });
     }
 
     // Check wallet
@@ -26,17 +24,12 @@ exports.createRedeemRequest = async (req, res) => {
     if (!wallet) {
       return res.status(404).json({ message: "Wallet not found" });
     }
-    if (wallet.dailyProfitAmount < redeem_amount) {
-      return res
-        .status(400)
-        .json({ message: "Insufficient daily profit amount" });
+    const availableProfit = wallet.totalWalletPoint - wallet.userPlanCapitalAmount;
+    if (availableProfit < redeem_amount) {
+      return res.status(400).json({ message: `Insufficient accumulated profit (${availableProfit.toFixed(2)} INR)` });
     }
-    if (wallet.dailyProfitAmount < 1000) {
-      return res
-        .status(400)
-        .json({
-          message: "Daily profit amount must be at least 1000 to redeem",
-        });
+    if (availableProfit < 1000) {
+      return res.status(400).json({ message: "Accumulated profit must be at least 1000 INR to redeem" });
     }
 
     // Create redeem request
@@ -69,9 +62,7 @@ exports.createRedeemRequest = async (req, res) => {
           <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
             <tr style="background: #f9fafb;">
               <td style="padding: 10px; border: 1px solid #e2e8f0;"><strong>User</strong></td>
-              <td style="padding: 10px; border: 1px solid #e2e8f0;">${
-                user.username
-              } (${user.email})</td>
+              <td style="padding: 10px; border: 1px solid #e2e8f0;">${user.username} (${user.email})</td>
             </tr>
             <tr>
               <td style="padding: 10px; border: 1px solid #e2e8f0;"><strong>Redeem Amount</strong></td>
@@ -83,9 +74,7 @@ exports.createRedeemRequest = async (req, res) => {
             </tr>
             <tr>
               <td style="padding: 10px; border: 1px solid #e2e8f0;"><strong>Submitted At</strong></td>
-              <td style="padding: 10px; border: 1px solid #e2e8f0;">${new Date(
-                redeem.created_at
-              ).toLocaleString()}</td>
+              <td style="padding: 10px; border: 1px solid #e2e8f0;">${new Date(redeem.created_at).toLocaleString()}</td>
             </tr>
           </table>
           <p>Please review the request in the admin panel.</p>
@@ -98,7 +87,6 @@ exports.createRedeemRequest = async (req, res) => {
       </div>
     `;
 
-    // Fetch admin emails
     const adminRole = await Role.findOne({ role_name: "admin" });
     const adminUsers = await User.find({ role_id: adminRole._id });
     const adminEmails = adminUsers.map((u) => u.email);
@@ -108,19 +96,16 @@ exports.createRedeemRequest = async (req, res) => {
     } else {
       await transporter.sendMail({
         from: `"Alpha R Support" <${process.env.EMAIL_USER}>`,
-        to: adminEmails.join(","), // send to all admins
+        to: adminEmails.join(","),
         subject: "New Redeem Request - Alpha R",
         html: htmlContent,
       });
     }
 
-    // Update email_send
     redeem.email_send = true;
     await redeem.save();
 
-    res
-      .status(201)
-      .json({ message: "Redeem request submitted successfully", redeem });
+    res.status(201).json({ message: "Redeem request submitted successfully", redeem });
   } catch (err) {
     console.error("Error creating redeem request:", err);
     res.status(500).json({ message: "Server Error", error: err.message });
@@ -189,15 +174,15 @@ exports.updateRedeemStatus = async (req, res) => {
         return res.status(404).json({ message: 'Wallet not found' });
       }
 
-      // Subtract redeem_amount from dailyProfitAmount
-      const newDailyProfitAmount = wallet.dailyProfitAmount - redeem.redeem_amount;
-      if (newDailyProfitAmount < 0) {
-        return res.status(400).json({ message: 'Insufficient daily profit amount' });
+      // Subtract redeem_amount from totalWalletPoint
+      const availableProfit = wallet.totalWalletPoint - wallet.userPlanCapitalAmount;
+      if (availableProfit < redeem.redeem_amount) {
+        return res.status(400).json({ message: `Insufficient accumulated profit (${availableProfit.toFixed(2)} INR)` });
       }
 
       // Update wallet
-      wallet.dailyProfitAmount = newDailyProfitAmount;
-      wallet.totalWalletPoint = newDailyProfitAmount + wallet.userPlanCapitalAmount;
+      wallet.totalWalletPoint -= redeem.redeem_amount;
+      wallet.dailyProfitAmount = 0; // Reset dailyProfitAmount or adjust based on cron logic
       await wallet.save();
     }
 
@@ -257,6 +242,29 @@ exports.updateRedeemStatus = async (req, res) => {
     res.json({ message: `Redeem request ${status} successfully`, redeem });
   } catch (err) {
     console.error('Error updating redeem status:', err);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+};
+
+
+// Get Redeem Requests by User ID
+exports.getUserRedeemRequests = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const redeemRequests = await Redeem.find({ user_id })
+      .populate('user_id', 'username email')
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Redeem.countDocuments({ user_id });
+
+    res.json({ redeemRequests, total, page, limit });
+  } catch (err) {
+    console.error('Error fetching user redeem requests:', err);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };

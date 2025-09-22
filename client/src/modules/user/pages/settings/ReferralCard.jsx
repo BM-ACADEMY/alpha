@@ -4,23 +4,24 @@ import { Code, Users, Copy } from "lucide-react"
 import { showToast } from "@/modules/common/toast/customToast"
 
 const ReferralCard = ({ profileData }) => {
-  const [copied, setCopied] = useState(false)
-
-  const frontendDomain = import.meta.env.VITE_FRONTEND_URL // keep this in your .env
+  const frontendDomain = import.meta.env.VITE_FRONTEND_URL
 
   const referralCode = profileData.referral_code || null
   const referralLink = referralCode
     ? `${frontendDomain}/signup?ref=${referralCode}`
     : null
 
-  const handleCopy = async () => {
+  const handleCopyCode = async () => {
+    if (referralCode) {
+      await navigator.clipboard.writeText(referralCode)
+      showToast("success", "Referral code copied to clipboard!")
+    }
+  }
+
+  const handleCopyLink = async () => {
     if (referralLink) {
       await navigator.clipboard.writeText(referralLink)
-      setCopied(true)
-      showToast("success",
-        "Referral link copied to clipboard!",
-      )
-      setTimeout(() => setCopied(false), 2000)
+      showToast("success", "Referral link copied to clipboard!")
     }
   }
 
@@ -29,12 +30,19 @@ const ReferralCard = ({ profileData }) => {
       label: "Referral Code",
       value: referralCode || "Not generated",
       icon: Code,
-      isLink: true,
+      copyAction: handleCopyCode,
     },
     {
       label: "Referred By",
       value: profileData.referred_by?.username || "None",
       icon: Users,
+      copyAction: null,
+    },
+    {
+      label: "Referral Link",
+      value: referralLink || "Not generated",
+      icon: Copy,
+      copyAction: handleCopyLink,
     },
   ]
 
@@ -54,16 +62,18 @@ const ReferralCard = ({ profileData }) => {
               <item.icon className="mr-2 h-4 w-4 text-muted-foreground" />
               <dt className="w-36 font-medium">{item.label}:</dt>
               <dd className="flex-1 flex items-center justify-between">
-                {item.isLink && referralLink ? (
-                  <button
-                    onClick={handleCopy}
-                    className="text-blue-600 hover:underline flex items-center gap-1"
-                  >
-                    {item.value}
-                    <Copy className="h-4 w-4" />
-                  </button>
+                {item.copyAction && item.value !== "Not generated" ? (
+                  <div className="flex items-center gap-1">
+                    <span className="truncate">{item.value}</span>
+                    <button
+                      onClick={item.copyAction}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
                 ) : (
-                  item.value
+                  <span>{item.value}</span>
                 )}
               </dd>
             </div>
@@ -74,4 +84,4 @@ const ReferralCard = ({ profileData }) => {
   )
 }
 
-export default ReferralCard;
+export default ReferralCard

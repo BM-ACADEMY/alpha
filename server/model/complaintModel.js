@@ -1,3 +1,4 @@
+// complaintModel.js
 const mongoose = require('mongoose');
 
 const ComplaintSchema = new mongoose.Schema({
@@ -20,6 +21,11 @@ const ComplaintSchema = new mongoose.Schema({
   is_read: {
     type: Boolean,
     default: false,
+  },
+  status: {
+    type: String,
+    enum: ['Pending', 'Resolved', 'Rejected'],
+    default: 'Pending',
   },
   created_at: {
     type: Date,

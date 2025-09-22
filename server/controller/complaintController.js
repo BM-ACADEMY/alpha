@@ -48,26 +48,33 @@ exports.createComplaint = async (req, res) => {
 };
 
 // Get All Complaints with Pagination
+// Updated Backend Function (complaintController.js)
 exports.getAllComplaints = async (req, res) => {
   try {
+    const { user_id } = req.query; // ✅ Get user_id from query params
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const complaints = await Complaint.find()
+    // Create a filter object, if user_id exists, add it to the filter
+    const filter = {};
+    if (user_id) {
+        filter.user_id = user_id; // ✅ Filter by user_id
+    }
+
+    const complaints = await Complaint.find(filter) // ✅ Use the filter
       .populate('user_id', 'username email phone_number')
       .skip(skip)
       .limit(limit)
       .sort({ created_at: -1 });
 
-    const total = await Complaint.countDocuments();
+    const total = await Complaint.countDocuments(filter); // ✅ Count documents with the same filter
 
     res.json({ complaints, total, page, limit });
   } catch (err) {
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };
-
 // Get Complaint By ID
 exports.getComplaintById = async (req, res) => {
   try {
@@ -185,16 +192,48 @@ exports.deleteImage = async (req, res) => {
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };
+
+
+// exports.getComplaintImage = async (req, res) => {
+//   const { user_id, filename } = req.params;
+//   const complaint = await Complaint.findOne({ user_id, image_urls: { $elemMatch: { $regex: filename } } });
+//   let filePath;
+
+//   if (complaint && complaint.folder_prefix) {
+//     filePath = path.join(__dirname, '../Uploads', 'complaints', `${complaint.folder_prefix}${user_id}`, filename);
+//   } else {
+//     filePath = path.join(__dirname, '../Uploads', 'complaints', user_id, filename);
+//   }
+
+//   console.log('getComplaintImage called:', { user_id, filename, filePath });
+
+//   if (!fs.existsSync(filePath)) {
+//     console.error('Image not found:', filePath);
+//     return res.status(404).json({ message: 'Image not found' });
+//   }
+
+//   if (req.user && req.user.role !== 'admin' && req.user.id !== user_id) {
+//     console.error('Unauthorized access:', { user: req.user, user_id });
+//     return res.status(403).json({ message: 'Unauthorized' });
+//   }
+
+//   const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+//   res.setHeader('Content-Type', mimeType);
+//   res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+//   res.sendFile(filePath, (err) => {
+//     if (err) {
+//       console.error('Error sending file:', err);
+//       res.status(500).json({ message: 'Error serving file' });
+//     }
+//   });
+// };
+// Delete Complaint
+
+// complaintController.js
 exports.getComplaintImage = async (req, res) => {
   const { user_id, filename } = req.params;
-  const complaint = await Complaint.findOne({ user_id, image_urls: { $elemMatch: { $regex: filename } } });
-  let filePath;
-
-  if (complaint && complaint.folder_prefix) {
-    filePath = path.join(__dirname, '../Uploads', 'complaints', `${complaint.folder_prefix}${user_id}`, filename);
-  } else {
-    filePath = path.join(__dirname, '../Uploads', 'complaints', user_id, filename);
-  }
+  const filePath = path.join(__dirname, '../Uploads', FOLDER_NAME, user_id, filename);
 
   console.log('getComplaintImage called:', { user_id, filename, filePath });
 
@@ -203,6 +242,7 @@ exports.getComplaintImage = async (req, res) => {
     return res.status(404).json({ message: 'Image not found' });
   }
 
+  // Authorization check
   if (req.user && req.user.role !== 'admin' && req.user.id !== user_id) {
     console.error('Unauthorized access:', { user: req.user, user_id });
     return res.status(403).json({ message: 'Unauthorized' });
@@ -219,7 +259,31 @@ exports.getComplaintImage = async (req, res) => {
     }
   });
 };
-// Delete Complaint
+
+// complaintController.js
+exports.updateComplaintStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['Pending', 'Resolved', 'Rejected'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status value' });
+    }
+
+    const complaint = await Complaint.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    res.json({ message: 'Complaint status updated', complaint });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+};
+
 exports.deleteComplaint = async (req, res) => {
   try {
     const complaint = await Complaint.findById(req.params.id).populate('user_id', '_id');

@@ -1,12 +1,19 @@
-import React, { useState, useEffect, useContext } from 'react';
-import axiosInstance from '@/modules/common/lib/axios';
-import { AuthContext } from '@/modules/common/context/AuthContext';
+import React, { useState, useEffect, useContext } from "react";
+import axiosInstance from "@/modules/common/lib/axios";
+import { AuthContext } from "@/modules/common/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle } from 'lucide-react';
-import { showToast } from '@/modules/common/toast/customToast';
+import { Loader2, AlertCircle } from "lucide-react";
+import { showToast } from "@/modules/common/toast/customToast";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +24,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import Zoom from "react-medium-image-zoom";
+import "react-medium-image-zoom/dist/styles.css";
 
 const Complaint = () => {
   const { user } = useContext(AuthContext);
@@ -26,15 +35,19 @@ const Complaint = () => {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 10;
-  
-  // Modal state
+
+  // Form modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
-    complaint_type: '',
-    description: '',
+    complaint_type: "",
+    description: "",
   });
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Image view modal state
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [selectedImages, setSelectedImages] = useState([]);
 
   useEffect(() => {
     if (!user) return;
@@ -42,21 +55,23 @@ const Complaint = () => {
     const fetchComplaints = async () => {
       try {
         setLoading(true);
-        const response = await axiosInstance.get('/complaints/fetch-all-complaints', {
-          params: {
-            page,
-            limit,
-            user_id: user?.id,
-          },
-          withCredentials: true,
-        });
+        const response = await axiosInstance.get(
+          "/complaints/fetch-all-complaints",
+          {
+            params: { page, limit, user_id: user?.id },
+            withCredentials: true,
+          }
+        );
 
         setComplaints(response.data.complaints);
         setTotal(response.data.total);
       } catch (err) {
-        console.error('Error fetching complaints:', err);
-        setError('Failed to fetch complaints');
-        showToast('error', err.response?.data?.message || 'Failed to fetch complaints');
+        console.error("Error fetching complaints:", err);
+        setError("Failed to fetch complaints");
+        showToast(
+          "error",
+          err.response?.data?.message || "Failed to fetch complaints"
+        );
       } finally {
         setLoading(false);
       }
@@ -82,39 +97,45 @@ const Complaint = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.complaint_type || !formData.description) {
-      showToast('error', 'Please fill in all required fields');
+      showToast("error", "Please fill in all required fields");
       return;
     }
 
     setIsSubmitting(true);
     const formDataToSend = new FormData();
-    formDataToSend.append('user_id', user?.id);
-    formDataToSend.append('complaint_type', formData.complaint_type);
-    formDataToSend.append('description', formData.description);
-    
+    formDataToSend.append("user_id", user?.id);
+    formDataToSend.append("complaint_type", formData.complaint_type);
+    formDataToSend.append("description", formData.description);
+
     selectedFiles.forEach((file) => {
-      formDataToSend.append('images', file);
+      formDataToSend.append("images", file);
     });
 
     try {
-      const response = await axiosInstance.post('/complaints', formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      const response = await axiosInstance.post("/complaints", formDataToSend, {
+        headers: { "Content-Type": "multipart/form-data" },
         withCredentials: true,
       });
 
       setComplaints((prev) => [response.data.complaint, ...prev]);
-      showToast('success', 'Complaint submitted successfully');
-      setFormData({ complaint_type: '', description: '' });
+      showToast("success", "Complaint submitted successfully");
+      setFormData({ complaint_type: "", description: "" });
       setSelectedFiles([]);
       setIsModalOpen(false);
     } catch (err) {
-      console.error('Error submitting complaint:', err);
-      showToast('error', err.response?.data?.message || 'Failed to submit complaint');
+      console.error("Error submitting complaint:", err);
+      showToast(
+        "error",
+        err.response?.data?.message || "Failed to submit complaint"
+      );
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleViewImages = (imageUrls) => {
+    setSelectedImages(imageUrls || []);
+    setIsImageModalOpen(true);
   };
 
   const totalPages = Math.ceil(total / limit);
@@ -124,7 +145,9 @@ const Complaint = () => {
       <div className="flex items-center justify-center min-h-screen px-4">
         <Card className="w-full max-w-md">
           <CardContent className="flex items-center justify-center p-6">
-            <p className="text-gray-600 text-center">Please log in to view your complaints.</p>
+            <p className="text-gray-600 text-center">
+              Please log in to view your complaints.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -160,9 +183,7 @@ const Complaint = () => {
             My Complaints
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
-                <Button 
-                  className="bg-[#0f1c3f] hover:bg-[#1a2b5c] text-white"
-                >
+                <Button className="bg-[#0f1c3f] hover:bg-[#1a2b5c] text-white">
                   File New Complaint
                 </Button>
               </DialogTrigger>
@@ -206,11 +227,17 @@ const Complaint = () => {
                     {selectedFiles.length > 0 && (
                       <div className="mt-2">
                         <p>Selected files:</p>
-                        <ul className="list-disc pl-5">
+                        <div className="flex flex-wrap gap-2">
                           {selectedFiles.map((file, index) => (
-                            <li key={index} className="truncate">{file.name}</li>
+                            <Zoom key={index}>
+                              <img
+                                src={URL.createObjectURL(file)}
+                                alt={file.name}
+                                className="w-16 h-16 object-cover rounded"
+                              />
+                            </Zoom>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -223,8 +250,8 @@ const Complaint = () => {
                     >
                       Cancel
                     </Button>
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       disabled={isSubmitting}
                       className="bg-[#0f1c3f] hover:bg-[#1a2b5c] text-white"
                     >
@@ -234,7 +261,7 @@ const Complaint = () => {
                           Submitting...
                         </>
                       ) : (
-                        'Submit Complaint'
+                        "Submit Complaint"
                       )}
                     </Button>
                   </div>
@@ -245,27 +272,51 @@ const Complaint = () => {
         </CardHeader>
         <CardContent>
           {complaints.length === 0 ? (
-            <p className="text-gray-600 text-center py-4">No complaints found.</p>
+            <p className="text-gray-600 text-center py-4">
+              No complaints found.
+            </p>
           ) : (
             <>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[120px] sm:w-[150px]">Complaint Type</TableHead>
+                      <TableHead className="w-[120px] sm:w-[150px]">
+                        Complaint Type
+                      </TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead className="w-[100px]">Status</TableHead>
+                      <TableHead className="w-[100px]">Read</TableHead>
                       <TableHead className="w-[120px]">Created At</TableHead>
-                      <TableHead className="w-[100px]">Images</TableHead>
+                      <TableHead className="w-[150px]">Images</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {complaints.map((complaint) => (
                       <TableRow key={complaint._id}>
-                        <TableCell className="font-medium">{complaint.complaint_type}</TableCell>
-                        <TableCell className="max-w-[200px] sm:max-w-[300px] truncate">{complaint.description}</TableCell>
+                        <TableCell className="font-medium">
+                          {complaint.complaint_type}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] sm:max-w-[300px] truncate">
+                          {complaint.description}
+                        </TableCell>
                         <TableCell>
-                          <Badge variant={complaint.is_read ? "success" : "warning"}>
+                          <Badge
+                            className={
+                              complaint.status === "Resolved"
+                                ? "bg-green-500 text-white"
+                                : complaint.status === "Rejected"
+                                ? "bg-red-500 text-white"
+                                : "bg-[#e1ad43] text-white"
+                            }
+                          >
+                            {complaint.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={complaint.is_read ? "success" : "warning"}
+                          >
                             {complaint.is_read ? "Read" : "Unread"}
                           </Badge>
                         </TableCell>
@@ -273,20 +324,15 @@ const Complaint = () => {
                           {new Date(complaint.created_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
-                          {complaint.image_urls && complaint.image_urls.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {complaint.image_urls.map((url, index) => (
-                                <a
-                                  key={index}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-500 hover:underline text-sm"
-                                >
-                                  Image {index + 1}
-                                </a>
-                              ))}
-                            </div>
+                          {complaint.image_urls &&
+                          complaint.image_urls.length > 0 ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewImages(complaint.image_urls)}
+                            >
+                              View Images
+                            </Button>
                           ) : (
                             <span>-</span>
                           )}
@@ -321,6 +367,40 @@ const Complaint = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Image View Modal */}
+      <Dialog open={isImageModalOpen} onOpenChange={setIsImageModalOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Complaint Images</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            {selectedImages.length > 0 ? (
+              <div className="flex flex-wrap gap-4">
+                {selectedImages.map((url, index) => (
+                  <Zoom key={index}>
+                    <img
+                      src={url}
+                      alt={`Complaint image ${index + 1}`}
+                      className="w-40 h-40 object-cover rounded"
+                    />
+                  </Zoom>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600 text-center">No images available.</p>
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setIsImageModalOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -66,13 +66,11 @@ const Profile = () => {
     profile_image: null,
     pan_image: null,
     aadhar_image: null,
-    qrcode: null,
   });
   const [isImageUploading, setIsImageUploading] = useState({
     profile_image: false,
     pan_image: false,
     aadhar_image: false,
-    qrcode: false,
   });
 
   // Clean up blob URLs to prevent memory leaks
@@ -102,10 +100,10 @@ const Profile = () => {
         const profile = response.data;
         setProfileData(profile);
 
-        const imageFields = ['profile_image', 'pan_image', 'aadhar_image', 'qrcode'];
+        const imageFields = ['profile_image', 'pan_image', 'aadhar_image'];
         const imagePromises = imageFields.map(async (field) => ({
           field,
-          url: profile[field] ? await getImageUrl(profile[field], user.id, field === 'qrcode' ? 'qr_code' : 'user') : null,
+          url: profile[field] ? await getImageUrl(profile[field], user.id, 'user') : null,
         }));
         const previewsArray = await Promise.all(imagePromises);
         const previews = previewsArray.reduce((acc, { field, url }) => ({ ...acc, [field]: url }), {});
