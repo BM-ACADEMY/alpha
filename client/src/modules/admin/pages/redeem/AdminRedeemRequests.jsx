@@ -8,7 +8,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, XCircle, AlertCircle, Loader2, Eye, Copy, Check } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, Loader2, Eye, Copy, Check, Filter } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -52,6 +52,12 @@ const AdminRedeemRequests = () => {
   const [accountDetails, setAccountDetails] = useState(null);
   const [accountLoading, setAccountLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // New state for filters and search
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterAmount, setFilterAmount] = useState('');
+  const [filterDate, setFilterDate] = useState('');
 
   // Fetch all redeem requests
   useEffect(() => {
@@ -114,6 +120,32 @@ const AdminRedeemRequests = () => {
     }
   };
 
+  // Filtering logic
+  const filteredRequests = redeemRequests.filter(request => {
+    // Filter by user search term (username or email)
+    const matchesSearch = searchTerm === '' || 
+      (request.user_id?.username?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+       request.user_id?.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // Filter by status
+    const matchesStatus = filterStatus === 'all' || request.status === filterStatus;
+
+    // Filter by amount
+    const matchesAmount = filterAmount === '' || request.redeem_amount.toFixed(2) === parseFloat(filterAmount).toFixed(2);
+
+    // Filter by date
+    const matchesDate = filterDate === '' || new Date(request.created_at).toISOString().slice(0, 10) === filterDate;
+    
+    return matchesSearch && matchesStatus && matchesAmount && matchesDate;
+  });
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setFilterStatus('all');
+    setFilterAmount('');
+    setFilterDate('');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-6">
@@ -129,10 +161,78 @@ const AdminRedeemRequests = () => {
         <CheckCircle className="h-6 w-6 mr-2 text-blue-600" />
         Redeem Requests
       </h2>
-      {redeemRequests.length === 0 ? (
+      
+      {/* Filter and Search section */}
+      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-6 items-center">
+        {/* User Search */}
+        <div className="w-full sm:w-1/3">
+          <label htmlFor="user-search" className="block text-sm font-medium text-gray-700">Search by User</label>
+          <input
+            type="text"
+            id="user-search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Username or Email"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+          />
+        </div>
+        
+        {/* Status Filter */}
+        <div className="w-full sm:w-1/4">
+          <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700">Filter by Status</label>
+          <select
+            id="status-filter"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+          >
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+
+        {/* Amount Filter */}
+        <div className="w-full sm:w-1/4">
+          <label htmlFor="amount-filter" className="block text-sm font-medium text-gray-700">Filter by Amount</label>
+          <input
+            type="number"
+            id="amount-filter"
+            value={filterAmount}
+            onChange={(e) => setFilterAmount(e.target.value)}
+            placeholder="e.g., 50.00"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+          />
+        </div>
+        
+        {/* Date Filter */}
+        <div className="w-full sm:w-1/4">
+          <label htmlFor="date-filter" className="block text-sm font-medium text-gray-700">Filter by Date</label>
+          <input
+            type="date"
+            id="date-filter"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+          />
+        </div>
+
+        <div className="w-full sm:w-auto">
+          <Button
+            onClick={handleResetFilters}
+            className="mt-4 sm:mt-6 w-full sm:w-auto"
+            variant="outline"
+          >
+            Reset
+          </Button>
+        </div>
+      </div>
+
+      {filteredRequests.length === 0 ? (
         <div className="flex items-center justify-center p-6">
           <AlertCircle className="h-6 w-6 text-gray-500 mr-2" />
-          <p>No redeem requests found</p>
+          <p>No redeem requests found matching the criteria.</p>
         </div>
       ) : (
         <Table>
@@ -147,7 +247,7 @@ const AdminRedeemRequests = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {redeemRequests.map((request) => (
+            {filteredRequests.map((request) => (
               <TableRow key={request._id}>
                 <TableCell>
                   {request.user_id?.username || 'N/A'} ({request.user_id?.email || 'N/A'})

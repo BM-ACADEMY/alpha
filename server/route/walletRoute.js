@@ -7,4 +7,5 @@ router.get('/search-subscriptions', walletController.searchUserSubscriptions);
 router.post('/add-points', walletController.addPointsToWallet);
 router.get('/wallets', walletController.getAllWallets);
 
+
 module.exports = router;
