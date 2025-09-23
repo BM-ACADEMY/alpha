@@ -1,250 +1,14 @@
-// import React, { useState, useEffect } from "react";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Skeleton } from "@/components/ui/skeleton";
-// import {
-//   Users,
-//   Package,
-//   DollarSign,
-//   UserPlus,
-//   Users as ReferralIcon,
-//   Calendar,
-// } from "lucide-react";
-// import {
-//   AreaChart,
-//   Area,
-//   XAxis,
-//   YAxis,
-//   PieChart ,
-//   Pie,
-//   Cell,
-//   CartesianGrid,
-//   Tooltip,
-//   ResponsiveContainer,
-// } from "recharts";
-
-// const mockData = {
-//   totalUsers: 1500,
-//   totalPlans: 8,
-//   currentMonthAmount: 75000,
-//   totalAmount: 1200000,
-//   newUsersToday: 45,
-//   referralUsers: 320,
-//   planUserCounts: [
-//     { name: "Jan", PlanA: 100, PlanB: 50, PlanC: 80 },
-//     { name: "Feb", PlanA: 150, PlanB: 70, PlanC: 90 },
-//     { name: "Mar", PlanA: 200, PlanB: 100, PlanC: 120 },
-//     { name: "Apr", PlanA: 180, PlanB: 90, PlanC: 110 },
-//     { name: "May", PlanA: 220, PlanB: 120, PlanC: 140 },
-//     { name: "Jun", PlanA: 250, PlanB: 140, PlanC: 160 },
-//     { name: "Jul", PlanA: 300, PlanB: 160, PlanC: 180 },
-//   ],
-//   currencyDistribution: [
-//     { name: "INR", value: 800000 },
-//     { name: "USDT", value: 400000 },
-//   ],
-// };
-
-// const Dashboard = () => {
-//   const [isLoading, setIsLoading] = useState(true);
-//   const [data, setData] = useState(null);
-
-//   useEffect(() => {
-//     // Simulate API call
-//     const timer = setTimeout(() => {
-//       setData(mockData);
-//       setIsLoading(false);
-//     }, 2000);
-//     return () => clearTimeout(timer);
-//   }, []);
-
-//   return (
-//     <div className="p-6 space-y-6">
-//       <h1 className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">Admin Dashboard Overview</h1>
-
-//       {/* First Row: Stats Cards */}
-//       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-//         {isLoading ? (
-//           <>
-//             {[...Array(6)].map((_, i) => (
-//               <Skeleton key={i} className="h-32 w-full" />
-//             ))}
-//           </>
-//         ) : (
-//           <>
-//             <Card>
-//               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-//                 <CardTitle className="text-sm font-medium">
-//                   Total Users
-//                 </CardTitle>
-//                 <Users className="h-4 w-4 text-muted-foreground" />
-//               </CardHeader>
-//               <CardContent>
-//                 <div className="text-2xl font-bold">{data.totalUsers}</div>
-//               </CardContent>
-//             </Card>
-//             <Card>
-//               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-//                 <CardTitle className="text-sm font-medium">
-//                   Total Plans
-//                 </CardTitle>
-//                 <Package className="h-4 w-4 text-muted-foreground" />
-//               </CardHeader>
-//               <CardContent>
-//                 <div className="text-2xl font-bold">{data.totalPlans}</div>
-//               </CardContent>
-//             </Card>
-//             <Card>
-//               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-//                 <CardTitle className="text-sm font-medium">
-//                   Current Month Amount
-//                 </CardTitle>
-//                 <Calendar className="h-4 w-4 text-muted-foreground" />
-//               </CardHeader>
-//               <CardContent>
-//                 <div className="text-2xl font-bold">
-//                   ${data.currentMonthAmount.toLocaleString()}
-//                 </div>
-//               </CardContent>
-//             </Card>
-//             <Card>
-//               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-//                 <CardTitle className="text-sm font-medium">
-//                   Total Amount
-//                 </CardTitle>
-//                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-//               </CardHeader>
-//               <CardContent>
-//                 <div className="text-2xl font-bold">
-//                   ${data.totalAmount.toLocaleString()}
-//                 </div>
-//               </CardContent>
-//             </Card>
-//             <Card>
-//               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-//                 <CardTitle className="text-sm font-medium">
-//                   New Users Today
-//                 </CardTitle>
-//                 <UserPlus className="h-4 w-4 text-muted-foreground" />
-//               </CardHeader>
-//               <CardContent>
-//                 <div className="text-2xl font-bold">{data.newUsersToday}</div>
-//               </CardContent>
-//             </Card>
-//             <Card>
-//               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-//                 <CardTitle className="text-sm font-medium">
-//                   Referral Users
-//                 </CardTitle>
-//                 <ReferralIcon className="h-4 w-4 text-muted-foreground" />
-//               </CardHeader>
-//               <CardContent>
-//                 <div className="text-2xl font-bold">{data.referralUsers}</div>
-//               </CardContent>
-//             </Card>
-//           </>
-//         )}
-//       </div>
-
-//       {/* Charts Section */}
-//       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-//         {/* Line Wave Chart: Plan-wise User Count */}
-//         <Card>
-//           <CardHeader>
-//             <CardTitle>Plan-wise User Count Over Time</CardTitle>
-//           </CardHeader>
-//           <CardContent>
-//             {isLoading ? (
-//               <Skeleton className="h-64 w-full" />
-//             ) : (
-//               <ResponsiveContainer width="100%" height={300}>
-//                 <AreaChart
-//                   data={data.planUserCounts}
-//                   margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-//                 >
-//                   <CartesianGrid strokeDasharray="3 3" />
-//                   <XAxis dataKey="name" />
-//                   <YAxis />
-//                   <Tooltip />
-//                   <Area
-//                     type="monotone"
-//                     dataKey="PlanA"
-//                     stackId="1"
-//                     stroke="#8884d8"
-//                     fill="#8884d8"
-//                   />
-//                   <Area
-//                     type="monotone"
-//                     dataKey="PlanB"
-//                     stackId="1"
-//                     stroke="#82ca9d"
-//                     fill="#82ca9d"
-//                   />
-//                   <Area
-//                     type="monotone"
-//                     dataKey="PlanC"
-//                     stackId="1"
-//                     stroke="#ffc658"
-//                     fill="#ffc658"
-//                   />
-//                 </AreaChart>
-//               </ResponsiveContainer>
-//             )}
-//           </CardContent>
-//         </Card>
-
-//         {/* Donut Chart: INR vs USDT Total Amount */}
-//         <Card>
-//           <CardHeader>
-//             <CardTitle>Currency Distribution (INR vs USDT)</CardTitle>
-//           </CardHeader>
-//           <CardContent>
-//             {isLoading ? (
-//               <Skeleton className="h-64 w-full" />
-//             ) : (
-//               <ResponsiveContainer width="100%" height={300}>
-//                 <PieChart>
-//                   <Pie
-//                     data={data.currencyDistribution}
-//                     cx="50%"
-//                     cy="50%"
-//                     innerRadius={60}
-//                     outerRadius={80}
-//                     fill="#8884d8"
-//                     paddingAngle={5}
-//                     dataKey="value"
-//                     label
-//                   >
-//                     {data.currencyDistribution.map((entry, index) => (
-//                       <Cell
-//                         key={`cell-${index}`}
-//                         fill={index === 0 ? "#0088FE" : "#00C49F"}
-//                       />
-//                     ))}
-//                   </Pie>
-//                   <Tooltip />
-//                 </PieChart>
-//               </ResponsiveContainer>
-//             )}
-//           </CardContent>
-//         </Card>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default Dashboard;
-
-
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users,
   Package,
   DollarSign,
   UserPlus,
-  Users as ReferralIcon,
   Calendar,
+  MoreVertical,
+  Bell,
 } from "lucide-react";
 import {
   LineChart,
@@ -260,39 +24,173 @@ import {
 } from "recharts";
 import axiosInstance from "@/modules/common/lib/axios";
 import { showToast } from "@/modules/common/toast/customToast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState(null);
+  const [filter, setFilter] = useState("monthly");
+  const [currencyFilter, setCurrencyFilter] = useState("both");
+  const [notifications, setNotifications] = useState({
+    pendingRedeem: 0,
+    unverifiedUsers: 0,
+  });
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [dashboardResponse, redeemResponse, usersResponse] = await Promise.all([
+        axiosInstance.get(`/dashboard-route/dashboard?filter=${filter}`),
+        axiosInstance.get('/redeem/get-all-request', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          params: { page: 1, limit: 20 },
+        }),
+        axiosInstance.get("/users/fetch-all-users-details", {
+          withCredentials: true,
+        }),
+      ]);
+      console.log("Dashboard data:", dashboardResponse.data);
+      setData(dashboardResponse.data);
+      setNotifications({
+        pendingRedeem: redeemResponse.data.redeemRequests.filter(
+          (req) => req.status === 'pending'
+        ).length,
+        unverifiedUsers: usersResponse.data.filter((u) => !u.verified_by_admin).length,
+      });
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to load dashboard data"
+      );
+      setData(null);
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const response = await axiosInstance.get("/dashboard-route/dashboard");
-        setData(response.data);
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-        showToast("error", error.response?.data?.message || "Failed to load dashboard data");
-        setIsLoading(false);
-      }
-    };
     fetchData();
-  }, []);
+  }, [filter]);
+
+  // Fallback data
+  const fallbackPlanUserCounts = [
+    { name: "No Data", starter: 0, advanced: 0, premium: 0, elite: 0 },
+  ];
+  const fallbackCurrencyDistribution = [
+    { name: "₹ INR", value: 0 },
+    { name: "₮ USDT", value: 0 },
+  ];
+
+  // Filter logic for currency distribution
+  const filteredCurrencyData = (
+    data?.currencyDistribution?.length
+      ? data.currencyDistribution
+      : fallbackCurrencyDistribution
+  ).filter((item) =>
+    currencyFilter === "both"
+      ? true
+      : currencyFilter === "inr"
+      ? item.name.includes("₹")
+      : item.name.includes("₮")
+  );
+
+  const totalNotifications = notifications.pendingRedeem + notifications.unverifiedUsers;
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">Admin Dashboard Overview</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+          Admin Dashboard Overview
+        </h1>
+        <div className="flex items-center gap-3">
+          {/* Notification Bell */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="relative">
+                <Bell className="h-4 w-4" />
+                {totalNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {totalNotifications}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {notifications.pendingRedeem > 0 && (
+                <DropdownMenuItem asChild>
+                  <Link to="/admin-dashboard/redeem">
+                    {notifications.pendingRedeem} Pending Redeem Request{notifications.pendingRedeem > 1 ? 's' : ''}
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {notifications.unverifiedUsers > 0 && (
+                <DropdownMenuItem asChild>
+                  <Link to="/admin-dashboard/user-verified">
+                    {notifications.unverifiedUsers} Unverified User{notifications.unverifiedUsers > 1 ? 's' : ''}
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {totalNotifications === 0 && (
+                <DropdownMenuItem disabled>No new notifications</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Main Filter */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setFilter("weekly")}>
+                Weekly
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilter("monthly")}>
+                Monthly
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilter("yearly")}>
+                Yearly
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Actions */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem asChild>
+                <Link to="/admin-dashboard/plans">Add New Plan</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/admin-dashboard/payments">Pending KYC</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/admin-dashboard/redeem">Redeem Requests</Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {isLoading ? (
-          <>
-            {[...Array(8)].map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full" />
-            ))}
-          </>
+          [...Array(8)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
         ) : (
           <>
             <Card>
@@ -315,38 +213,54 @@ const Dashboard = () => {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Current Month (₹ INR)</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Current Period (₹ INR)
+                </CardTitle>
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">₹ {data?.currentMonthAmount?.INR?.toLocaleString() || 0}</div>
+                <div className="text-2xl font-bold">
+                  ₹ {data?.currentMonthAmount?.INR?.toLocaleString() || 0}
+                </div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Current Month (₮ USDT)</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Current Period (₮ USDT)
+                </CardTitle>
                 <Calendar className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">₮ {data?.currentMonthAmount?.USDT?.toLocaleString() || 0}</div>
+                <div className="text-2xl font-bold">
+                  ₮ {data?.currentMonthAmount?.USDT?.toLocaleString() || 0}
+                </div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Amount (₹ INR)</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Amount (₹ INR)
+                </CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">₹ {data?.totalAmount?.INR?.toLocaleString() || 0}</div>
+                <div className="text-2xl font-bold">
+                  ₹ {data?.totalAmount?.INR?.toLocaleString() || 0}
+                </div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Amount (₮ USDT)</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Amount (₮ USDT)
+                </CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">₮ {data?.totalAmount?.USDT?.toLocaleString() || 0}</div>
+                <div className="text-2xl font-bold">
+                  ₮ {data?.totalAmount?.USDT?.toLocaleString() || 0}
+                </div>
               </CardContent>
             </Card>
             <Card>
@@ -361,7 +275,7 @@ const Dashboard = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Referral Users</CardTitle>
-                <ReferralIcon className="h-4 w-4 text-muted-foreground" />
+                <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{data?.referralUsers || 0}</div>
@@ -371,12 +285,12 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Charts Section */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Line Chart: Plan-wise User Count */}
+        {/* Plan-wise Users */}
         <Card>
           <CardHeader>
-            <CardTitle>Plan-wise User Count Over Time</CardTitle>
+            <CardTitle>Plan-wise User Count ({filter})</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -384,51 +298,53 @@ const Dashboard = () => {
             ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart
-                  data={data?.planUserCounts || []}
+                  data={
+                    data?.planUserCounts?.length
+                      ? data.planUserCounts
+                      : fallbackPlanUserCounts
+                  }
                   margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="starter"
-                    stroke="#8884d8"
-                    strokeWidth={2}
-                    name="Starter"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="advanced"
-                    stroke="#82ca9d"
-                    strokeWidth={2}
-                    name="Advanced"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="premium"
-                    stroke="#ffc658"
-                    strokeWidth={2}
-                    name="Premium"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="elite"
-                    stroke="#ff7300"
-                    strokeWidth={2}
-                    name="Elite"
-                  />
+                  <Line type="monotone" dataKey="starter" stroke="#8884d8" strokeWidth={2} name="Starter" />
+                  <Line type="monotone" dataKey="advanced" stroke="#82ca9d" strokeWidth={2} name="Advanced" />
+                  <Line type="monotone" dataKey="premium" stroke="#ffc658" strokeWidth={2} name="Premium" />
+                  <Line type="monotone" dataKey="elite" stroke="#ff7300" strokeWidth={2} name="Elite" />
                 </LineChart>
               </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
 
-        {/* Pie Chart: Currency Distribution */}
+        {/* Currency Distribution */}
         <Card>
-          <CardHeader>
-            <CardTitle>Currency Distribution (₹ INR vs ₮ USDT)</CardTitle>
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle>Currency Distribution</CardTitle>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  {currencyFilter === "both"
+                    ? "Both"
+                    : currencyFilter === "inr"
+                    ? "₹ INR"
+                    : "₮ USDT"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setCurrencyFilter("both")}>
+                  Both
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrencyFilter("inr")}>
+                  ₹ INR
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCurrencyFilter("usdt")}>
+                  ₮ USDT
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -437,7 +353,7 @@ const Dashboard = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={data?.currencyDistribution || []}
+                    data={filteredCurrencyData}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -446,7 +362,7 @@ const Dashboard = () => {
                     dataKey="value"
                     label
                   >
-                    {data?.currencyDistribution?.map((entry, index) => (
+                    {filteredCurrencyData.map((_, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={index === 0 ? "#0088FE" : "#00C49F"}

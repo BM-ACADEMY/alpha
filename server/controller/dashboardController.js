@@ -6,14 +6,11 @@ const Wallet = require("../model/walletModel");
 
 const getDashboardData = async (req, res) => {
   try {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    const { filter = "monthly" } = req.query; // Default to monthly
+    const now = new Date();
+    const startOfToday = new Date(now.setHours(0, 0, 0, 0));
+    const endOfToday = new Date(now.setHours(23, 59, 59, 999));
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Total Users
     const totalUsers = await User.countDocuments();
@@ -37,9 +34,7 @@ const getDashboardData = async (req, res) => {
           as: "plan",
         },
       },
-      {
-        $unwind: "$plan",
-      },
+      { $unwind: "$plan" },
       {
         $group: {
           _id: "$plan.amount_type",
@@ -50,9 +45,7 @@ const getDashboardData = async (req, res) => {
 
     // Total Amount by currency
     const totalAmount = await UserPlanSubscription.aggregate([
-      {
-        $match: { status: "verified" },
-      },
+      { $match: { status: "verified" } },
       {
         $lookup: {
           from: "plans",
@@ -61,9 +54,7 @@ const getDashboardData = async (req, res) => {
           as: "plan",
         },
       },
-      {
-        $unwind: "$plan",
-      },
+      { $unwind: "$plan" },
       {
         $group: {
           _id: "$plan.amount_type",
@@ -82,34 +73,47 @@ const getDashboardData = async (req, res) => {
       referred_by: { $ne: null },
     });
 
-    // Plan-wise User Count Over Time (last 7 months)
-    const months = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      months.push({
-        name: date.toLocaleString("default", { month: "short" }),
-        date: date,
-      });
+    // Plan-wise User Count Over Time
+    let periods = [];
+    if (filter === "weekly") {
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i * 7);
+        periods.push({
+          name: `Week ${i + 1}`,
+          start: new Date(date.setHours(0, 0, 0, 0)),
+          end: new Date(date.setHours(23, 59, 59, 999)),
+        });
+      }
+    } else if (filter === "yearly") {
+      for (let i = 2; i >= 0; i--) {
+        const date = new Date();
+        date.setFullYear(date.getFullYear() - i);
+        periods.push({
+          name: date.getFullYear().toString(),
+          start: new Date(date.getFullYear(), 0, 1),
+          end: new Date(date.getFullYear(), 11, 31, 23, 59, 59, 999),
+        });
+      }
+    } else {
+      // Monthly (default)
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        periods.push({
+          name: date.toLocaleString("default", { month: "short" }),
+          start: new Date(date.getFullYear(), date.getMonth(), 1),
+          end: new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999),
+        });
+      }
     }
 
     const planUserCounts = await Promise.all(
-      months.map(async (month) => {
-        const startOfMonth = new Date(
-          month.date.getFullYear(),
-          month.date.getMonth(),
-          1
-        );
-        const endOfMonth = new Date(
-          month.date.getFullYear(),
-          month.date.getMonth() + 1,
-          0
-        );
-
+      periods.map(async (period) => {
         const subscriptions = await UserPlanSubscription.aggregate([
           {
             $match: {
-              purchased_at: { $gte: startOfMonth, $lte: endOfMonth },
+              purchased_at: { $gte: period.start, $lte: period.end },
               status: "verified",
             },
           },
@@ -121,9 +125,7 @@ const getDashboardData = async (req, res) => {
               as: "plan",
             },
           },
-          {
-            $unwind: "$plan",
-          },
+          { $unwind: "$plan" },
           {
             $group: {
               _id: {
@@ -144,19 +146,23 @@ const getDashboardData = async (req, res) => {
           },
         ]);
 
-        const result = { name: month.name };
+        const result = { name: period.name };
         subscriptions.forEach((sub) => {
           result[sub._id] = sub.count;
         });
-        return result;
+        return {
+          name: period.name,
+          starter: result.starter || 0,
+          advanced: result.advanced || 0,
+          premium: result.premium || 0,
+          elite: result.elite || 0,
+        };
       })
     );
 
     // Currency Distribution
     const currencyDistribution = await UserPlanSubscription.aggregate([
-      {
-        $match: { status: "verified" },
-      },
+      { $match: { status: "verified" } },
       {
         $lookup: {
           from: "plans",
@@ -165,9 +171,7 @@ const getDashboardData = async (req, res) => {
           as: "plan",
         },
       },
-      {
-        $unwind: "$plan",
-      },
+      { $unwind: "$plan" },
       {
         $group: {
           _id: "$plan.amount_type",
@@ -201,13 +205,7 @@ const getDashboardData = async (req, res) => {
       },
       newUsersToday,
       referralUsers,
-      planUserCounts: planUserCounts.map((month) => ({
-        name: month.name,
-        starter: month.starter || 0,
-        advanced: month.advanced || 0,
-        premium: month.premium || 0,
-        elite: month.elite || 0,
-      })),
+      planUserCounts,
       currencyDistribution,
     };
 

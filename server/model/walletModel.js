@@ -23,6 +23,12 @@ const WalletSchema = new mongoose.Schema({
     min: 0,
     default: 0,
   },
+  referral_amount: {
+    type: Number,
+    required: true,
+    min: 0,
+    default: 0,
+  },
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
 });

@@ -11,7 +11,8 @@ import {
   Database,
   FileBarChart,
   FilePen,
-  BadgeDollarSign
+  BadgeDollarSign,
+  History
 } from 'lucide-react';
 
 export const userMenuItems = {
@@ -47,9 +48,19 @@ export const userMenuItems = {
       icon: CreditCard,
     },
     {
+      title: 'History',
+      url: '/user-dashboard/history',
+      icon: CreditCard,
+    },
+    {
+      title: 'Referral',
+      url: '/user-dashboard/referral',
+      icon: History,
+    },
+    {
       title: 'Profile',
       url: '/user-dashboard/profile',
-      icon: User,
+      icon: History,
     },
   ],
   navSecondary: [

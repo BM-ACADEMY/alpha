@@ -72,6 +72,11 @@ const AdminUserManagement = () => {
   });
   const [selectedUserDetails, setSelectedUserDetails] = useState(null);
   const detailsRef = useRef(null);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+
   // Password validation logic
   const validatePassword = (password) => {
     const minLength = password.length >= 6;
@@ -89,8 +94,6 @@ const AdminUserManagement = () => {
     return minLength && uppercase && number && specialChar;
   };
 
-
-
   // Handle view details button click
   const handleViewDetails = async (id) => {
     try {
@@ -99,11 +102,12 @@ const AdminUserManagement = () => {
       setSelectedUserDetails(response.data);
       detailsRef.current?.scrollIntoView({ behavior: "smooth" });
     } catch (error) {
-      showToast(error, "Failed to fetch user details");
+      showToast("error", "Failed to fetch user details");
     } finally {
       setIsLoading(false);
     }
   };
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -118,10 +122,8 @@ const AdminUserManagement = () => {
   const isSubmitDisabled = () => {
     const { username, email, phone_number, password, confirmPassword } = formData;
     if (editUserId) {
-      // For edit, password is optional
       return !username || !email || !phone_number;
     }
-    // For add, all fields required and password must be valid
     return (
       !username ||
       !email ||
@@ -136,20 +138,36 @@ const AdminUserManagement = () => {
     );
   };
 
-  // Fetch all users
+  // Fetch users
+  const fetchUsers = async (newPage = 1, isReset = false) => {
+    try {
+      setIsLoading(true);
+      const params = new URLSearchParams({
+        page: newPage,
+        limit: 10,
+        search,
+      });
+      const response = await axiosInstance.get(`/users/fetch-all-users-details-filter?${params.toString()}`);
+      
+      // Ensure users is an array, default to empty array if undefined
+      const newUsers = Array.isArray(response.data.users) ? response.data.users : [];
+      setUsers(prev => isReset ? newUsers : [...prev, ...newUsers]);
+      setTotal(response.data.total || 0);
+      const currentLength = isReset ? newUsers.length : users.length + newUsers.length;
+      setHasMore(currentLength < (response.data.total || 0));
+      setPage(newPage);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      showToast("error", "Failed to fetch users");
+      setUsers(isReset ? [] : users); // Ensure users is an array even on error
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await axiosInstance.get("/users/fetch-all-users-details");
-        setUsers(response.data);
-        setIsLoading(false);
-      } catch (error) {
-        showToast(error, "Failed to fetch users");
-        setIsLoading(false);
-      }
-    };
-    fetchUsers();
-  }, []);
+    fetchUsers(1, true);
+  }, [search]);
 
   // Handle form submission (Add/Edit)
   const handleSubmit = async (e) => {
@@ -176,11 +194,7 @@ const AdminUserManagement = () => {
           password: password ? password : undefined,
         });
         showToast("success", "User updated successfully");
-        setUsers(
-          users.map((user) =>
-            user._id === editUserId ? response.data : user
-          )
-        );
+        fetchUsers(1, true);
       } else {
         const response = await axiosInstance.post("/users/register", {
           username,
@@ -243,11 +257,11 @@ const AdminUserManagement = () => {
       setIsLoading(true);
       await axiosInstance.delete(`/users/${deleteUserId}`);
       showToast("success", "User deleted successfully");
-      setUsers(users.filter((user) => user._id !== deleteUserId));
+      fetchUsers(1, true);
       setIsDeleteDialogOpen(false);
       setDeleteUserId(null);
     } catch (error) {
-      showToast(error, "Failed to delete user");
+      showToast("error", "Failed to delete user");
     } finally {
       setIsLoading(false);
     }
@@ -262,14 +276,11 @@ const AdminUserManagement = () => {
         email: newUserEmail,
         otp,
       });
-      console.log(response);
-
       showToast("success", "Email verified successfully");
       setIsOtpDialogOpen(false);
       setOtp("");
       setNewUserEmail("");
-      const usersResponse = await axiosInstance.get("/users/fetch-all-users-details");
-      setUsers(usersResponse.data);
+      fetchUsers(1, true);
     } catch (error) {
       showToast(
         "error",
@@ -278,6 +289,10 @@ const AdminUserManagement = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadMore = () => {
+    fetchUsers(page + 1);
   };
 
   return (
@@ -345,9 +360,7 @@ const AdminUserManagement = () => {
                     ) : (
                       <XCircle className="h-4 w-4 text-red-500 mr-2" />
                     )}
-                    <span className="text-sm">
-                      Minimum 6 characters
-                    </span>
+                    <span className="text-sm">Minimum 6 characters</span>
                   </div>
                   <div className="flex items-center">
                     {passwordValidations.uppercase ? (
@@ -355,9 +368,7 @@ const AdminUserManagement = () => {
                     ) : (
                       <XCircle className="h-4 w-4 text-red-500 mr-2" />
                     )}
-                    <span className="text-sm">
-                      At least one uppercase letter
-                    </span>
+                    <span className="text-sm">At least one uppercase letter</span>
                   </div>
                   <div className="flex items-center">
                     {passwordValidations.number ? (
@@ -365,9 +376,7 @@ const AdminUserManagement = () => {
                     ) : (
                       <XCircle className="h-4 w-4 text-red-500 mr-2" />
                     )}
-                    <span className="text-sm">
-                      At least one number
-                    </span>
+                    <span className="text-sm">At least one number</span>
                   </div>
                   <div className="flex items-center">
                     {passwordValidations.specialChar ? (
@@ -375,9 +384,7 @@ const AdminUserManagement = () => {
                     ) : (
                       <XCircle className="h-4 w-4 text-red-500 mr-2" />
                     )}
-                    <span className="text-sm">
-                      At least one special character
-                    </span>
+                    <span className="text-sm">At least one special character</span>
                   </div>
                 </div>
               )}
@@ -437,75 +444,116 @@ const AdminUserManagement = () => {
         message="Are you sure you want to delete this user? This action cannot be undone."
       />
 
+      {/* Search */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+        <Input 
+          placeholder="Search by username, email, or phone" 
+          value={search} 
+          onChange={(e) => setSearch(e.target.value)} 
+          className="flex-grow"
+        />
+      </div>
+
       {/* Users Table */}
       <Card>
         <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
           <CardTitle>Users</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading && page === 1 ? (
             <div className="space-y-2">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone Number</TableHead>
-                  <TableHead>Email Verified</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user._id}>
-                    <TableCell>{user.username}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.phone_number}</TableCell>
-                    <TableCell>
-                      {user.email_verified ? (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mr-2 cursor-pointer"
-                        onClick={() => handleEdit(user)}
-                      >
-                        <Edit className="h-4 w-4 mr-1" /> Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mr-2  cursor-pointer"
-                        onClick={() => {
-                          setDeleteUserId(user._id);
-                          setIsDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" /> Delete
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className=" cursor-pointer"
-                        onClick={() => handleViewDetails(user._id)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" /> View Details
-                      </Button>
-                    </TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone Number</TableHead>
+                    <TableHead>Email Verified</TableHead>
+                    <TableHead>Admin Verified</TableHead>
+                    <TableHead>Joined Date</TableHead>
+                    <TableHead>Active Plan</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {Array.isArray(users) && users.length > 0 ? (
+                    users.map((user) => (
+                      <TableRow key={user._id}>
+                        <TableCell>{user.username}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>{user.phone_number}</TableCell>
+                        <TableCell>
+                          {user.email_verified ? (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {user.verified_by_admin ? (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          )}
+                        </TableCell>
+                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>{user.activePlan || 'None'}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mr-2 cursor-pointer"
+                            onClick={() => handleEdit(user)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" /> Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mr-2 cursor-pointer"
+                            onClick={() => {
+                              setDeleteUserId(user._id);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" /> Delete
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="cursor-pointer"
+                            onClick={() => handleViewDetails(user._id)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" /> View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center">
+                        No users found
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              {hasMore && Array.isArray(users) && users.length > 0 && (
+                <Button 
+                  onClick={loadMore} 
+                  disabled={isLoading}
+                  className="mt-4"
+                >
+                  {isLoading ? 'Loading...' : 'Load More'}
+                </Button>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -513,7 +561,7 @@ const AdminUserManagement = () => {
       {selectedUserDetails && (
         <div ref={detailsRef} className="mt-8">
           <Card className="shadow-xl border border-gray-200">
-            <CardHeader >
+            <CardHeader>
               <CardTitle className="flex items-center text-lg">
                 <User className="mr-2 h-6 w-6" /> User Details
               </CardTitle>
@@ -521,9 +569,6 @@ const AdminUserManagement = () => {
             <CardContent className="p-6 max-h-[60vh] overflow-y-auto space-y-6">
               {/* User Information */}
               <div className="flex justify-between sm:flex flex-col ">
-                {/* <h3 className="text-lg font-semibold mb-3 flex items-center text-gray-800">
-                  <User className="mr-2 h-5 w-5 text-blue-500" /> Personal Information
-                </h3> */}
                 <ul className="space-y-2 bg-gray-50 p-4 rounded-lg flex flex-col gap-3 flex-1">
                   <li className="flex items-center">
                     <CreditCard className="h-4 w-4 text-blue-500 mr-2" />
@@ -549,8 +594,6 @@ const AdminUserManagement = () => {
                     <Shield className="h-4 w-4 text-blue-500 mr-2" />
                     <span><strong>Role:</strong> {selectedUserDetails.user.role_id?.role_name || "N/A"}</span>
                   </li>
-
-
                 </ul>
                 <ul className="space-y-2 bg-gray-50 p-4 rounded-lg flex flex-col gap-3 flex-1 ">
                   <li className="flex items-center">
@@ -601,7 +644,6 @@ const AdminUserManagement = () => {
                           <Building className="h-4 w-4 text-green-500 mr-2" />
                           <span><strong>City:</strong> {selectedUserDetails.address.city || "N/A"}</span>
                         </li>
-
                       </ul>
                       <ul className="space-y-2 bg-gray-50 p-4 rounded-lg flex flex-1 flex-col gap-3">
                         <li className="flex items-center">
@@ -630,8 +672,6 @@ const AdminUserManagement = () => {
                   <Wallet className="mr-2 h-5 w-5 text-yellow-500" /> INR Account
                 </h3>
                 {selectedUserDetails.inrAccount ? (
-
-
                   <>
                     <div className="flex justify-between sm:flex flex-col">
                       <ul className="space-y-2 bg-gray-50 p-4 rounded-lg flex flex-1 flex-col gap-3">
@@ -651,7 +691,6 @@ const AdminUserManagement = () => {
                           <CreditCard className="h-4 w-4 text-yellow-500 mr-2" />
                           <span><strong>Account Number:</strong> {selectedUserDetails.inrAccount.account_number || "N/A"}</span>
                         </li>
-
                       </ul>
                       <ul className="space-y-2 bg-gray-50 p-4 rounded-lg flex flex-1 flex-col gap-3">
                         <li className="flex items-center">
@@ -689,8 +728,6 @@ const AdminUserManagement = () => {
                   <Globe className="mr-2 h-5 w-5 text-purple-500" /> USDT Account
                 </h3>
                 {selectedUserDetails.usdtAccount ? (
-
-
                   <>
                     <div className="flex justify-between">
                       <ul className="space-y-2 bg-gray-50 p-4 rounded-lg flex flex-1 flex-col gap-3">
@@ -710,8 +747,6 @@ const AdminUserManagement = () => {
                           <CreditCard className="h-4 w-4 text-purple-500 mr-2" />
                           <span><strong>Account Number:</strong> {selectedUserDetails.usdtAccount.account_number || "N/A"}</span>
                         </li>
-
-
                       </ul>
                       <ul className="space-y-2 bg-gray-50 p-4 rounded-lg flex flex-1 flex-col gap-3">
                         <li className="flex items-center">

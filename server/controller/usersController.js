@@ -9,8 +9,78 @@ const Account = require("../model/accountModel");
 const UserPlanSubscription = require("../model/userSubscriptionPlanModel");
 const Wallet = require("../model/walletModel");
 const Plan = require("../model/planModel");
+const mongoose = require ("mongoose")
 
-// Get all users
+exports.getUsersFilter = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = '', emailVerified, adminVerified } = req.query;
+
+    // Build query object
+    const query = {
+      role_id: await Role.findOne({ role_name: "user" }).select('_id'),
+    };
+
+    // Add search filter (username, email, or phone_number)
+    if (search) {
+      query.$or = [
+        { username: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone_number: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    // Add verification filters
+    if (emailVerified && emailVerified !== 'all') {
+      query.email_verified = emailVerified === 'yes';
+    }
+    if (adminVerified && adminVerified !== 'all') {
+      query.verified_by_admin = adminVerified === 'yes';
+    }
+
+    // Fetch users with pagination
+    const users = await User.find(query)
+      .select("-password")
+      .populate({
+        path: "role_id",
+        select: "role_name",
+      })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .lean();
+
+    // Fetch total count for pagination
+    const total = await User.countDocuments(query);
+
+    // Fetch active plan for each user
+    const usersWithPlans = await Promise.all(users.map(async (user) => {
+      const subscription = await UserPlanSubscription.findOne({
+        user_id: user._id,
+        status: 'verified',
+        expires_at: { $gt: new Date() },
+      })
+        .populate('plan_id', 'plan_name')
+        .lean();
+
+      return {
+        ...user,
+        joinedDate: new Date(user.created_at).toLocaleDateString(),
+        activePlan: subscription ? subscription.plan_id?.plan_name : 'None',
+      };
+    }));
+
+    res.status(200).json({
+      users: usersWithPlans || [], // Ensure users is always an array
+      total: total || 0, // Ensure total is always a number
+    });
+  } catch (err) {
+    console.error("Error in getUsers:", err);
+    res.status(500).json({
+      message: err.message,
+      users: [], // Return empty array on error
+      total: 0,
+    });
+  }
+};
 // Get all users with role = "user"
 exports.getUsers = async (req, res) => {
   try {
@@ -81,67 +151,6 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
-// Register User
-// exports.registerUser = async (req, res) => {
-//   const { username, email, phone_number, password, confirmPassword } = req.body;
-
-//   if (password !== confirmPassword) {
-//     return res.status(400).json({ message: "Passwords do not match" });
-//   }
-
-//   try {
-//     // Check if email or phone number already exists
-//     const existingUser = await User.findOne({
-//       $or: [{ email }, { phone_number }],
-//     });
-
-//     if (existingUser) {
-//       return res
-//         .status(400)
-//         .json({ message: "Email or phone number already exists" });
-//     }
-
-//     // Hash password
-//     const hashedPassword = await bcrypt.hash(password, 10);
-//     const otp = crypto.randomInt(100000, 999999).toString(); // 6-digit OTP
-
-//     // Get default role (e.g., "User")
-//     const defaultRole = await Role.findOne({ role_name: "user" });
-//     if (!defaultRole) {
-//       return res
-//         .status(500)
-//         .json({ message: "Default role not found in database" });
-//     }
-//     console.log(defaultRole, "default r");
-
-//     // Create new user
-//     const user = new User({
-//       username,
-//       email,
-//       phone_number,
-//       password: hashedPassword,
-//       email_otp: otp,
-//       role_id: defaultRole._id,
-//     });
-
-//     await user.save();
-
-//     // Send OTP email
-//     await transporter.sendMail({
-//       from: process.env.EMAIL_USER,
-//       to: email,
-//       subject: "Verify Your Email",
-//       text: `Your OTP for email verification is: ${otp}`,
-//     });
-
-//     res.status(201).json({
-//       message: "User registered. Please verify your email with the OTP sent.",
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
 exports.registerUser = async (req, res) => {
   const {
     username,
@@ -233,11 +242,12 @@ exports.registerUser = async (req, res) => {
           referrerWallet = new Wallet({
             user_id: referred_by,
             userPlanCapitalAmount: 0,
-            dailyProfitAmount: referralProfit,
+            dailyProfitAmount: 0,
             totalWalletPoint: referralProfit,
+            referral_amount: referralProfit,
           });
         } else {
-          referrerWallet.dailyProfitAmount += referralProfit;
+          referrerWallet.referral_amount += referralProfit;
           referrerWallet.totalWalletPoint += referralProfit;
         }
         await referrerWallet.save();
@@ -528,5 +538,83 @@ exports.getAdminInfo = async (req, res) => {
   } catch (error) {
     console.error('Error fetching admin info:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
+// usersController.js
+exports.getReferralUsers = async (req, res) => {
+  try {
+    const { referred_by } = req.query;
+
+    // Build query object
+    const query = { role_id: await Role.findOne({ role_name: "user" }).select('_id') };
+    if (referred_by) {
+      query.referred_by = referred_by;
+    }
+
+    const users = await User.find(query)
+      .select("-password")
+      .populate({
+        path: "role_id",
+        select: "role_name",
+      });
+
+    // No need to filter out null role_id since query ensures role_id exists
+    res.status(200).json(users); // Return empty array if no users found
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// In usersController.js
+// usersController.js
+exports.getUserreferralDashboard = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+
+    const user = await User.findById(userId).lean();
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const wallet = await Wallet.findOne({ user_id: userId }).lean();
+    const subscriptions = await UserPlanSubscription.find({
+      user_id: userId,
+      status: 'verified',
+      expires_at: { $gt: new Date() },
+    })
+      .populate('plan_id', 'plan_name capital_lockin')
+      .lean();
+
+    // Calculate referral count
+    const referralCount = await User.countDocuments({ referred_by: userId });
+
+    // Use referral_amount from wallet
+    const referralEarnings = wallet ? wallet.referral_amount : 0;
+       console.log(wallet,'wallet');
+       
+    res.json({
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+      },
+      wallet: wallet || {
+        userPlanCapitalAmount: 0,
+        dailyProfitAmount: 0,
+        totalWalletPoint: 0,
+        referral_amount: 0,
+      },
+      subscriptions,
+      referralCount,
+      referralEarnings,
+    });
+  } catch (error) {
+    console.error('Get user dashboard error:', error);
+    res.status(500).json({ message: error.message || 'Internal server error' });
   }
 };

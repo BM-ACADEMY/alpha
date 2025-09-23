@@ -1,4 +1,3 @@
-// ComplaintsTable.jsx
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '@/modules/common/lib/axios';
 import {
@@ -9,6 +8,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -214,45 +219,73 @@ const ComplaintsTable = () => {
                 {new Date(c.created_at).toLocaleString()}
               </TableCell>
               <TableCell className="flex justify-center gap-2">
-                {!c.is_read && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hover:bg-green-100 cursor-pointer"
-                    onClick={(e) => handleMarkRead(e, c._id)}
-                    title="Mark as Read"
-                  >
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hover:bg-blue-100 cursor-pointer"
-                  onClick={(e) => handleViewDetails(e, c)}
-                  title="View Details"
-                >
-                  <Eye className="h-5 w-5 text-blue-600" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hover:bg-yellow-100 cursor-pointer"
-                  onClick={(e) => handleOpenReply(e, c)}
-                  title="Send Reply"
-                >
-                  <Mail className="h-5 w-5 text-yellow-600" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hover:bg-red-100 cursor-pointer"
-                  onClick={(e) => handleDelete(e, c._id)}
-                  title="Delete"
-                >
-                  <Trash className="h-5 w-5 text-red-600" />
-                </Button>
-              </TableCell>
+  {!c.is_read && (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hover:bg-green-100 cursor-pointer"
+            onClick={(e) => handleMarkRead(e, c._id)}
+          >
+            <CheckCircle className="h-5 w-5 text-green-600" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Mark as Read</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )}
+
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hover:bg-blue-100 cursor-pointer"
+          onClick={(e) => handleViewDetails(e, c)}
+        >
+          <Eye className="h-5 w-5 text-blue-600" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>View Details</TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hover:bg-yellow-100 cursor-pointer"
+          onClick={(e) => handleOpenReply(e, c)}
+        >
+          <Mail className="h-5 w-5 text-yellow-600" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Reply</TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hover:bg-red-100 cursor-pointer"
+          onClick={(e) => handleDelete(e, c._id)}
+        >
+          <Trash className="h-5 w-5 text-red-600" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Delete</TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+</TableCell>
+
             </TableRow>
           ))}
         </TableBody>

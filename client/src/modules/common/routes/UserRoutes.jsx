@@ -6,6 +6,8 @@ import UserWallet from '@/modules/user/pages/wallet/Wallet';
 import UserProfile from '@/modules/user/pages/settings/UserProfile';
 import Profile from '@/modules/user/pages/settings/Profile';
 import Subscription from '@/modules/user/pages/Subscription/Subscription';
+import HistoryPage from '@/modules/user/pages/History/History';
+import ReferralPage from '@/modules/user/pages/Referral/Referral';
 
 
 export const userRoutes = [
@@ -54,6 +56,22 @@ export const userRoutes = [
     element: (
       <PrivateRoute allowedRole="user">
         <Profile />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: '/user-dashboard/history',
+    element: (
+      <PrivateRoute allowedRole="user">
+        <HistoryPage />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: '/user-dashboard/referral',
+    element: (
+      <PrivateRoute allowedRole="user">
+        <ReferralPage />
       </PrivateRoute>
     ),
   },
