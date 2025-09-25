@@ -49,29 +49,36 @@ exports.createComplaint = async (req, res) => {
 
 // Get All Complaints with Pagination
 // Updated Backend Function (complaintController.js)
+// complaintController.js
+// controller/complaintController.js - Update getAllComplaints to populate replies.admin_id
 exports.getAllComplaints = async (req, res) => {
   try {
-    const { user_id } = req.query; // ✅ Get user_id from query params
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const { user_id, status, page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Create a filter object, if user_id exists, add it to the filter
     const filter = {};
     if (user_id) {
-        filter.user_id = user_id; // ✅ Filter by user_id
+      filter.user_id = user_id;
+    }
+    if (status && status !== 'All') {
+      filter.status = status;
     }
 
-    const complaints = await Complaint.find(filter) // ✅ Use the filter
+    const complaints = await Complaint.find(filter)
       .populate('user_id', 'username email phone_number')
+      .populate({
+        path: 'replies.admin_id',
+        select: 'username' // Populate admin username for display
+      })
       .skip(skip)
-      .limit(limit)
+      .limit(parseInt(limit))
       .sort({ created_at: -1 });
 
-    const total = await Complaint.countDocuments(filter); // ✅ Count documents with the same filter
+    const total = await Complaint.countDocuments(filter);
 
     res.json({ complaints, total, page, limit });
   } catch (err) {
+    console.error('Error in getAllComplaints:', err);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };
@@ -104,45 +111,75 @@ exports.markAsRead = async (req, res) => {
 };
 
 // Send Reply Email
+// exports.sendReply = async (req, res) => {
+//   try {
+//     const { message } = req.body;
+//     const complaint = await Complaint.findById(req.params.id).populate('user_id', 'username email');
+//     if (!complaint) return res.status(404).json({ message: 'Complaint not found' });
+
+//     const user = complaint.user_id;
+
+//     const htmlContent = `
+//       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+//         <div style="background: #1e293b; padding: 20px; text-align: center;">
+//           <h2 style="color: #ffffff; margin: 0;">Alpha R - Trading Platform</h2>
+//         </div>
+//         <div style="padding: 20px; color: #333;">
+//           <p>Dear <strong>${user.username}</strong>,</p>
+//           <p>Thank you for contacting our support team regarding your complaint.</p>
+//           <p><strong>Our Reply:</strong></p>
+//           <div style="background: #f9fafb; padding: 15px; border-left: 4px solid #1e40af; margin: 10px 0;">
+//             ${message}
+//           </div>
+//           <p>If you have any further questions, feel free to reply to this email.</p>
+//           <p>Best Regards, <br/> <strong>Alpha R Support Team</strong></p>
+//         </div>
+//         <div style="background: #f3f4f6; text-align: center; padding: 15px; font-size: 12px; color: #555;">
+//           &copy; ${new Date().getFullYear()} Alpha R. All rights reserved.<br/>
+//           This is an automated message, please do not reply directly.
+//         </div>
+//       </div>
+//     `;
+
+//     await transporter.sendMail({
+//       from: `"Alpha R Support" <${process.env.EMAIL_USER}>`,
+//       to: user.email,
+//       subject: 'Reply to Your Complaint - Alpha R',
+//       html: htmlContent,
+//     });
+
+//     res.json({ message: 'Reply sent successfully' });
+//   } catch (err) {
+//     res.status(500).json({ message: 'Server Error', error: err.message });
+//   }
+// };
+
+// controller/complaintController.js - Update sendReply to handle undefined req.user safely
 exports.sendReply = async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized: Admin authentication required' });
+    }
+
     const { message } = req.body;
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ message: 'Reply message is required' });
+    }
+
     const complaint = await Complaint.findById(req.params.id).populate('user_id', 'username email');
     if (!complaint) return res.status(404).json({ message: 'Complaint not found' });
 
-    const user = complaint.user_id;
-
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-        <div style="background: #1e293b; padding: 20px; text-align: center;">
-          <h2 style="color: #ffffff; margin: 0;">Alpha R - Trading Platform</h2>
-        </div>
-        <div style="padding: 20px; color: #333;">
-          <p>Dear <strong>${user.username}</strong>,</p>
-          <p>Thank you for contacting our support team regarding your complaint.</p>
-          <p><strong>Our Reply:</strong></p>
-          <div style="background: #f9fafb; padding: 15px; border-left: 4px solid #1e40af; margin: 10px 0;">
-            ${message}
-          </div>
-          <p>If you have any further questions, feel free to reply to this email.</p>
-          <p>Best Regards, <br/> <strong>Alpha R Support Team</strong></p>
-        </div>
-        <div style="background: #f3f4f6; text-align: center; padding: 15px; font-size: 12px; color: #555;">
-          &copy; ${new Date().getFullYear()} Alpha R. All rights reserved.<br/>
-          This is an automated message, please do not reply directly.
-        </div>
-      </div>
-    `;
-
-    await transporter.sendMail({
-      from: `"Alpha R Support" <${process.env.EMAIL_USER}>`,
-      to: user.email,
-      subject: 'Reply to Your Complaint - Alpha R',
-      html: htmlContent,
+    // Add reply to complaint
+    complaint.replies.push({
+      message: message.trim(),
+      admin_id: req.user.id // Now safely accessible
     });
+    
+    await complaint.save();
 
-    res.json({ message: 'Reply sent successfully' });
+    res.json({ message: 'Reply sent successfully', complaint });
   } catch (err) {
+    console.error('Error in sendReply:', err); // Log for debugging
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };

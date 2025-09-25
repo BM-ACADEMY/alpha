@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Zoom from "react-medium-image-zoom";
 import "react-medium-image-zoom/dist/styles.css";
 
@@ -35,19 +36,17 @@ const Complaint = () => {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 10;
-
-  // Form modal state
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     complaint_type: "",
     description: "",
   });
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Image view modal state
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [selectedImages, setSelectedImages] = useState([]);
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -138,6 +137,11 @@ const Complaint = () => {
     setIsImageModalOpen(true);
   };
 
+  const handleViewReplies = (complaint) => {
+    setSelectedComplaint(complaint);
+    setIsReplyModalOpen(true);
+  };
+
   const totalPages = Math.ceil(total / limit);
 
   if (!user) {
@@ -191,20 +195,33 @@ const Complaint = () => {
                 <DialogHeader>
                   <DialogTitle>File a New Complaint</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
-                    <Label htmlFor="complaint_type">Complaint Type</Label>
-                    <Input
-                      id="complaint_type"
+                    <Label htmlFor="complaint_type" className="mb-2 block">
+                      Complaint Type
+                    </Label>
+                    <Select
                       name="complaint_type"
                       value={formData.complaint_type}
-                      onChange={handleInputChange}
-                      placeholder="Enter complaint type"
-                      required
-                    />
+                      onValueChange={(value) =>
+                        setFormData((prev) => ({ ...prev, complaint_type: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select complaint type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Billing">Billing</SelectItem>
+                        <SelectItem value="Deposit">Deposit</SelectItem>
+                        <SelectItem value="Withdrawal">Withdrawal</SelectItem>
+                        <SelectItem value="Others">Others</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
-                    <Label htmlFor="description">Description</Label>
+                    <Label htmlFor="description" className="mb-2 block">
+                      Description
+                    </Label>
                     <Textarea
                       id="description"
                       name="description"
@@ -216,7 +233,9 @@ const Complaint = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="images">Upload Images</Label>
+                    <Label htmlFor="images" className="mb-2 block">
+                      Upload Images
+                    </Label>
                     <Input
                       id="images"
                       type="file"
@@ -289,6 +308,7 @@ const Complaint = () => {
                       <TableHead className="w-[100px]">Read</TableHead>
                       <TableHead className="w-[120px]">Created At</TableHead>
                       <TableHead className="w-[150px]">Images</TableHead>
+                      <TableHead className="w-[150px]">Replies</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -335,6 +355,25 @@ const Complaint = () => {
                             </Button>
                           ) : (
                             <span>-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {complaint.replies && complaint.replies.length > 0 ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewReplies(complaint)}
+                            >
+                              View Replies
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewReplies(complaint)}
+                            >
+                              View Replies
+                            </Button>
                           )}
                         </TableCell>
                       </TableRow>
@@ -395,6 +434,37 @@ const Complaint = () => {
             <Button
               variant="outline"
               onClick={() => setIsImageModalOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reply View Modal */}
+      <Dialog open={isReplyModalOpen} onOpenChange={setIsReplyModalOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Admin Replies</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedComplaint?.replies?.length > 0 ? (
+              selectedComplaint.replies.map((reply, index) => (
+                <div key={index} className="border p-4 rounded">
+                  <p className="text-sm text-gray-500">
+                    {new Date(reply.created_at).toLocaleString()}
+                  </p>
+                  <p className="mt-2">{reply.message}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-600 text-center">No replies yet.</p>
+            )}
+          </div>
+          <div className="flex justify-end mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsReplyModalOpen(false)}
             >
               Close
             </Button>
