@@ -35,6 +35,7 @@ const Complaint = () => {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [statusFilter, setStatusFilter] = useState("All"); // New state for status filter
   const limit = 10;
   const [formData, setFormData] = useState({
     complaint_type: "",
@@ -54,10 +55,14 @@ const Complaint = () => {
     const fetchComplaints = async () => {
       try {
         setLoading(true);
+        const params = { page, limit, user_id: user?.id };
+        if (statusFilter !== "All") {
+          params.status = statusFilter;
+        }
         const response = await axiosInstance.get(
           "/complaints/fetch-all-complaints",
           {
-            params: { page, limit, user_id: user?.id },
+            params,
             withCredentials: true,
           }
         );
@@ -77,7 +82,7 @@ const Complaint = () => {
     };
 
     fetchComplaints();
-  }, [user, page]);
+  }, [user, page, statusFilter]); // Added statusFilter to dependencies
 
   const handlePageChange = (newPage) => {
     setPage(newPage);
@@ -272,15 +277,15 @@ const Complaint = () => {
                     <Button
                       type="submit"
                       disabled={isSubmitting}
-                      className="bg-[#0f1c3f] hover:bg-[#1a2b5c] text-white"
+                      className="bg-[#0f1c3f] hover:bg-[#1a2b5c] text-white flex items-center justify-center transition-all duration-300"
                     >
                       {isSubmitting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Submitting...
-                        </>
+                        <div className="flex items-center">
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin text-white" />
+                          <span>Submitting...</span>
+                        </div>
                       ) : (
-                        "Submit Complaint"
+                        <span>Submit Complaint</span>
                       )}
                     </Button>
                   </div>
@@ -290,6 +295,19 @@ const Complaint = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Resolved">Resolved</SelectItem>
+                <SelectItem value="Rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {complaints.length === 0 ? (
             <p className="text-gray-600 text-center py-4">
               No complaints found.

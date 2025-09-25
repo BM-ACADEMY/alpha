@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users as ReferralIcon, Wallet, CheckCircle, AlertCircle, Link as LinkIcon } from 'lucide-react';
+import { Users as ReferralIcon, Wallet, CheckCircle, AlertCircle, Link as LinkIcon, Share2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button'; // Ensure Button component exists
+import { Button } from '@/components/ui/button';
 import { showToast } from '@/modules/common/toast/customToast';
 import axiosInstance from '@/modules/common/lib/axios';
 import { AuthContext } from '@/modules/common/context/AuthContext';
@@ -15,9 +15,9 @@ const ReferralPage = () => {
   const [referralData, setReferralData] = useState({
     referralCount: 0,
     referralEarnings: 0,
-    referralCode: '', // Initialize referralCode
+    referralCode: '',
   });
-  const [isAddingToWallet, setIsAddingToWallet] = useState(true); // Fixed syntax error here
+  const [isAddingToWallet, setIsAddingToWallet] = useState(true);
 
   useEffect(() => {
     const fetchReferralData = async () => {
@@ -28,16 +28,14 @@ const ReferralPage = () => {
           { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
         );
         const data = dashboardResponse.data;
-        console.log(data, 'fsdfaslfjlsd');
 
-        // Fetch user details separately if referral_code not in dashboard
         const userResponse = await axiosInstance.get(`/users/${userId}`);
         const fullUser = userResponse.data;
 
         setReferralData({
           referralCount: data.referralCount || 0,
           referralEarnings: data.wallet?.referral_amount || 0,
-          referralCode: fullUser.referral_code || '', // Fetch from user endpoint
+          referralCode: fullUser.referral_code || '',
         });
         setIsAddingToWallet(data.referralCount > 0);
         showToast('success', 'Referral data loaded successfully!');
@@ -53,13 +51,12 @@ const ReferralPage = () => {
     if (userId) fetchReferralData();
   }, [userId]);
 
-  // Function to copy referral link to clipboard
   const copyReferralLink = () => {
     if (!referralData.referralCode) {
       showToast('error', 'No referral code available');
       return;
     }
-    const frontendDomain = import.meta.env.VITE_FRONTEND_URL || 'http://localhost:3000';
+    const frontendDomain = import.meta.env.VITE_FRONTEND_URL;
     const referralLink = `${frontendDomain}/signup?ref=${referralData.referralCode}`;
     navigator.clipboard.writeText(referralLink)
       .then(() => {
@@ -71,23 +68,66 @@ const ReferralPage = () => {
       });
   };
 
+  const shareReferralLink = async () => {
+    if (!referralData.referralCode) {
+      showToast('error', 'No referral code available');
+      return;
+    }
+    const frontendDomain = import.meta.env.VITE_FRONTEND_URL;
+    const referralLink = `${frontendDomain}/signup?ref=${referralData.referralCode}`;
+    const shareData = {
+      title: 'Join with my referral link!',
+      text: 'Sign up using my referral link and start earning rewards!',
+      url: referralLink,
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        showToast('success', 'Referral link shared successfully!');
+      } catch (error) {
+        console.error('Error sharing referral link:', error);
+        showToast('error', 'Failed to share referral link');
+      }
+    } else {
+      // Fallback to copying the link
+      navigator.clipboard.writeText(referralLink)
+        .then(() => {
+          showToast('success', 'Referral link copied to clipboard (sharing not supported)!');
+        })
+        .catch((error) => {
+          console.error('Failed to copy referral link:', error);
+          showToast('error', 'Failed to copy referral link');
+        });
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">Your Referrals</h1>
         {referralData.referralCode && (
-          <Button
-            onClick={copyReferralLink}
-            className="flex items-center gap-2 bg-[#d09d42] text-[white] hover:bg-[#b88b3a]"
-          >
-            <LinkIcon className="h-4 w-4" />
-            Invite Link
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={copyReferralLink}
+              className="flex items-center gap-2 bg-[#d09d42] text-[white] hover:bg-[#b88b3a]"
+            >
+              <LinkIcon className="h-4 w-4" />
+              Invite Link
+            </Button>
+            <Button
+              onClick={shareReferralLink}
+              className="flex items-center gap-2 bg-[#d09d42] text-[white] hover:bg-[#b88b3a]"
+            >
+              <Share2 className="h-4 w-4" />
+              Share
+            </Button>
+          </div>
         )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? (
-          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />) // Adjusted to 3 skeletons
+          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
         ) : (
           <>
             <Card>

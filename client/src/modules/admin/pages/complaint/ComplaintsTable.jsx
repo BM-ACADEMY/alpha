@@ -1,4 +1,3 @@
-// ComplaintsTable.jsx
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '@/modules/common/lib/axios';
 import {
@@ -27,7 +26,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Eye, Mail, CheckCircle, Trash, Send } from 'lucide-react';
+import { Eye, MessageSquareMore, CheckCircle, Trash, Send, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -53,6 +52,7 @@ const ComplaintsTable = () => {
   const [complaintToDelete, setComplaintToDelete] = useState(null);
   const [imageUrls, setImageUrls] = useState({});
   const [statusFilter, setStatusFilter] = useState('All');
+  const [isSendingReply, setIsSendingReply] = useState(false);
 
   useEffect(() => {
     fetchComplaints();
@@ -127,8 +127,13 @@ const ComplaintsTable = () => {
 
   const handleSendReply = async (e) => {
     e.stopPropagation();
+    if (!replyData.message.trim()) {
+      showToast('error', 'Reply message cannot be empty');
+      return;
+    }
+    setIsSendingReply(true);
     try {
-      await axiosInstance.post(`/complaints/reply-to-customer/${selectedComplaint._id}/reply`, { message: replyData.message });
+      await axiosInstance.post(`/complaints/reply-to-customer/${selectedComplaint._id}/reply`, { message: replyData.message.trim() }, { withCredentials: true });
       showToast('success', 'Reply sent successfully');
       setReplyData({ email: '', username: '', phone: '', message: '' });
       setSelectedComplaint(null);
@@ -136,7 +141,9 @@ const ComplaintsTable = () => {
       fetchComplaints();
     } catch (err) {
       console.error('Failed to send reply:', err);
-      showToast('error', 'Failed to send reply');
+      showToast('error', err.response?.data?.message || 'Failed to send reply');
+    } finally {
+      setIsSendingReply(false);
     }
   };
 
@@ -157,6 +164,11 @@ const ComplaintsTable = () => {
     }
     setIsDeleteDialogOpen(false);
     setComplaintToDelete(null);
+  };
+
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setPage(1); // Reset to page 1 when filter changes
   };
 
   const totalPages = Math.ceil(total / limit);
@@ -180,7 +192,7 @@ const ComplaintsTable = () => {
   return (
     <div className="p-4">
       <div className="mb-4">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
@@ -280,7 +292,7 @@ const ComplaintsTable = () => {
                         className="hover:bg-yellow-100 cursor-pointer"
                         onClick={(e) => handleOpenReply(e, c)}
                       >
-                        <Mail className="h-5 w-5 text-yellow-600" />
+                        <MessageSquareMore className="h-5 w-5 text-yellow-600" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Reply</TooltipContent>
@@ -409,8 +421,22 @@ const ComplaintsTable = () => {
                 placeholder="Reply message"
                 rows={5}
               />
-              <Button onClick={handleSendReply}>
-                <Send className='w-4 h-4 mr-2' /> Send Reply
+              <Button 
+                onClick={handleSendReply} 
+                disabled={isSendingReply}
+                className="bg-[#0f1c3f] hover:bg-[#0f1c3fc7] text-white flex items-center justify-center transition-all duration-300"
+              >
+                {isSendingReply ? (
+                  <div className="flex items-center">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin text-white" />
+                    <span>Sending...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <Send className="w-4 h-4 mr-2" />
+                    <span>Send Reply</span>
+                  </div>
+                )}
               </Button>
             </div>
           </DialogContent>
