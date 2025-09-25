@@ -34,4 +34,6 @@ router.patch("/verify/:id", userSubscriptionPlan.verifySubscription);
 router.patch("/reject/:id", userSubscriptionPlan.rejectSubscription);
 router.get("/images/:folderName/:fileName", userSubscriptionPlan.getImage);
 
+
+
 module.exports = router;
