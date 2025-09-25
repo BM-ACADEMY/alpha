@@ -5,12 +5,14 @@ import About from '../About'
 import WhatWeOffer from '../Whatweoffer'
 import WhyAlphaR from '../Whyalpha'
 import Footer from '../Footer'
+import Plans from '../Plans'
 
 const Mainsection = () => {
   return (
     <div>
         <Navbarsection/>
         <HeroSection/>
+        <Plans/>
         <About/>
         <WhatWeOffer/>
         <WhyAlphaR/>

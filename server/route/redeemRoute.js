@@ -22,4 +22,7 @@ router.put('/update-status/:id', authMiddleware, redeemController.updateRedeemSt
 router.get('/user-requests/:user_id', authMiddleware, redeemController.getUserRedeemRequests);
 
 
+router.get('/transactions/:user_id', authMiddleware, redeemController.getUserTransactions);
+
+
 module.exports = router;

@@ -242,16 +242,16 @@ const createSubscription = async (req, res) => {
       });
     }
 
-    // Check for active subscriptions
-    const activeSubscription = await UserPlanSubscription.findOne({
-      user_id,
-      planStatus: "Active",
-      expires_at: { $gt: new Date() },
-    });
-    if (activeSubscription) {
-      console.log("Active subscription exists for user_id:", user_id);
-      return res.status(400).json({ message: "User already has an active subscription" });
-    }
+    // // Check for active subscriptions
+    // const activeSubscription = await UserPlanSubscription.findOne({
+    //   user_id,
+    //   planStatus: "Active",
+    //   expires_at: { $gt: new Date() },
+    // });
+    // if (activeSubscription) {
+    //   console.log("Active subscription exists for user_id:", user_id);
+    //   return res.status(400).json({ message: "User already has an active subscription" });
+    // }
     
     // Fetch profit percentage from Percentage model
     const percentage = await Percentage.findOne({
@@ -309,7 +309,7 @@ const getPurchasedPlans = async (req, res) => {
     });
   } catch (error) {
     console.error("Get purchased plans error:", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message || "Internal server error" });
   }
 };
 
@@ -378,6 +378,8 @@ const getImage = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
 
 module.exports = {
   searchUser,

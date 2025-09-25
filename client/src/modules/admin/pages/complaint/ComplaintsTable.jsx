@@ -26,7 +26,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Eye, Mail, CheckCircle, Trash, Send } from 'lucide-react';
+import { Eye, MessageSquareMore, CheckCircle, Trash, Send, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -46,19 +46,25 @@ const ComplaintsTable = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
-  const [dialogMode, setDialogMode] = useState(null); // 'view' or 'reply'
+  const [dialogMode, setDialogMode] = useState(null);
   const [replyData, setReplyData] = useState({ email: '', username: '', phone: '', message: '' });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [complaintToDelete, setComplaintToDelete] = useState(null);
   const [imageUrls, setImageUrls] = useState({});
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [isSendingReply, setIsSendingReply] = useState(false);
 
   useEffect(() => {
     fetchComplaints();
-  }, [page]);
+  }, [page, statusFilter]);
 
   const fetchComplaints = async () => {
     try {
-      const res = await axiosInstance.get(`/complaints/fetch-all-complaints?page=${page}&limit=${limit}`);
+      const params = { page, limit };
+      if (statusFilter !== 'All') {
+        params.status = statusFilter;
+      }
+      const res = await axiosInstance.get(`/complaints/fetch-all-complaints`, { params });
       setComplaints(res.data.complaints);
       setTotal(res.data.total);
 
@@ -121,15 +127,23 @@ const ComplaintsTable = () => {
 
   const handleSendReply = async (e) => {
     e.stopPropagation();
+    if (!replyData.message.trim()) {
+      showToast('error', 'Reply message cannot be empty');
+      return;
+    }
+    setIsSendingReply(true);
     try {
-      await axiosInstance.post(`/complaints/reply-to-customer/${selectedComplaint._id}/reply`, { message: replyData.message });
+      await axiosInstance.post(`/complaints/reply-to-customer/${selectedComplaint._id}/reply`, { message: replyData.message.trim() }, { withCredentials: true });
       showToast('success', 'Reply sent successfully');
       setReplyData({ email: '', username: '', phone: '', message: '' });
       setSelectedComplaint(null);
       setDialogMode(null);
+      fetchComplaints();
     } catch (err) {
       console.error('Failed to send reply:', err);
-      showToast('error', 'Failed to send reply');
+      showToast('error', err.response?.data?.message || 'Failed to send reply');
+    } finally {
+      setIsSendingReply(false);
     }
   };
 
@@ -152,6 +166,11 @@ const ComplaintsTable = () => {
     setComplaintToDelete(null);
   };
 
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setPage(1); // Reset to page 1 when filter changes
+  };
+
   const totalPages = Math.ceil(total / limit);
   const colors = [
     "bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500",
@@ -172,6 +191,19 @@ const ComplaintsTable = () => {
 
   return (
     <div className="p-4">
+      <div className="mb-4">
+        <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Resolved">Resolved</SelectItem>
+            <SelectItem value="Rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -219,73 +251,69 @@ const ComplaintsTable = () => {
                 {new Date(c.created_at).toLocaleString()}
               </TableCell>
               <TableCell className="flex justify-center gap-2">
-  {!c.is_read && (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="hover:bg-green-100 cursor-pointer"
-            onClick={(e) => handleMarkRead(e, c._id)}
-          >
-            <CheckCircle className="h-5 w-5 text-green-600" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Mark as Read</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )}
-
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hover:bg-blue-100 cursor-pointer"
-          onClick={(e) => handleViewDetails(e, c)}
-        >
-          <Eye className="h-5 w-5 text-blue-600" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>View Details</TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hover:bg-yellow-100 cursor-pointer"
-          onClick={(e) => handleOpenReply(e, c)}
-        >
-          <Mail className="h-5 w-5 text-yellow-600" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Reply</TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hover:bg-red-100 cursor-pointer"
-          onClick={(e) => handleDelete(e, c._id)}
-        >
-          <Trash className="h-5 w-5 text-red-600" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Delete</TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-</TableCell>
-
+                {!c.is_read && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hover:bg-green-100 cursor-pointer"
+                          onClick={(e) => handleMarkRead(e, c._id)}
+                        >
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Mark as Read</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-blue-100 cursor-pointer"
+                        onClick={(e) => handleViewDetails(e, c)}
+                      >
+                        <Eye className="h-5 w-5 text-blue-600" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>View Details</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-yellow-100 cursor-pointer"
+                        onClick={(e) => handleOpenReply(e, c)}
+                      >
+                        <MessageSquareMore className="h-5 w-5 text-yellow-600" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Reply</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-red-100 cursor-pointer"
+                        onClick={(e) => handleDelete(e, c._id)}
+                      >
+                        <Trash className="h-5 w-5 text-red-600" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -335,6 +363,21 @@ const ComplaintsTable = () => {
                       </Badge>
                     </TableCell>
                   </TableRow>
+                  {selectedComplaint.replies?.length > 0 && (
+                    <TableRow>
+                      <TableCell><strong>Replies</strong></TableCell>
+                      <TableCell>
+                        {selectedComplaint.replies.map((reply, index) => (
+                          <div key={index} className="border p-2 mb-2 rounded">
+                            <p className="text-sm text-gray-500">
+                              {new Date(reply.created_at).toLocaleString()}
+                            </p>
+                            <p>{reply.message}</p>
+                          </div>
+                        ))}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
               {selectedComplaint.image_urls.length > 0 && (
@@ -378,8 +421,22 @@ const ComplaintsTable = () => {
                 placeholder="Reply message"
                 rows={5}
               />
-              <Button onClick={handleSendReply}>
-                <Send className='w-4 h-4 mr-2' /> Send Reply
+              <Button 
+                onClick={handleSendReply} 
+                disabled={isSendingReply}
+                className="bg-[#0f1c3f] hover:bg-[#0f1c3fc7] text-white flex items-center justify-center transition-all duration-300"
+              >
+                {isSendingReply ? (
+                  <div className="flex items-center">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin text-white" />
+                    <span>Sending...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <Send className="w-4 h-4 mr-2" />
+                    <span>Send Reply</span>
+                  </div>
+                )}
               </Button>
             </div>
           </DialogContent>

@@ -5,6 +5,9 @@ import logo from "@/assets/images/alphalogo.png";
 import bg from "@/assets/images/bg.jpg";
 import axiosInstance from "../lib/axios";
 import { User, Mail, Phone, Lock, Eye, EyeOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import TermsAndConditions from "@/modules/Homepage/Terms"; // Import the TermsAndConditions component
 
 function Register() {
   const navigate = useNavigate();
@@ -28,6 +31,7 @@ function Register() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [hasReadTerms, setHasReadTerms] = useState(false); // Track if terms modal was opened and closed
 
   const checkPasswordStrength = (password) => {
     let score = 0;
@@ -85,6 +89,8 @@ function Register() {
     }
     if (!formData.agreeTerms)
       newErrors.agreeTerms = "You must agree to the Terms & Conditions";
+    if (!hasReadTerms)
+      newErrors.agreeTerms = "You must read the Terms & Conditions before agreeing";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -109,11 +115,19 @@ function Register() {
     }
   };
 
-  const getInputProps = (field, type = "text") => ({
+  const getInputProps = (field, type = "text") => {
+  const placeholders = {
+    username: "Enter your username",
+    email: "Enter your email",
+    phone_number: "Enter your phone number",
+    password: "Your password must be min 8 characters",
+    confirmPassword: "Confirm your password",
+    referral_code: "Enter referral code",
+  };
+
+  return {
     type,
-    placeholder:
-      errors[field] ||
-      field.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    placeholder: placeholders[field] || "Enter value",
     value: formData[field],
     onChange: (e) => setFormData({ ...formData, [field]: e.target.value }),
     className: `bg-transparent text-gray-700 outline-none text-sm w-full h-full px-2 ${
@@ -121,7 +135,9 @@ function Register() {
         ? "placeholder-red-500 border-red-500"
         : "placeholder-gray-500"
     }`,
-  });
+  };
+};
+
 
   return (
     <div
@@ -233,24 +249,40 @@ function Register() {
           <input {...getInputProps("referral_code")} />
         </div>
 
-        {/* Terms */}
+        {/* Terms & Conditions */}
         <div className="mt-6 flex flex-col items-start w-full">
-          <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+          
+          <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer mt-2">
             <input
               type="checkbox"
               checked={formData.agreeTerms}
-              onChange={(e) =>
-                setFormData({ ...formData, agreeTerms: e.target.checked })
-              }
-              className="w-4 h-4 accent-[#7e9cba]"
+              disabled={!hasReadTerms} // Disable checkbox until terms are read
+              onChange={(e) => {
+                if (!hasReadTerms) {
+                  showToast("error", "Please read the Terms & Conditions first");
+                  return;
+                }
+                setFormData({ ...formData, agreeTerms: e.target.checked });
+              }}
+              className={`w-4 h-4 accent-[#7e9cba] ${!hasReadTerms ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
-            I agree to the{" "}
-            <span
-              onClick={() => navigate("/terms")}
-              className="text-gray-200 underline hover:text-gray-300"
-            >
-              Terms & Conditions
-            </span>
+            I agree to the <Dialog
+            onOpenChange={(open) => {
+              if (!open) setHasReadTerms(true); // Mark terms as read when modal is closed
+            }}
+          >
+            <DialogTrigger asChild>
+              <span className="text-gray-200 underline hover:text-gray-300 cursor-pointer">
+                Terms & Conditions
+              </span>
+            </DialogTrigger>
+            <DialogContent className="max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Terms & Conditions</DialogTitle>
+              </DialogHeader>
+              <TermsAndConditions />
+            </DialogContent>
+          </Dialog>
           </label>
           {errors.agreeTerms && (
             <p className="text-xs text-red-500 mt-1">{errors.agreeTerms}</p>
@@ -258,7 +290,7 @@ function Register() {
         </div>
 
         {/* Submit Button with Loading Animation */}
-        <button
+        <Button
           type="submit"
           disabled={isLoading}
           className="mt-4 w-full h-12 rounded-full text-white bg-[#0F1C3F] hover:bg-[#1A2B5C] transition-colors shadow-md hover:shadow-lg font-medium disabled:opacity-50 flex items-center justify-center"
@@ -290,7 +322,39 @@ function Register() {
           ) : (
             "Register"
           )}
-        </button>
+        </Button>
+        {/* Earn More Section */}
+<div className="mt-8 w-full text-center">
+  <p className="text-gray-200 text-sm mt-2">
+    Earn More with Referrals{" "}
+    <Dialog>
+      <DialogTrigger asChild>
+        <span className="text-gray-200 underline hover:text-gray-300 cursor-pointer">
+          Read more
+        </span>
+      </DialogTrigger>
+      <DialogContent className="max-h-[70vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Profits & Referral Earnings</DialogTitle>
+        </DialogHeader>
+        <div className="text-gray-700 text-sm space-y-3">
+          <p>
+            • <strong>Daily profits</strong> will be credited automatically as per your selected plan.
+          </p>
+          <p>
+            • <strong>Referral bonus:</strong> Referrer earns <strong>1% of referred user’s daily profit</strong> 
+            (not on deposit).
+          </p>
+          <p>
+            • <strong>Alpha R</strong> reserves the right to adjust profit percentages or referral 
+            bonuses at any time.
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </p>
+</div>
+
 
         <p className="text-gray-200 text-sm mt-4">
           Already have an account?{" "}

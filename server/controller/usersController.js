@@ -396,6 +396,30 @@ exports.loginUser = async (req, res) => {
   }
 };
 
+
+// Verify OTP
+exports.verifyOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  try {
+    const user = await User.findOne({ email, email_otp: otp });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid OTP or email" });
+    }
+
+    // Optionally, you can mark the OTP as verified or clear it here
+    // For security, you might want to keep the OTP until the password is reset
+    // user.email_otp = null;
+    // await user.save();
+
+    res.status(200).json({ message: "OTP verified successfully" });
+  } catch (error) {
+    console.error("Verify OTP error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
 // Forgot Password
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
@@ -546,6 +570,12 @@ exports.getAdminInfo = async (req, res) => {
 exports.getReferralUsers = async (req, res) => {
   try {
     const { referred_by } = req.query;
+    console.log('Fetching referred users for:', referred_by);
+
+    // Validate referred_by as ObjectId
+    if (referred_by && !mongoose.Types.ObjectId.isValid(referred_by)) {
+      return res.status(400).json({ message: 'Invalid referred_by ID' });
+    }
 
     // Build query object
     const query = { role_id: await Role.findOne({ role_name: "user" }).select('_id') };
@@ -558,11 +588,31 @@ exports.getReferralUsers = async (req, res) => {
       .populate({
         path: "role_id",
         select: "role_name",
-      });
+      })
+      .lean(); // Use lean for better performance
 
-    // No need to filter out null role_id since query ensures role_id exists
-    res.status(200).json(users); // Return empty array if no users found
+    // Fetch subscription status for each user
+    const usersWithStatus = await Promise.all(users.map(async (user) => {
+      const subscription = await UserPlanSubscription.findOne({
+        user_id: user._id,
+        status: 'verified',
+        expires_at: { $gt: new Date() },
+      })
+        .populate('plan_id', 'plan_name')
+        .lean();
+
+      return {
+        ...user,
+        subscriptionStatus: subscription ? 'Active' : 'Inactive',
+        activePlan: subscription ? subscription.plan_id?.plan_name : 'None',
+      };
+    }));
+
+    console.log('Referred Users with Status:', usersWithStatus);
+
+    res.status(200).json(usersWithStatus);
   } catch (err) {
+    console.error('Error in getReferralUsers:', err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -618,3 +668,5 @@ exports.getUserreferralDashboard = async (req, res) => {
     res.status(500).json({ message: error.message || 'Internal server error' });
   }
 };
+
+

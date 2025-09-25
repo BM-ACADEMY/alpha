@@ -5,6 +5,10 @@ import { User, Mail, Phone, Lock, Eye, EyeOff } from "lucide-react";
 import logo from "@/assets/images/file.png";
 import bg from "@/assets/images/bg.jpg";
 import axiosInstance from "../lib/axios";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import TermsAndConditions from "@/modules/Homepage/Terms"; // Import the TermsAndConditions component
+
 
 const ReferalRegister = () => {
   const navigate = useNavigate();
@@ -32,6 +36,7 @@ const ReferalRegister = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [hasReadTerms, setHasReadTerms] = useState(false);
 
   const checkPasswordStrength = (password) => {
     let score = 0;
@@ -89,6 +94,8 @@ const ReferalRegister = () => {
     }
     if (!formData.agreeTerms)
       newErrors.agreeTerms = "You must agree to the Terms & Conditions";
+    if (!hasReadTerms)
+      newErrors.agreeTerms = "You must read the Terms & Conditions before agreeing";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -250,28 +257,44 @@ const ReferalRegister = () => {
         </div>
 
         {/* Terms */}
-        <div className="mt-6 flex flex-col items-start w-full">
-          <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.agreeTerms}
-              onChange={(e) =>
-                setFormData({ ...formData, agreeTerms: e.target.checked })
-              }
-              className="w-4 h-4 accent-[#7e9cba]"
-            />
-            I agree to the{" "}
-            <span
-              onClick={() => navigate("/terms")}
-              className="text-gray-200 underline hover:text-gray-300"
-            >
-              Terms & Conditions
-            </span>
-          </label>
-          {errors.agreeTerms && (
-            <p className="text-xs text-red-500 mt-1">{errors.agreeTerms}</p>
-          )}
-        </div>
+ <div className="mt-6 flex flex-col items-start w-full">
+           
+           <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer mt-2">
+             <input
+               type="checkbox"
+               checked={formData.agreeTerms}
+               disabled={!hasReadTerms} // Disable checkbox until terms are read
+               onChange={(e) => {
+                 if (!hasReadTerms) {
+                   showToast("error", "Please read the Terms & Conditions first");
+                   return;
+                 }
+                 setFormData({ ...formData, agreeTerms: e.target.checked });
+               }}
+               className={`w-4 h-4 accent-[#7e9cba] ${!hasReadTerms ? 'opacity-50 cursor-not-allowed' : ''}`}
+             />
+             I agree to the <Dialog
+             onOpenChange={(open) => {
+               if (!open) setHasReadTerms(true); // Mark terms as read when modal is closed
+             }}
+           >
+             <DialogTrigger asChild>
+               <span className="text-gray-200 underline hover:text-gray-300 cursor-pointer">
+                 Terms & Conditions
+               </span>
+             </DialogTrigger>
+             <DialogContent className="max-h-[80vh] overflow-y-auto">
+               <DialogHeader>
+                 <DialogTitle>Terms & Conditions</DialogTitle>
+               </DialogHeader>
+               <TermsAndConditions />
+             </DialogContent>
+           </Dialog>
+           </label>
+           {errors.agreeTerms && (
+             <p className="text-xs text-red-500 mt-1">{errors.agreeTerms}</p>
+           )}
+         </div>
 
         {/* Submit Button */}
         <button

@@ -29,8 +29,11 @@ router.get("/purchased-plans", userSubscriptionPlan.getPurchasedPlans);
 // Verify
 router.patch("/verify/:id", userSubscriptionPlan.verifySubscription);
 
+
 // Reject
 router.patch("/reject/:id", userSubscriptionPlan.rejectSubscription);
 router.get("/images/:folderName/:fileName", userSubscriptionPlan.getImage);
+
+
 
 module.exports = router;

@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const Redeem = require("../model/redeemModel");
+const UserPlanSubscription = require('../model/userSubscriptionPlanModel');
 const Wallet = require("../model/walletModel");
 const User = require("../model/usersModel");
 const transporter = require("../utils/nodemailer");
@@ -268,3 +270,104 @@ exports.getUserRedeemRequests = async (req, res) => {
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };
+
+
+
+exports.getUserTransactions = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    if (!mongoose.Types.ObjectId.isValid(user_id)) {
+      return res.status(400).json({ message: 'Invalid user_id format' });
+    }
+
+    // Fetch deposit transactions (from UserPlanSubscription)
+    const deposits = await UserPlanSubscription.find({
+      user_id,
+      status: 'verified',
+    })
+      .select('amount created_at status')
+      .lean()
+      .then((subscriptions) =>
+        subscriptions.map((sub) => ({
+          type: 'Deposit',
+          amount: sub.amount,
+          account_type: 'INR', // Assuming deposits are in INR
+          date: sub.created_at,
+          status: sub.status,
+        }))
+      );
+
+    // Fetch redeem transactions (from Redeem)
+    const redeems = await Redeem.find({ user_id })
+      .select('redeem_amount account_type created_at status')
+      .lean()
+      .then((requests) =>
+        requests.map((req) => ({
+          type: 'Redeem',
+          amount: req.redeem_amount,
+          account_type: req.account_type,
+          date: req.created_at,
+          status: req.status,
+        }))
+      );
+
+    // Fetch wallet for daily profit
+    const wallet = await Wallet.findOne({ user_id }).lean();
+    const profits = [];
+    if (wallet && wallet.dailyProfitAmount > 0) {
+      // Simulate profit transactions based on cron job logic
+      const subscriptions = await UserPlanSubscription.find({
+        user_id,
+        status: 'verified',
+        planStatus: 'Active',
+        expires_at: { $gt: new Date() },
+      })
+        .populate('plan_id', 'capital_lockin')
+        .lean();
+
+      for (const sub of subscriptions) {
+        const capitalLockin = sub.plan_id?.capital_lockin || 30;
+        const startDate = new Date(sub.verified_at || sub.created_at);
+        const endDate = new Date();
+        const days = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+        for (let i = 0; i < Math.min(days, capitalLockin); i++) {
+          const profitDate = new Date(startDate);
+          profitDate.setDate(startDate.getDate() + i);
+          if (profitDate <= endDate) {
+            profits.push({
+              type: 'Profit',
+              amount: wallet.dailyProfitAmount,
+              account_type: 'INR',
+              date: profitDate,
+              status: 'credited',
+            });
+          }
+        }
+      }
+    }
+
+    // Combine and sort transactions
+    const transactions = [...deposits, ...redeems, ...profits].sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    );
+
+    // Apply pagination
+    const paginatedTransactions = transactions.slice(skip, skip + parseInt(limit));
+    const total = transactions.length;
+
+    res.json({
+      transactions: paginatedTransactions,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+    });
+  } catch (err) {
+    console.error('Error fetching user transactions:', err);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+};
+
