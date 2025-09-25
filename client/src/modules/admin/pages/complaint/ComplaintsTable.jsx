@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import axiosInstance from '@/modules/common/lib/axios';
+import React, { useState, useEffect } from "react";
+import axiosInstance from "@/modules/common/lib/axios";
 import {
   Table,
   TableBody,
@@ -15,7 +15,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -26,19 +31,25 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Eye, Mail, CheckCircle, Trash, Send } from 'lucide-react';
+import { Eye, Mail, CheckCircle, Trash, Send } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { showToast } from '@/modules/common/toast/customToast';
-import ConfirmationDialog from '@/modules/common/reusable/ConfirmationDialog';
-import LightGallery from 'lightgallery/react';
-import 'lightgallery/css/lightgallery.css';
-import 'lightgallery/css/lg-zoom.css';
-import 'lightgallery/css/lg-thumbnail.css';
-import lgThumbnail from 'lightgallery/plugins/thumbnail';
-import lgZoom from 'lightgallery/plugins/zoom';
-import { getImageUrl } from './ImageUtils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { showToast } from "@/modules/common/toast/customToast";
+import ConfirmationDialog from "@/modules/common/reusable/ConfirmationDialog";
+import LightGallery from "lightgallery/react";
+import "lightgallery/css/lightgallery.css";
+import "lightgallery/css/lg-zoom.css";
+import "lightgallery/css/lg-thumbnail.css";
+import lgThumbnail from "lightgallery/plugins/thumbnail";
+import lgZoom from "lightgallery/plugins/zoom";
+import { getImageUrl } from "./ImageUtils";
 
 const ComplaintsTable = () => {
   const [complaints, setComplaints] = useState([]);
@@ -47,7 +58,12 @@ const ComplaintsTable = () => {
   const [limit] = useState(10);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [dialogMode, setDialogMode] = useState(null); // 'view' or 'reply'
-  const [replyData, setReplyData] = useState({ email: '', username: '', phone: '', message: '' });
+  const [replyData, setReplyData] = useState({
+    email: "",
+    username: "",
+    phone: "",
+    message: "",
+  });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [complaintToDelete, setComplaintToDelete] = useState(null);
   const [imageUrls, setImageUrls] = useState({});
@@ -58,7 +74,9 @@ const ComplaintsTable = () => {
 
   const fetchComplaints = async () => {
     try {
-      const res = await axiosInstance.get(`/complaints/fetch-all-complaints?page=${page}&limit=${limit}`);
+      const res = await axiosInstance.get(
+        `/complaints/fetch-all-complaints?page=${page}&limit=${limit}`
+      );
       setComplaints(res.data.complaints);
       setTotal(res.data.total);
 
@@ -66,15 +84,19 @@ const ComplaintsTable = () => {
       for (const complaint of res.data.complaints) {
         if (complaint.image_urls && complaint.image_urls.length > 0) {
           for (const url of complaint.image_urls) {
-            const blobUrl = await getImageUrl(url, complaint.user_id._id, 'complaint');
+            const blobUrl = await getImageUrl(
+              url,
+              complaint.user_id._id,
+              "complaint"
+            );
             newImageUrls[url] = blobUrl;
           }
         }
       }
       setImageUrls(newImageUrls);
     } catch (err) {
-      console.error('Failed to fetch complaints:', err);
-      showToast('error', 'Failed to fetch complaints');
+      console.error("Failed to fetch complaints:", err);
+      showToast("error", "Failed to fetch complaints");
     }
   };
 
@@ -83,10 +105,10 @@ const ComplaintsTable = () => {
     try {
       await axiosInstance.patch(`/complaints/mark-as-read/${id}`);
       fetchComplaints();
-      showToast('success', 'Complaint marked as read');
+      showToast("success", "Complaint marked as read");
     } catch (err) {
-      console.error('Failed to mark as read:', err);
-      showToast('error', 'Failed to mark as read');
+      console.error("Failed to mark as read:", err);
+      showToast("error", "Failed to mark as read");
     }
   };
 
@@ -94,17 +116,17 @@ const ComplaintsTable = () => {
     try {
       await axiosInstance.patch(`/complaints/update-status/${id}`, { status });
       fetchComplaints();
-      showToast('success', `Complaint status updated to ${status}`);
+      showToast("success", `Complaint status updated to ${status}`);
     } catch (err) {
-      console.error('Failed to update status:', err);
-      showToast('error', 'Failed to update status');
+      console.error("Failed to update status:", err);
+      showToast("error", "Failed to update status");
     }
   };
 
   const handleViewDetails = (e, complaint) => {
     e.stopPropagation();
     setSelectedComplaint(complaint);
-    setDialogMode('view');
+    setDialogMode("view");
   };
 
   const handleOpenReply = (e, complaint) => {
@@ -113,23 +135,26 @@ const ComplaintsTable = () => {
       email: complaint.user_id.email,
       username: complaint.user_id.username,
       phone: complaint.user_id.phone_number,
-      message: '',
+      message: "",
     });
     setSelectedComplaint(complaint);
-    setDialogMode('reply');
+    setDialogMode("reply");
   };
 
   const handleSendReply = async (e) => {
     e.stopPropagation();
     try {
-      await axiosInstance.post(`/complaints/reply-to-customer/${selectedComplaint._id}/reply`, { message: replyData.message });
-      showToast('success', 'Reply sent successfully');
-      setReplyData({ email: '', username: '', phone: '', message: '' });
+      await axiosInstance.post(
+        `/complaints/reply-to-customer/${selectedComplaint._id}/reply`,
+        { message: replyData.message }
+      );
+      showToast("success", "Reply sent successfully");
+      setReplyData({ email: "", username: "", phone: "", message: "" });
       setSelectedComplaint(null);
       setDialogMode(null);
     } catch (err) {
-      console.error('Failed to send reply:', err);
-      showToast('error', 'Failed to send reply');
+      console.error("Failed to send reply:", err);
+      showToast("error", "Failed to send reply");
     }
   };
 
@@ -141,12 +166,14 @@ const ComplaintsTable = () => {
 
   const confirmDelete = async () => {
     try {
-      await axiosInstance.delete(`/complaints/delete-complaint/${complaintToDelete}`);
+      await axiosInstance.delete(
+        `/complaints/delete-complaint/${complaintToDelete}`
+      );
       fetchComplaints();
-      showToast('success', 'Complaint deleted successfully');
+      showToast("success", "Complaint deleted successfully");
     } catch (err) {
-      console.error('Failed to delete complaint:', err);
-      showToast('error', 'Failed to delete complaint');
+      console.error("Failed to delete complaint:", err);
+      showToast("error", "Failed to delete complaint");
     }
     setIsDeleteDialogOpen(false);
     setComplaintToDelete(null);
@@ -154,8 +181,14 @@ const ComplaintsTable = () => {
 
   const totalPages = Math.ceil(total / limit);
   const colors = [
-    "bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500",
-    "bg-purple-500", "bg-pink-500", "bg-orange-500", "bg-teal-500"
+    "bg-red-500",
+    "bg-blue-500",
+    "bg-green-500",
+    "bg-yellow-500",
+    "bg-purple-500",
+    "bg-pink-500",
+    "bg-orange-500",
+    "bg-teal-500",
   ];
 
   function getRandomColor(username) {
@@ -167,7 +200,7 @@ const ComplaintsTable = () => {
   }
 
   const onGalleryInit = () => {
-    console.log('LightGallery has been initialized');
+    console.log("LightGallery has been initialized");
   };
 
   return (
@@ -188,7 +221,11 @@ const ComplaintsTable = () => {
             <TableRow key={c._id} className="hover:bg-muted/40">
               <TableCell className="flex items-center gap-3">
                 <Avatar>
-                  <AvatarFallback className={`${getRandomColor(c.user_id.username)} text-white`}>
+                  <AvatarFallback
+                    className={`${getRandomColor(
+                      c.user_id.username
+                    )} text-white`}
+                  >
                     {c.user_id.username.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -215,83 +252,86 @@ const ComplaintsTable = () => {
                   </SelectContent>
                 </Select>
               </TableCell>
-              <TableCell>
-                {new Date(c.created_at).toLocaleString()}
-              </TableCell>
+              <TableCell>{new Date(c.created_at).toLocaleString()}</TableCell>
               <TableCell className="flex justify-center gap-2">
-  {!c.is_read && (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="hover:bg-green-100 cursor-pointer"
-            onClick={(e) => handleMarkRead(e, c._id)}
-          >
-            <CheckCircle className="h-5 w-5 text-green-600" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Mark as Read</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )}
+                {!c.is_read && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hover:bg-green-100 cursor-pointer"
+                          onClick={(e) => handleMarkRead(e, c._id)}
+                        >
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Mark as Read</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
 
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hover:bg-blue-100 cursor-pointer"
-          onClick={(e) => handleViewDetails(e, c)}
-        >
-          <Eye className="h-5 w-5 text-blue-600" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>View Details</TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-blue-100 cursor-pointer"
+                        onClick={(e) => handleViewDetails(e, c)}
+                      >
+                        <Eye className="h-5 w-5 text-blue-600" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>View Details</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hover:bg-yellow-100 cursor-pointer"
-          onClick={(e) => handleOpenReply(e, c)}
-        >
-          <Mail className="h-5 w-5 text-yellow-600" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Reply</TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-yellow-100 cursor-pointer"
+                        onClick={(e) => handleOpenReply(e, c)}
+                      >
+                        <Mail className="h-5 w-5 text-yellow-600" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Reply</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hover:bg-red-100 cursor-pointer"
-          onClick={(e) => handleDelete(e, c._id)}
-        >
-          <Trash className="h-5 w-5 text-red-600" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Delete</TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-</TableCell>
-
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-red-100 cursor-pointer"
+                        onClick={(e) => handleDelete(e, c._id)}
+                      >
+                        <Trash className="h-5 w-5 text-red-600" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-      {selectedComplaint && dialogMode === 'view' && (
-        <Dialog open={!!selectedComplaint && dialogMode === 'view'} onOpenChange={() => { setSelectedComplaint(null); setDialogMode(null); }}>
+      {selectedComplaint && dialogMode === "view" && (
+        <Dialog
+          open={!!selectedComplaint && dialogMode === "view"}
+          onOpenChange={() => {
+            setSelectedComplaint(null);
+            setDialogMode(null);
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Complaint Details</DialogTitle>
@@ -300,35 +340,49 @@ const ComplaintsTable = () => {
               <Table>
                 <TableBody>
                   <TableRow>
-                    <TableCell><strong>Name</strong></TableCell>
+                    <TableCell>
+                      <strong>Name</strong>
+                    </TableCell>
                     <TableCell>{selectedComplaint.user_id.username}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell><strong>Email</strong></TableCell>
+                    <TableCell>
+                      <strong>Email</strong>
+                    </TableCell>
                     <TableCell>{selectedComplaint.user_id.email}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell><strong>Phone</strong></TableCell>
-                    <TableCell>{selectedComplaint.user_id.phone_number}</TableCell>
+                    <TableCell>
+                      <strong>Phone</strong>
+                    </TableCell>
+                    <TableCell>
+                      {selectedComplaint.user_id.phone_number}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell><strong>Type</strong></TableCell>
+                    <TableCell>
+                      <strong>Type</strong>
+                    </TableCell>
                     <TableCell>{selectedComplaint.complaint_type}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell><strong>Description</strong></TableCell>
+                    <TableCell>
+                      <strong>Description</strong>
+                    </TableCell>
                     <TableCell>{selectedComplaint.description}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell><strong>Status</strong></TableCell>
+                    <TableCell>
+                      <strong>Status</strong>
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant={
-                          selectedComplaint.status === 'Resolved'
-                            ? 'success'
-                            : selectedComplaint.status === 'Rejected'
-                            ? 'destructive'
-                            : 'warning'
+                          selectedComplaint.status === "Resolved"
+                            ? "success"
+                            : selectedComplaint.status === "Rejected"
+                            ? "destructive"
+                            : "warning"
                         }
                       >
                         {selectedComplaint.status}
@@ -347,10 +401,13 @@ const ComplaintsTable = () => {
                     elementClassNames="mt-2 flex flex-wrap gap-2"
                   >
                     {selectedComplaint.image_urls.map((url, idx) => (
-                      <a key={idx} href={imageUrls[url] || '/fallback-image.png'}>
+                      <a
+                        key={idx}
+                        href={imageUrls[url] || "/fallback-image.png"}
+                      >
                         <img
                           alt={`complaint-${idx}`}
-                          src={imageUrls[url] || '/fallback-image.png'}
+                          src={imageUrls[url] || "/fallback-image.png"}
                           className="w-32 h-32 object-cover rounded"
                         />
                       </a>
@@ -362,24 +419,37 @@ const ComplaintsTable = () => {
           </DialogContent>
         </Dialog>
       )}
-      {selectedComplaint && dialogMode === 'reply' && (
-        <Dialog open={!!selectedComplaint && dialogMode === 'reply'} onOpenChange={() => { setReplyData({ email: '', username: '', phone: '', message: '' }); setSelectedComplaint(null); setDialogMode(null); }}>
+      {selectedComplaint && dialogMode === "reply" && (
+        <Dialog
+          open={!!selectedComplaint && dialogMode === "reply"}
+          onOpenChange={() => {
+            setReplyData({ email: "", username: "", phone: "", message: "" });
+            setSelectedComplaint(null);
+            setDialogMode(null);
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Send Reply</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <Input value={replyData.username} readOnly placeholder="Username" />
+              <Input
+                value={replyData.username}
+                readOnly
+                placeholder="Username"
+              />
               <Input value={replyData.email} readOnly placeholder="Email" />
               <Input value={replyData.phone} readOnly placeholder="Phone" />
               <Textarea
                 value={replyData.message}
-                onChange={(e) => setReplyData({ ...replyData, message: e.target.value })}
+                onChange={(e) =>
+                  setReplyData({ ...replyData, message: e.target.value })
+                }
                 placeholder="Reply message"
                 rows={5}
               />
               <Button onClick={handleSendReply}>
-                <Send className='w-4 h-4 mr-2' /> Send Reply
+                <Send className="w-4 h-4 mr-2" /> Send Reply
               </Button>
             </div>
           </DialogContent>

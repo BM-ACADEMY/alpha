@@ -27,11 +27,7 @@ export const userMenuItems = {
       url: '/user-dashboard',
       icon: LayoutDashboard,
     },
-    {
-      title: 'Complaint',
-      url: '/user-dashboard/earnings',
-      icon: BarChart,
-    },
+   
     {
       title: 'Plans',
       url: '/user-dashboard/plans',
@@ -48,14 +44,19 @@ export const userMenuItems = {
       icon: CreditCard,
     },
     {
+      title: 'Referral',
+      url: '/user-dashboard/referral',
+      icon: History,
+    },
+    {
       title: 'History',
       url: '/user-dashboard/history',
       icon: CreditCard,
     },
-    {
-      title: 'Referral',
-      url: '/user-dashboard/referral',
-      icon: History,
+     {
+      title: 'Complaint',
+      url: '/user-dashboard/earnings',
+      icon: BarChart,
     },
     {
       title: 'Profile',

@@ -15,11 +15,21 @@ function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await axiosInstance.post("users/forgot-password", { email });
-      showToast("success", response?.data?.message || "OTP sent successfully to your email");
-      navigate("/verify-email", { state: { email, from: "forgot-password" } });
+      const response = await axiosInstance.post("users/forgot-password", {
+        email,
+      });
+      showToast(
+        "success",
+        response?.data?.message || "OTP sent successfully to your email"
+      );
+      navigate("/verify-otp", {
+        state: { email, from: "forgot-password" },
+      });
     } catch (error) {
-     showToast("error", error.response?.data?.message || "Failed to send OTP. Please try again");
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to send OTP. Please try again"
+      );
     }
     setLoading(false);
   };
@@ -48,9 +58,12 @@ function ForgotPassword() {
                    shadow-lg hover:shadow-xl 
                    transition-shadow duration-300"
       >
-        <h1 className="text-gray-100 text-3xl font-semibold">Forgot Password</h1>
+        <h1 className="text-gray-100 text-3xl font-semibold">
+          Forgot Password
+        </h1>
         <p className="text-gray-200 text-sm mt-2">
-          Enter your email to receive a password reset OTP
+          Enter your email to receive OTP to your registered email. Please check
+          your spam folder if not received.
         </p>
 
         {/* Email Input */}
@@ -74,8 +87,18 @@ function ForgotPassword() {
           className="mt-5 w-full h-11 rounded-full text-white bg-[#0f1c3f] hover:bg-[#0e1a3bd5] hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
           {loading ? (
-            <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <svg
+              className="animate-spin h-5 w-5 text-white"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
               <path
                 className="opacity-75"
                 fill="currentColor"

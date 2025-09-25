@@ -10,6 +10,7 @@ router.get('/admin-info', userController.getAdminInfo);
 router.post('/verify-email', userController.verifyEmail);
 router.post('/login', userController.loginUser);
 router.post('/forgot-password', userController.forgotPassword);
+router.post("/verify-otp", userController.verifyOtp); // New endpoint
 router.post('/reset-password', userController.resetPassword);
 router.post('/logout', userController.logout);
 router.put('/update-user/:id', userController.updateUser);

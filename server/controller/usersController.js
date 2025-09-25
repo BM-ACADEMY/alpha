@@ -396,6 +396,30 @@ exports.loginUser = async (req, res) => {
   }
 };
 
+
+// Verify OTP
+exports.verifyOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  try {
+    const user = await User.findOne({ email, email_otp: otp });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid OTP or email" });
+    }
+
+    // Optionally, you can mark the OTP as verified or clear it here
+    // For security, you might want to keep the OTP until the password is reset
+    // user.email_otp = null;
+    // await user.save();
+
+    res.status(200).json({ message: "OTP verified successfully" });
+  } catch (error) {
+    console.error("Verify OTP error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
 // Forgot Password
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;

@@ -36,12 +36,10 @@ const Dashboard = () => {
   const userId = user?.id;
   const [data, setData] = useState(null);
   const [redeemRequests, setRedeemRequests] = useState([]);
-  const [isOpen, setIsOpen] = useState(true);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [loadingSubscription, setLoadingSubscription] = useState(true);
   const [profitView, setProfitView] = useState("monthly"); // State for toggle: 'daily' or 'monthly'
 
-  const handleClose = () => setIsOpen(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -106,33 +104,7 @@ const Dashboard = () => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Risk Disclaimer */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto p-6">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center flex items-center justify-center gap-2">
-              <AlertTriangle className="h-6 w-6 text-yellow-500 animate-pulse" />
-              Risk Disclaimer
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-4 text-sm text-gray-700">
-            <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
-              <ul className="list-disc pl-5 space-y-2">
-                <li>All investments involve risk. Past performance does not guarantee future results.</li>
-                <li>Alpha R does not promise fixed or guaranteed returns.</li>
-                <li>By investing, you agree that you are doing so at your own risk.</li>
-                <li>Alpha R will not be liable for any loss of capital, profit, or opportunity due to market conditions, user actions, or third-party services.</li>
-                <li>Users are advised to invest only amounts they can afford to risk.</li>
-              </ul>
-            </div>
-          </div>
-          <DialogFooter className="mt-6 flex flex-col gap-2">
-            <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={handleClose}>
-              Got it
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
 
       <h1 className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">Your Dashboard</h1>
 
