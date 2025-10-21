@@ -619,6 +619,57 @@ exports.getReferralUsers = async (req, res) => {
 
 // In usersController.js
 // usersController.js
+// exports.getUserreferralDashboard = async (req, res) => {
+//   try {
+//     const userId = req.params.id;
+//     if (!mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(400).json({ message: 'Invalid user ID' });
+//     }
+
+//     const user = await User.findById(userId).lean();
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+
+//     const wallet = await Wallet.findOne({ user_id: userId }).lean();
+//     const subscriptions = await UserPlanSubscription.find({
+//       user_id: userId,
+//       status: 'verified',
+//       expires_at: { $gt: new Date() },
+//     })
+//       .populate('plan_id', 'plan_name capital_lockin')
+//       .lean();
+
+//     // Calculate referral count
+//     const referralCount = await User.countDocuments({ referred_by: userId });
+
+//     // Use referral_amount from wallet
+//     const referralEarnings = wallet ? wallet.referral_amount : 0;
+//        console.log(wallet,'wallet');
+       
+//     res.json({
+//       user: {
+//         _id: user._id,
+//         username: user.username,
+//         email: user.email,
+//       },
+//       wallet: wallet || {
+//         userPlanCapitalAmount: 0,
+//         dailyProfitAmount: 0,
+//         totalWalletPoint: 0,
+//         referral_amount: 0,
+//       },
+//       subscriptions,
+//       referralCount,
+//       referralEarnings,
+//     });
+//   } catch (error) {
+//     console.error('Get user dashboard error:', error);
+//     res.status(500).json({ message: error.message || 'Internal server error' });
+//   }
+// };
+
+
 exports.getUserreferralDashboard = async (req, res) => {
   try {
     const userId = req.params.id;
@@ -643,10 +694,31 @@ exports.getUserreferralDashboard = async (req, res) => {
     // Calculate referral count
     const referralCount = await User.countDocuments({ referred_by: userId });
 
-    // Use referral_amount from wallet
+    // Calculate daily and monthly referral profits
+    const referredUsers = await User.find({ referred_by: userId }).lean();
+    let dailyReferralProfit = 0;
+
+    for (const referredUser of referredUsers) {
+      const subscription = await UserPlanSubscription.findOne({
+        user_id: referredUser._id,
+        status: 'verified',
+        expires_at: { $gt: new Date() },
+      })
+        .populate('plan_id')
+        .lean();
+
+      if (subscription && subscription.plan_id) {
+        const plan = subscription.plan_id;
+        const capitalLockin = plan.capital_lockin || 30;
+        const totalProfit = (subscription.amount * Number(plan.profit_percentage)) / 100;
+        const dailyProfit = totalProfit / capitalLockin;
+        dailyReferralProfit += dailyProfit * 0.01; // 1% of referred user's daily profit
+      }
+    }
+
+    const monthlyReferralProfit = dailyReferralProfit * 30; // Estimate for 30 days
     const referralEarnings = wallet ? wallet.referral_amount : 0;
-       console.log(wallet,'wallet');
-       
+
     res.json({
       user: {
         _id: user._id,
@@ -662,6 +734,8 @@ exports.getUserreferralDashboard = async (req, res) => {
       subscriptions,
       referralCount,
       referralEarnings,
+      dailyReferralProfit: Number(dailyReferralProfit.toFixed(2)),
+      monthlyReferralProfit: Number(monthlyReferralProfit.toFixed(2)),
     });
   } catch (error) {
     console.error('Get user dashboard error:', error);

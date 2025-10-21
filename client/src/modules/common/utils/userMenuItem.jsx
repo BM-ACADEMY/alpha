@@ -12,7 +12,8 @@ import {
   FileBarChart,
   FilePen,
   BadgeDollarSign,
-  History
+  History,
+  Link
 } from 'lucide-react';
 
 export const userMenuItems = {
@@ -62,6 +63,11 @@ export const userMenuItems = {
       title: 'Profile',
       url: '/user-dashboard/profile',
       icon: History,
+    },
+    {
+      title: 'Social Media',
+      url: '/user-dashboard/social',
+      icon: Link,
     },
   ],
   navSecondary: [

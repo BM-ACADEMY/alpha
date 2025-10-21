@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users as ReferralIcon, Wallet, CheckCircle, AlertCircle, Link as LinkIcon, Share2, RefreshCw } from 'lucide-react';
+import { Users as ReferralIcon, Wallet, CheckCircle, AlertCircle, Link as LinkIcon, Share2, RefreshCw, DollarSign } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { showToast } from '@/modules/common/toast/customToast';
@@ -17,6 +17,8 @@ const ReferralPage = () => {
     referralCount: 0,
     referralEarnings: 0,
     referralCode: '',
+    dailyReferralProfit: 0,
+    monthlyReferralProfit: 0,
   });
   const [referredUsers, setReferredUsers] = useState([]);
   const [isAddingToWallet, setIsAddingToWallet] = useState(true);
@@ -61,6 +63,8 @@ const ReferralPage = () => {
         referralCount: data.referralCount || 0,
         referralEarnings: data.wallet?.referral_amount || 0,
         referralCode: fullUser.referral_code || '',
+        dailyReferralProfit: data.dailyReferralProfit || 0,
+        monthlyReferralProfit: data.monthlyReferralProfit || 0,
       });
       setReferredUsers(Array.isArray(referralUsersResponse.data) ? referralUsersResponse.data : []);
       setIsAddingToWallet(data.referralCount > 0);
@@ -185,7 +189,7 @@ const ReferralPage = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
-          [...Array(3)].map((_, i) => (
+          [...Array(4)].map((_, i) => (
             <Skeleton key={i} className="h-40 w-full rounded-lg" />
           ))
         ) : (
@@ -237,6 +241,27 @@ const ReferralPage = () => {
                   {referralData.referralCount === 0
                     ? ' No earnings until you refer users.'
                     : ' Earnings are functioning as expected.'}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="shadow-md hover:shadow-lg transition-shadow duration-200">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-lg font-semibold text-gray-800">Earning Breakdown</CardTitle>
+                <DollarSign className="h-5 w-5 text-gray-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-sm text-gray-600">Daily Referral Profit</p>
+                    <p className="text-xl font-bold text-[#d09d42]">{referralData.dailyReferralProfit.toFixed(2)} INR</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Monthly Referral Profit (Est.)</p>
+                    <p className="text-xl font-bold text-[#d09d42]">{referralData.monthlyReferralProfit.toFixed(2)} INR</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  Daily profit is 1% of your referred users' daily profits. Monthly estimate assumes 30 days.
                 </p>
               </CardContent>
             </Card>

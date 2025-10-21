@@ -61,10 +61,10 @@ function ForgotPassword() {
         <h1 className="text-gray-100 text-3xl font-semibold">
           Forgot Password
         </h1>
-        <p className="text-gray-200 text-sm mt-2">
-          Enter your email to receive OTP to your registered email. Please check
-          your spam folder if not received.
+        <p className="border-l-4 border-yellow-400 bg-gray-900 text-white text-sm font-medium pl-4 mt-2">
+          Enter your email to receive an OTP to your registered email. Please check your spam folder if not received.
         </p>
+
 
         {/* Email Input */}
         <div className="flex items-center w-full mt-8 bg-white border border-gray-300/80 h-12 rounded-full overflow-hidden pl-6 gap-2">

@@ -576,9 +576,9 @@ const PlanPurchase = () => {
         <ul className="list-disc pl-5 space-y-1">
           <li><strong>Method:</strong> Bank Transfer or UPI only.</li>
           <li><strong>Upload Required:</strong> Payment screenshot and Reference Number/UTR.</li>
-          <li><strong>Limits:</strong> Minimum ₹500 | Maximum ₹2,00,000 per transaction (configurable).</li>
+          <li><strong>Limits:</strong> Minimum ₹5000 | Max No limit per transaction.</li>
           <li><strong>Requirements:</strong> Only KYC-verified accounts can deposit.</li>
-          <li><strong>Important:</strong> Third-party or mismatched deposits will be rejected.</li>
+          <li><strong>Important:</strong> Payments from third-party accounts will be rejected.</li>
         </ul>
       </div>
 
@@ -586,8 +586,9 @@ const PlanPurchase = () => {
       <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
         <h3 className="font-semibold text-lg text-green-600 mb-2">USDT Deposits</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li><strong>Method:</strong> Blockchain transfer to Admin’s official crypto address.</li>
+          <li><strong>Method:</strong> Transfer to Admin’s official crypto wallet.</li>
           <li><strong>Upload Required:</strong> Transaction Hash (TxID). Screenshot optional.</li>
+          <li><strong>Limits:</strong> Min USDT 50| Max No limit per transaction.</li>
           <li><strong>Network:</strong> TRC20 (default).</li>
           <li><strong>Requirements:</strong> Only KYC-verified accounts can deposit.</li>
         </ul>
@@ -596,7 +597,7 @@ const PlanPurchase = () => {
       {/* Verification Section */}
       <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
         <h3 className="font-semibold text-lg text-red-600 mb-2">Verification</h3>
-        <p>All deposits are subject to Admin verification within <strong>24–48 hours</strong>.</p>
+        <p>All deposits will be verified by Admin within  <strong>24–48 hours</strong>.</p>
       </div>
     </div>
 

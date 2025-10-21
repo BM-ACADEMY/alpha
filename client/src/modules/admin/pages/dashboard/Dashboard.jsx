@@ -66,7 +66,7 @@ const Dashboard = () => {
       });
       setIsLoading(false);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching dashboard data:", error);
       showToast(
         "error",
         error.response?.data?.message || "Failed to load dashboard data"
@@ -103,6 +103,17 @@ const Dashboard = () => {
   );
 
   const totalNotifications = notifications.pendingRedeem + notifications.unverifiedUsers;
+
+  // Format referral amount for display
+  const formatReferralAmount = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return "0.00";
+    }
+    return Number(amount).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -279,6 +290,9 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{data?.referralUsers || 0}</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  Total Referral Earnings: ₹ {formatReferralAmount(data?.totalReferralAmount)}
+                </div>
               </CardContent>
             </Card>
           </>
