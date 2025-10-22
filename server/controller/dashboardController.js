@@ -90,9 +90,27 @@ const getDashboardData = async (req, res) => {
         },
       },
       {
+        $lookup: {
+          from: "users",
+          localField: "referred_by",
+          foreignField: "_id",
+          as: "referrer",
+        },
+      },
+      {
+        $unwind: {
+          path: "$referrer",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
         $project: {
           user_id: "$_id",
+          username: "$username",
+          email: "$email",
           referral_amount: { $ifNull: ["$wallet.referral_amount", 0] },
+          referred_by_username: "$referrer.username",
+          referred_by_id: "$referrer._id",
         },
       },
       {
@@ -100,7 +118,22 @@ const getDashboardData = async (req, res) => {
           _id: null,
           referralUsers: { $sum: 1 },
           totalReferralAmount: { $sum: "$referral_amount" },
-          details: { $push: { user_id: "$user_id", referral_amount: "$referral_amount" } },
+          referredUsersList: {
+            $push: {
+              user_id: "$user_id",
+              username: "$username",
+              email: "$email",
+              referred_by_username: "$referred_by_username",
+              referred_by_id: "$referred_by_id",
+            },
+          },
+          referralEarningsByUser: {
+            $push: {
+              user_id: "$referred_by_id",
+              username: "$referred_by_username",
+              referral_amount: "$referral_amount",
+            },
+          },
         },
       },
     ]);
@@ -109,6 +142,18 @@ const getDashboardData = async (req, res) => {
 
     const referralUsers = referralUsersData[0]?.referralUsers || 0;
     const totalReferralAmount = referralUsersData[0]?.totalReferralAmount || 0;
+    const referredUsersList = referralUsersData[0]?.referredUsersList || [];
+    const referralEarningsByUser = referralUsersData[0]?.referralEarningsByUser
+      .filter((item) => item.user_id && item.referral_amount > 0)
+      .reduce((acc, item) => {
+        const existing = acc.find((x) => x.user_id.toString() === item.user_id.toString());
+        if (existing) {
+          existing.referral_amount += item.referral_amount;
+        } else {
+          acc.push({ ...item });
+        }
+        return acc;
+      }, []);
 
     // Plan-wise User Count Over Time
     let periods = [];
@@ -243,6 +288,8 @@ const getDashboardData = async (req, res) => {
       newUsersToday,
       referralUsers,
       totalReferralAmount: Number(totalReferralAmount.toFixed(2)),
+      referredUsersList,
+      referralEarningsByUser,
       planUserCounts,
       currencyDistribution,
     };

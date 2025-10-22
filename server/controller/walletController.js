@@ -264,7 +264,7 @@ const getAllWallets = async (req, res) => {
 
 // Scheduler: Update wallets every minute for testing
 cron.schedule(
-  "* * * * *", // Runs every minute
+  "0 0 * * *", // Runs every minute
   async () => {
     console.log("Daily profit scheduler started at:", new Date().toISOString());
     logCronRun("Daily profit scheduler started");
