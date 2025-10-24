@@ -616,8 +616,6 @@
 // };
 
 // export default WalletManagement;
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -710,6 +708,15 @@ const WalletManagement = () => {
       });
       console.log('Points added:', res.data);
       setStatusMessage(res.data.message);
+      // Update subscriptions to reflect pointsAdded status
+      setSubscriptions((prev) =>
+        prev.map((sub) =>
+          sub._id === selectedSubscription._id ? { ...sub, pointsAdded: true } : sub
+        )
+      );
+      setSelectedSubscription(null);
+      setAmount('');
+      setProfitPercentage('');
       fetchWallets(currentPage, walletSearchQuery, planStatusFilter);
     } catch (error) {
       console.error('Add points error:', error.message, error.response?.data);
@@ -811,9 +818,9 @@ const WalletManagement = () => {
                         variant="outline"
                         size="sm"
                         className="cursor-pointer"
-                        disabled={!sub.planStatus || sub.planStatus !== 'Active'}
+                        disabled={sub.pointsAdded || !sub.planStatus || sub.planStatus !== 'Active'}
                       >
-                        Select
+                        {sub.pointsAdded ? 'Points Added' : 'Select'}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -877,7 +884,6 @@ const WalletManagement = () => {
               <Search className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="flex items-center space-x-2">
-              {/* <Filter className="h-5 w-5 text-muted-foreground" /> */}
               <select
                 value={planStatusFilter}
                 onChange={(e) => handlePlanStatusFilter(e.target.value)}

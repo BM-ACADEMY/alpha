@@ -43,7 +43,10 @@ const searchUserSubscriptions = async (req, res) => {
         email: user.email,
         phone_number: user.phone_number,
       },
-      subscriptions,
+      subscriptions: subscriptions.map(sub => ({
+        ...sub,
+        pointsAdded: sub.pointsAdded || false, // Ensure pointsAdded is included
+      })),
     });
   } catch (error) {
     console.error("Search user subscriptions error:", error);
@@ -85,12 +88,17 @@ const addPointsToWallet = async (req, res) => {
       return res.status(404).json({ message: "Valid subscription not found" });
     }
 
+    // Check if points have already been added for this subscription
+    if (subscription.pointsAdded) {
+      return res.status(400).json({ message: "Points already added for this subscription" });
+    }
+
     const plan = await Plan.findById(subscription.plan_id).session(session);
     if (!plan) return res.status(404).json({ message: "Plan not found" });
 
     const capitalLockin = plan.capital_lockin || 30;
     const totalProfit = (amount * Number(profit_percentage)) / 100;
-    const dailyProfit = totalProfit / capitalLockin; // Use findOneAndUpdate to handle atomicity and simplify logic
+    const dailyProfit = totalProfit / capitalLockin;
 
     let wallet = await Wallet.findOneAndUpdate(
       { user_id },
@@ -101,11 +109,16 @@ const addPointsToWallet = async (req, res) => {
           totalWalletPoint: amount + dailyProfit,
         },
         $setOnInsert: {
-          referral_amount: 0, // Set a default if a new doc is created
+          referral_amount: 0,
+          amount_type: [], // Set default for new field
         },
       },
       { new: true, upsert: true, session }
     );
+
+    // Mark subscription as points added
+    subscription.pointsAdded = true;
+    await subscription.save({ session });
 
     await session.commitTransaction();
     res.status(200).json({
@@ -116,6 +129,7 @@ const addPointsToWallet = async (req, res) => {
         dailyProfitAmount: wallet.dailyProfitAmount,
         totalWalletPoint: wallet.totalWalletPoint,
         referral_amount: wallet.referral_amount,
+        amount_type: wallet.amount_type,
       },
     });
   } catch (error) {
@@ -133,7 +147,6 @@ const getAllWallets = async (req, res) => {
   try {
     let matchQuery = {};
 
-    // Add search functionality
     if (search) {
       const users = await User.find({
         $or: [
@@ -144,10 +157,9 @@ const getAllWallets = async (req, res) => {
       }).select('_id');
 
       const userIds = users.map(user => user._id);
-      matchQuery.user_id = { $in: userIds.length ? userIds : [null] }; // Prevent empty $in
+      matchQuery.user_id = { $in: userIds.length ? userIds : [null] };
     }
 
-    // Aggregation pipeline to join Wallet with UserPlanSubscription
     const wallets = await Wallet.aggregate([
       { $match: matchQuery },
       {
@@ -162,8 +174,8 @@ const getAllWallets = async (req, res) => {
                 expires_at: { $gt: new Date() },
               },
             },
-            { $sort: { created_at: -1 } }, // Get the most recent subscription
-            { $limit: 1 }, // Ensure only one subscription per user
+            { $sort: { created_at: -1 } },
+            { $limit: 1 },
           ],
           as: 'subscription',
         },
@@ -206,6 +218,7 @@ const getAllWallets = async (req, res) => {
           dailyProfitAmount: 1,
           referral_amount: 1,
           totalWalletPoint: 1,
+          amount_type: 1,
           planStatus: '$subscription.planStatus',
         },
       },
@@ -213,7 +226,6 @@ const getAllWallets = async (req, res) => {
       { $limit: limit * 1 },
     ]);
 
-    // Count total documents for pagination
     const countPipeline = [
       { $match: matchQuery },
       {
@@ -264,7 +276,7 @@ const getAllWallets = async (req, res) => {
 
 // Scheduler: Update wallets every minute for testing
 cron.schedule(
-  "0 0 * * *", // Runs every minute
+  "0 0 * * *",
   async () => {
     console.log("Daily profit scheduler started at:", new Date().toISOString());
     logCronRun("Daily profit scheduler started");
@@ -306,6 +318,7 @@ cron.schedule(
             dailyProfitAmount: dailyProfit,
             totalWalletPoint: subscription.amount + dailyProfit,
             referral_amount: 0,
+            amount_type: [],
           });
         } else {
           wallet.dailyProfitAmount = dailyProfit;
@@ -319,10 +332,8 @@ cron.schedule(
           `Updated wallet for user ${subscription.user_id}: Daily Profit = ${dailyProfit}`
         );
 
-        // Handle referral earnings (1% of referred user's daily profit)
         const user = await User.findById(subscription.user_id).session(session);
         if (user?.referred_by) {
-          // Check if the referrer exists
           const referrer = await User.findById(user.referred_by).session(
             session
           );
@@ -336,8 +347,7 @@ cron.schedule(
             continue;
           }
 
-          // Calculate referral profit as 1% of the referred user's daily profit
-          const referralProfit = dailyProfit * 0.01; // 1% of daily profit
+          const referralProfit = dailyProfit * 0.01;
 
           let referrerWallet = await Wallet.findOne({
             user_id: user.referred_by,
@@ -349,6 +359,7 @@ cron.schedule(
               dailyProfitAmount: 0,
               totalWalletPoint: referralProfit,
               referral_amount: referralProfit,
+              amount_type: [],
             });
           } else {
             referrerWallet.referral_amount += referralProfit;
@@ -396,8 +407,6 @@ cron.schedule(
     timezone: "Asia/Kolkata",
   }
 );
-
-
 
 module.exports = {
   searchUserSubscriptions,

@@ -47,6 +47,10 @@ const UserPlanSubscriptionSchema = new mongoose.Schema({
   rejected_reason: {
     type: String,
   },
+    pointsAdded: {
+    type: Boolean,
+    default: false,
+  },
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: false },
 });
