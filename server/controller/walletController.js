@@ -28,7 +28,7 @@ const searchUserSubscriptions = async (req, res) => {
       status: "verified",
       expires_at: { $gt: new Date() },
     })
-      .populate("plan_id", "plan_name capital_lockin")
+      .populate("plan_id", "plan_name capital_lockin amount_type")
       .lean();
 
     if (!subscriptions.length)
@@ -45,7 +45,7 @@ const searchUserSubscriptions = async (req, res) => {
       },
       subscriptions: subscriptions.map(sub => ({
         ...sub,
-        pointsAdded: sub.pointsAdded || false, // Ensure pointsAdded is included
+        pointsAdded: sub.pointsAdded || false,
       })),
     });
   } catch (error) {
@@ -59,7 +59,7 @@ const addPointsToWallet = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const { user_id, subscription_id, amount, profit_percentage } = req.body;
+    const { user_id, subscription_id, amount, profit_percentage, plan_name, amount_type } = req.body;
 
     if (
       !mongoose.Types.ObjectId.isValid(user_id) ||
@@ -75,6 +75,12 @@ const addPointsToWallet = async (req, res) => {
     if (isNaN(profit_percentage) || Number(profit_percentage) <= 0) {
       return res.status(400).json({ message: "Invalid profit percentage" });
     }
+    if (!plan_name) {
+      return res.status(400).json({ message: "Plan name is required" });
+    }
+    if (!['INR', 'USDT'].includes(amount_type)) {
+      return res.status(400).json({ message: "Invalid amount type" });
+    }
 
     const subscription = await UserPlanSubscription.findById(
       subscription_id
@@ -88,7 +94,6 @@ const addPointsToWallet = async (req, res) => {
       return res.status(404).json({ message: "Valid subscription not found" });
     }
 
-    // Check if points have already been added for this subscription
     if (subscription.pointsAdded) {
       return res.status(400).json({ message: "Points already added for this subscription" });
     }
@@ -100,21 +105,19 @@ const addPointsToWallet = async (req, res) => {
     const totalProfit = (amount * Number(profit_percentage)) / 100;
     const dailyProfit = totalProfit / capitalLockin;
 
-    let wallet = await Wallet.findOneAndUpdate(
-      { user_id },
-      {
-        $inc: {
-          userPlanCapitalAmount: amount,
-          dailyProfitAmount: dailyProfit,
-          totalWalletPoint: amount + dailyProfit,
-        },
-        $setOnInsert: {
-          referral_amount: 0,
-          amount_type: [], // Set default for new field
-        },
-      },
-      { new: true, upsert: true, session }
-    );
+    // Create a new wallet record for this subscription
+    const wallet = new Wallet({
+      user_id,
+      subscription_id,
+      plan_name,
+      amount_type,
+      userPlanCapitalAmount: amount,
+      dailyProfitAmount: dailyProfit,
+      totalWalletPoint: amount + dailyProfit,
+      referral_amount: 0,
+    });
+
+    await wallet.save({ session });
 
     // Mark subscription as points added
     subscription.pointsAdded = true;
@@ -125,11 +128,13 @@ const addPointsToWallet = async (req, res) => {
       message: "Points added to wallet successfully",
       wallet: {
         user_id: wallet.user_id,
+        subscription_id: wallet.subscription_id,
+        plan_name: wallet.plan_name,
+        amount_type: wallet.amount_type,
         userPlanCapitalAmount: wallet.userPlanCapitalAmount,
         dailyProfitAmount: wallet.dailyProfitAmount,
         totalWalletPoint: wallet.totalWalletPoint,
         referral_amount: wallet.referral_amount,
-        amount_type: wallet.amount_type,
       },
     });
   } catch (error) {
@@ -165,18 +170,8 @@ const getAllWallets = async (req, res) => {
       {
         $lookup: {
           from: 'userplansubscriptions',
-          let: { user_id: '$user_id' },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ['$user_id', '$$user_id'] },
-                status: 'verified',
-                expires_at: { $gt: new Date() },
-              },
-            },
-            { $sort: { created_at: -1 } },
-            { $limit: 1 },
-          ],
+          localField: 'subscription_id',
+          foreignField: '_id',
           as: 'subscription',
         },
       },
@@ -214,11 +209,13 @@ const getAllWallets = async (req, res) => {
             email: '$user_id.email',
             phone_number: '$user_id.phone_number',
           },
+          subscription_id: 1,
+          plan_name: 1,
+          amount_type: 1,
           userPlanCapitalAmount: 1,
           dailyProfitAmount: 1,
           referral_amount: 1,
           totalWalletPoint: 1,
-          amount_type: 1,
           planStatus: '$subscription.planStatus',
         },
       },
@@ -231,18 +228,8 @@ const getAllWallets = async (req, res) => {
       {
         $lookup: {
           from: 'userplansubscriptions',
-          let: { user_id: '$user_id' },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ['$user_id', '$$user_id'] },
-                status: 'verified',
-                expires_at: { $gt: new Date() },
-              },
-            },
-            { $sort: { created_at: -1 } },
-            { $limit: 1 },
-          ],
+          localField: 'subscription_id',
+          foreignField: '_id',
           as: 'subscription',
         },
       },
@@ -274,7 +261,7 @@ const getAllWallets = async (req, res) => {
   }
 };
 
-// Scheduler: Update wallets every minute for testing
+// Scheduler: Update wallets every day at midnight
 cron.schedule(
   "0 0 * * *",
   async () => {
@@ -309,16 +296,18 @@ cron.schedule(
         const dailyProfit = totalProfit / capitalLockin;
 
         let wallet = await Wallet.findOne({
-          user_id: subscription.user_id,
+          subscription_id: subscription._id,
         }).session(session);
         if (!wallet) {
           wallet = new Wallet({
             user_id: subscription.user_id,
+            subscription_id: subscription._id,
+            plan_name: plan.plan_name,
+            amount_type: plan.amount_type,
             userPlanCapitalAmount: subscription.amount,
             dailyProfitAmount: dailyProfit,
             totalWalletPoint: subscription.amount + dailyProfit,
             referral_amount: 0,
-            amount_type: [],
           });
         } else {
           wallet.dailyProfitAmount = dailyProfit;
@@ -351,15 +340,18 @@ cron.schedule(
 
           let referrerWallet = await Wallet.findOne({
             user_id: user.referred_by,
+            subscription_id: subscription._id, // Ensure unique wallet per subscription
           }).session(session);
           if (!referrerWallet) {
             referrerWallet = new Wallet({
               user_id: user.referred_by,
+              subscription_id: subscription._id,
+              plan_name: plan.plan_name,
+              amount_type: plan.amount_type,
               userPlanCapitalAmount: 0,
               dailyProfitAmount: 0,
               totalWalletPoint: referralProfit,
               referral_amount: referralProfit,
-              amount_type: [],
             });
           } else {
             referrerWallet.referral_amount += referralProfit;

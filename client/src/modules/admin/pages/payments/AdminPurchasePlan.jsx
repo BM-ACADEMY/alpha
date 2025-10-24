@@ -225,7 +225,6 @@ const AdminPurchasePlan = () => {
       return "/fallback-image.png";
     }
 
-    // Check cache first
     if (imageCache.has(filePath)) {
       return imageCache.get(filePath);
     }
@@ -244,7 +243,7 @@ const AdminPurchasePlan = () => {
         type: response.headers["content-type"],
       });
       const blobUrl = URL.createObjectURL(blob);
-      imageCache.set(filePath, blobUrl); // Cache the blob URL
+      imageCache.set(filePath, blobUrl);
       return blobUrl;
     } catch (error) {
       console.error("getImageUrl error:", {
@@ -501,6 +500,8 @@ const AdminPurchasePlan = () => {
         subscription_id: selectedSubscriptionForPoints._id,
         amount: Number(pointsAmount),
         profit_percentage: Number(profitPercentage),
+        plan_name: selectedSubscriptionForPoints.plan_id?.plan_name,
+        amount_type: selectedSubscriptionForPoints.plan_id?.amount_type,
       });
       console.log("Points added:", res.data);
       setStatusMessage(res.data.message);
@@ -594,7 +595,7 @@ const AdminPurchasePlan = () => {
     setPointsAmount("");
     setProfitPercentage("");
     setStatusMessage("");
-    fetchPurchasedPlans(currentPage); // Refresh plans after dialog closes
+    fetchPurchasedPlans(currentPage);
   };
 
   return (
@@ -630,492 +631,636 @@ const AdminPurchasePlan = () => {
       </Card>
 
       {/* Plans List */}
-     <Card>
-  <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
-    <CardTitle>Available Plans</CardTitle>
-  </CardHeader>
-  <CardContent>
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Min Investment</TableHead>
-          <TableHead>Currency</TableHead>
-          <TableHead>Profit %</TableHead>
-          <TableHead>Validity (Days)</TableHead>
-          <TableHead>Profit Amount</TableHead>
-          <TableHead>Total Return</TableHead>
-          <TableHead>Action</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {plans.map((plan) => (
-          <TableRow key={plan?._id}>
-            <TableCell>{plan?.plan_name}</TableCell>
-            <TableCell>{plan?.min_investment?.$numberDecimal}</TableCell>
-            <TableCell>{plan?.amount_type}</TableCell>
-            <TableCell>{plan?.profit_percentage?.$numberDecimal}%</TableCell>
-            <TableCell>{plan?.capital_lockin || "N/A"}</TableCell>
-            <TableCell>
-              {profitCalculations[plan._id]?.profitAmount} {plan?.amount_type}
-            </TableCell>
-            <TableCell>
-              {profitCalculations[plan._id]?.totalReturn} {plan?.amount_type}
-            </TableCell>
-            <TableCell>
-              <Dialog
-                open={showProfitDialog && selectedPlan?._id === plan._id}
-                onOpenChange={setShowProfitDialog}
-              >
-                <DialogTrigger asChild>
-                  <Button
-                    onClick={() => handlePurchase(plan)}
-                    disabled={!selectedUser || isLoading}
-                    variant="outline"
-                  >
-                    <CreditCard className="mr-2 h-4 w-4" /> Purchase
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>
-                      Confirm Purchase: {selectedPlan?.plan_name} for{" "}
-                      {selectedUser?.username}
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <p>
-                      <strong>Plan Name:</strong> {selectedPlan?.plan_name}
-                    </p>
-                    <p>
-                      <strong>Min Investment:</strong>{" "}
-                      {selectedPlan?.min_investment?.$numberDecimal}{" "}
-                      {selectedPlan?.amount_type}
-                    </p>
-                    <p>
-                      <strong>Profit Percentage:</strong>{" "}
-                      {selectedPlan?.profit_percentage?.$numberDecimal}%
-                    </p>
-                    <p>
-                      <strong>Validity:</strong> {selectedPlan?.capital_lockin} days
-                    </p>
-                    <p>
-                      <strong>Profit Amount ({selectedPlan?.profit_withdrawal}):</strong>{" "}
-                      {profitCalculations[selectedPlan?._id]?.profitAmount}{" "}
-                      {selectedPlan?.amount_type}
-                    </p>
-                    <p>
-                      <strong>Total Return:</strong>{" "}
-                      {profitCalculations[selectedPlan?._id]?.totalReturn}{" "}
-                      {selectedPlan?.amount_type}
-                    </p>
-                    <Button onClick={handleProceed} disabled={isLoading}>
-                      Proceed to Payment
-                    </Button>
-                    {statusMessage && (
-                      <p
-                        className={
-                          statusMessage.includes("Failed") ||
-                          statusMessage.includes("active subscription")
-                            ? "text-red-600"
-                            : "text-green-600"
-                        }
-                      >
-                        {statusMessage}
-                      </p>
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-    {/* ... Rest of the Upload Payment Dialog remains unchanged ... */}
-  </CardContent>
-</Card>
-
-      {/* Purchased Plans Table */}
-     <Card>
-  <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
-    <CardTitle>Purchased Plans</CardTitle>
-  </CardHeader>
-  <CardContent>
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>User</TableHead>
-          <TableHead>Plan</TableHead>
-          <TableHead>Amount</TableHead>
-          <TableHead>Amount Type</TableHead> {/* New column */}
-          <TableHead>Profit %</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Plan Status</TableHead>
-          <TableHead>Purchased At</TableHead>
-          <TableHead>Expires At</TableHead>
-          <TableHead>Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {purchasedPlans.map((sub) => {
-          // Calculate profit for display in View Details
-          const minInvestment = sub.amount;
-          const profitPercentage = parseFloat(
-            sub.profit_percentage?.$numberDecimal || 0
-          );
-          const capitalLockin = sub.plan_id?.capital_lockin || 30;
-          const profitWithdrawal =
-            sub.plan_id?.profit_withdrawal || "daily";
-
-          const totalProfit = (minInvestment * profitPercentage) / 100;
-          const dailyProfit = totalProfit / capitalLockin;
-
-          let profitAmount = 0;
-          if (profitWithdrawal === "daily") {
-            profitAmount = dailyProfit;
-          } else if (profitWithdrawal === "weekly") {
-            profitAmount = dailyProfit * 7;
-          } else if (profitWithdrawal === "monthly") {
-            const now = new Date();
-            const nextMonth = new Date(now);
-            nextMonth.setMonth(nextMonth.getMonth() + 1);
-            const diffTime = Math.abs(nextMonth - now);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            profitAmount = dailyProfit * diffDays;
-          }
-
-          const totalReturn = minInvestment + totalProfit;
-
-          return (
-            <TableRow key={sub._id}>
-              <TableCell>
-                {sub.user_id.username} ({sub.user_id.email})
-              </TableCell>
-              <TableCell>{sub.plan_id?.plan_name}</TableCell>
-              <TableCell>{sub.amount}</TableCell> {/* Separated Amount */}
-              <TableCell>{sub.plan_id?.amount_type}</TableCell> {/* New Amount Type column */}
-              <TableCell>
-                {sub.profit_percentage?.$numberDecimal}%
-              </TableCell>
-              <TableCell>
-                {sub.status === "pending" && (
-                  <Clock className="inline h-4 w-4 text-yellow-500" />
-                )}
-                {sub.status === "verified" && (
-                  <CheckCircle className="inline h-4 w-4 text-green-500" />
-                )}
-                {sub.status === "rejected" && (
-                  <XCircle className="inline h-4 w-4 text-red-500" />
-                )}{" "}
-                {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
-              </TableCell>
-              <TableCell>{sub.planStatus}</TableCell>
-              <TableCell>
-                {new Date(sub.purchased_at).toLocaleDateString()}
-              </TableCell>
-              <TableCell>
-                {sub.expires_at
-                  ? new Date(sub.expires_at).toLocaleDateString()
-                  : "N/A"}
-              </TableCell>
-              <TableCell>
-                <div className="flex space-x-2">
-                  {sub.status === "pending" && (
-                    <>
-                      <Button
-                        onClick={() => handleApprove(sub._id)}
-                        disabled={isLoading}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <CheckCircle className="mr-2 h-4 w-4 text-green-500" />{" "}
-                        Approve
-                      </Button>
-                      <Dialog
-                        open={
-                          showAddPointsDialog &&
-                          selectedSubscriptionForPoints?._id === sub._id
-                        }
-                        onOpenChange={handlePointsDialogClose}
-                      >
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>
-                              Add Points for {sub.user_id.username}'s Subscription
-                            </DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <p>
-                              <strong>Plan Name:</strong>{" "}
-                              {selectedSubscriptionForPoints?.plan_id?.plan_name}
-                            </p>
-                            <p>
-                              <strong>Amount:</strong>{" "}
-                              {selectedSubscriptionForPoints?.amount}{" "}
-                              {selectedSubscriptionForPoints?.plan_id?.amount_type}
-                            </p>
-                            <p>
-                              <strong>Profit Percentage:</strong>{" "}
-                              {selectedSubscriptionForPoints?.profit_percentage?.$numberDecimal}%
-                            </p>
-                            <div>
-                              <label>Capital Amount</label>
-                              <Input
-                                type="number"
-                                value={pointsAmount}
-                                readOnly
-                              />
-                            </div>
-                            <div>
-                              <label>Profit Percentage (%)</label>
-                              <Input
-                                type="number"
-                                value={profitPercentage}
-                                readOnly
-                              />
-                            </div>
-                            <div className="flex space-x-2">
-                              <Button
-                                onClick={handleAddPoints}
-                                disabled={isLoading || selectedSubscriptionForPoints?.pointsAdded}
-                                className="bg-[#d09d42] text-white hover:bg-[#0f1c3f]"
-                              >
-                                <Wallet className="mr-2 h-4 w-4" />{" "}
-                                {selectedSubscriptionForPoints?.pointsAdded
-                                  ? "Points Added"
-                                  : "Add Points"}
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={handlePointsDialogClose}
-                                disabled={isLoading}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                            {statusMessage && (
-                              <p
-                                className={
-                                  statusMessage.includes("Failed")
-                                    ? "text-red-600"
-                                    : "text-green-600"
-                                }
-                              >
-                                {statusMessage}
-                              </p>
-                            )}
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isLoading}
-                          >
-                            <XCircle className="mr-2 h-4 w-4 text-red-500" />{" "}
-                            Reject
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Reject Subscription</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <Input
-                              placeholder="Enter rejection reason"
-                              value={rejectReason}
-                              onChange={(e) =>
-                                setRejectReason(e.target.value)
-                              }
-                            />
-                            <Button
-                              onClick={() => handleReject(sub._id)}
-                              disabled={isLoading || !rejectReason}
-                            >
-                              Submit Rejection
-                            </Button>
-                            {statusMessage && (
-                              <p
-                                className={
-                                  statusMessage.includes("Failed")
-                                    ? "text-red-600"
-                                    : "text-green-600"
-                                }
-                              >
-                                {statusMessage}
-                              </p>
-                            )}
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </>
-                  )}
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedSubscription(sub)}
-                      >
-                        <Eye className="mr-2 h-4 w-4" /> View Details
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="h-[500px] overflow-auto">
-                      <DialogHeader>
-                        <DialogTitle>Subscription Details</DialogTitle>
-                      </DialogHeader>
-                      {selectedSubscription && (
+      <Card>
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+          <CardTitle>Available Plans</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Min Investment</TableHead>
+                <TableHead>Profit %</TableHead>
+                <TableHead>Validity (Days)</TableHead>
+                <TableHead>Profit Amount</TableHead>
+                <TableHead>Total Return</TableHead>
+                <TableHead>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {plans.map((plan) => (
+                <TableRow key={plan?._id}>
+                  <TableCell>{plan?.plan_name}</TableCell>
+                  <TableCell>
+                    {plan?.min_investment?.$numberDecimal} {plan?.amount_type}
+                  </TableCell>
+                  <TableCell>
+                    {plan?.profit_percentage?.$numberDecimal}%
+                  </TableCell>
+                  <TableCell>{plan?.capital_lockin || "N/A"}</TableCell>
+                  <TableCell>
+                    {profitCalculations[plan._id]?.profitAmount}{" "}
+                    {plan?.amount_type}
+                  </TableCell>
+                  <TableCell>
+                    {profitCalculations[plan._id]?.totalReturn}{" "}
+                    {plan?.amount_type}
+                  </TableCell>
+                  <TableCell>
+                    <Dialog
+                      open={showProfitDialog && selectedPlan?._id === plan._id}
+                      onOpenChange={setShowProfitDialog}
+                    >
+                      <DialogTrigger asChild>
+                        <Button
+                          onClick={() => handlePurchase(plan)}
+                          disabled={!selectedUser || isLoading}
+                          variant="outline"
+                        >
+                          <CreditCard className="mr-2 h-4 w-4" /> Purchase
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>
+                            Confirm Purchase: {selectedPlan?.plan_name} for{" "}
+                            {selectedUser?.username}
+                          </DialogTitle>
+                        </DialogHeader>
                         <div className="space-y-4">
                           <p>
-                            <strong>Subscription ID:</strong>{" "}
-                            {selectedSubscription._id}
+                            <strong>Plan Name:</strong>{" "}
+                            {selectedPlan?.plan_name}
                           </p>
                           <p>
-                            <strong>User:</strong>{" "}
-                            {selectedSubscription.user_id.username} (
-                            {selectedSubscription.user_id.email})
-                          </p>
-                          <p>
-                            <strong>Phone Number:</strong>{" "}
-                            {selectedSubscription.user_id.phone_number}
-                          </p>
-                          <p>
-                            <strong>Plan:</strong>{" "}
-                            {selectedSubscription.plan_id?.plan_name}
-                          </p>
-                          <p>
-                            <strong>Amount:</strong>{" "}
-                            {selectedSubscription.amount}{" "}
-                            {selectedSubscription.plan_id?.amount_type}
+                            <strong>Min Investment:</strong>{" "}
+                            {selectedPlan?.min_investment?.$numberDecimal}{" "}
+                            {selectedPlan?.amount_type}
                           </p>
                           <p>
                             <strong>Profit Percentage:</strong>{" "}
-                            {
-                              selectedSubscription.profit_percentage
-                                ?.$numberDecimal
-                            }
-                            %
+                            {selectedPlan?.profit_percentage?.$numberDecimal}%
+                          </p>
+                          <p>
+                            <strong>Validity:</strong>{" "}
+                            {selectedPlan?.capital_lockin} days
                           </p>
                           <p>
                             <strong>
-                              Profit Amount (
-                              {
-                                selectedSubscription.plan_id
-                                  ?.profit_withdrawal
-                              }
-                              ):
+                              Profit Amount ({selectedPlan?.profit_withdrawal}):
                             </strong>{" "}
-                            {profitAmount.toFixed(2)}{" "}
-                            {selectedSubscription.plan_id?.amount_type}
+                            {
+                              profitCalculations[selectedPlan?._id]
+                                ?.profitAmount
+                            }{" "}
+                            {selectedPlan?.amount_type}
                           </p>
                           <p>
                             <strong>Total Return:</strong>{" "}
-                            {totalReturn.toFixed(2)}{" "}
-                            {selectedSubscription.plan_id?.amount_type}
+                            {profitCalculations[selectedPlan?._id]?.totalReturn}{" "}
+                            {selectedPlan?.amount_type}
                           </p>
-                          <p>
-                            <strong>Status:</strong>{" "}
-                            {selectedSubscription.status
-                              .charAt(0)
-                              .toUpperCase() +
-                              selectedSubscription.status.slice(1)}
-                          </p>
-                          <p>
-                            <strong>Plan Status:</strong>{" "}
-                            {selectedSubscription.planStatus}
-                          </p>
-                          <p>
-                            <strong>Purchased At:</strong>{" "}
-                            {new Date(
-                              selectedSubscription.purchased_at
-                            ).toLocaleString()}
-                          </p>
-                          <p>
-                            <strong>Expires At:</strong>{" "}
-                            {selectedSubscription.expires_at
-                              ? new Date(
-                                  selectedSubscription.expires_at
-                                ).toLocaleString()
-                              : "N/A"}
-                          </p>
-                          {selectedSubscription.rejected_reason && (
-                            <p>
-                              <strong>Rejection Reason:</strong>{" "}
-                              {selectedSubscription.rejected_reason}
+                          <Button onClick={handleProceed} disabled={isLoading}>
+                            Proceed to Payment
+                          </Button>
+                          {statusMessage && (
+                            <p
+                              className={
+                                statusMessage.includes("Failed") ||
+                                statusMessage.includes("active subscription")
+                                  ? "text-red-600"
+                                  : "text-green-600"
+                              }
+                            >
+                              {statusMessage}
                             </p>
                           )}
-                          {imageUrl && (
-                            <div>
-                              <p>
-                                <strong>Payment Screenshot:</strong>
-                              </p>
-                              <Zoom>
-                                <img
-                                  src={imageUrl}
-                                  alt="Payment Screenshot"
-                                  className="w-full max-w-md rounded-lg border shadow cursor-pointer"
-                                  onError={(e) => {
-                                    console.error(
-                                      "Failed to load payment screenshot:",
-                                      e
-                                    );
-                                    e.target.src = "/fallback-image.png";
-                                  }}
-                                />
-                              </Zoom>
-                            </div>
-                          )}
                         </div>
-                      )}
-                    </DialogContent>
-                  </Dialog>
+                      </DialogContent>
+                    </Dialog>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {/* Upload Payment Dialog */}
+          <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  Upload Payment for {selectedPlan?.plan_name}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label>Amount</label>
+                  <Input
+                    type="number"
+                    value={amount}
+                    readOnly
+                    placeholder="Amount"
+                  />
                 </div>
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
-    <Pagination className="mt-4">
-      <PaginationContent>
-        <PaginationItem>
-          <PaginationPrevious
-            href="#"
-            onClick={() =>
-              handlePageChange(currentPage > 1 ? currentPage - 1 : 1)
-            }
-            disabled={currentPage === 1}
-          />
-        </PaginationItem>
-        {[...Array(totalPages)].map((_, i) => (
-          <PaginationItem key={i}>
-            <PaginationLink
-              href="#"
-              onClick={() => handlePageChange(i + 1)}
-              isActive={currentPage === i + 1}
-            >
-              {i + 1}
-            </PaginationLink>
-          </PaginationItem>
-        ))}
-        <PaginationItem>
-          <PaginationNext
-            href="#"
-            onClick={() =>
-              handlePageChange(
-                currentPage < totalPages ? currentPage + 1 : totalPages
-              )
-            }
-            disabled={currentPage === totalPages}
-          />
-        </PaginationItem>
-      </PaginationContent>
-    </Pagination>
-  </CardContent>
-</Card>
+                {adminAccount ? (
+                  <div>
+                    <h3 className="font-semibold mb-3">
+                      Admin Payment Details
+                    </h3>
+                    <ul className="divide-y divide-gray-200 rounded-lg border bg-gray-50">
+                      <li className="flex items-center gap-3 p-3">
+                        <Banknote className="h-5 w-5 text-gray-600" />
+                        <span className="text-sm">
+                          Bank: {adminAccount.bank_name || "N/A"}
+                        </span>
+                      </li>
+                      <li className="flex items-center gap-3 p-3">
+                        <Hash className="h-5 w-5 text-gray-600" />
+                        <span className="text-sm">
+                          IFSC: {adminAccount.ifsc_code || "N/A"}
+                        </span>
+                      </li>
+                      <li className="flex items-center gap-3 p-3">
+                        <User className="h-5 w-5 text-gray-600" />
+                        <span className="text-sm">
+                          Account Holder:{" "}
+                          {adminAccount.account_holder_name || "N/A"}
+                        </span>
+                      </li>
+                      <li className="flex items-center gap-3 p-3">
+                        <CreditCard className="h-5 w-5 text-gray-600" />
+                        <span className="text-sm">
+                          Account No: {adminAccount.account_number || "N/A"}
+                        </span>
+                      </li>
+                      <li className="flex items-center gap-3 p-3">
+                        <Phone className="h-5 w-5 text-gray-600" />
+                        <span className="text-sm">
+                          Linked Phone:{" "}
+                          {adminAccount.linked_phone_number || "N/A"}
+                        </span>
+                      </li>
+                      <li className="flex items-center gap-3 p-3">
+                        <Wallet className="h-5 w-5 text-gray-600" />
+                        <span className="text-sm">
+                          UPI ID: {adminAccount.upi_id || "N/A"}
+                        </span>
+                      </li>
+                      <li className="flex items-center gap-3 p-3">
+                        <Wallet className="h-5 w-5 text-gray-600" />
+                        <span className="text-sm">
+                          UPI No: {adminAccount.upi_number || "N/A"}
+                        </span>
+                      </li>
+                      {adminAccount.qrcodeUrl && (
+                        <li className="flex flex-col gap-2 p-3">
+                          <div className="flex items-center gap-3">
+                            <QrCode className="h-5 w-5 text-gray-600" />
+                            <span className="text-sm font-medium">QR Code</span>
+                          </div>
+                          <Zoom>
+                            <img
+                              src={adminAccount.qrcodeUrl}
+                              alt="Admin QR Code"
+                              className="w-[200px] h-[200px] object-contain border rounded-lg shadow cursor-pointer bg-white"
+                              onError={(e) => {
+                                console.error(
+                                  "Failed to load admin qrcode:",
+                                  e
+                                );
+                                e.target.src = "/fallback-image.png";
+                              }}
+                            />
+                          </Zoom>
+                        </li>
+                      )}
+                    </ul>
+                    <p className="text-sm text-muted-foreground mt-3">
+                      Pay manually using GPay (phone/UPI/QR) or bank transfer.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-red-600">
+                    Admin account details not available
+                  </p>
+                )}
+                <div className="space-y-2">
+                  <label>
+                    Upload Payment Screenshot (Max 200MB, Any file type)
+                  </label>
+                  <Input type="file" onChange={handleFileChange} />
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={!paymentScreenshot || isLoading}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />{" "}
+                    {isLoading ? `Uploading (${uploadProgress}%)` : "Submit"}
+                  </Button>
+                  {uploadProgress > 0 && uploadProgress < 100 && (
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+                {statusMessage && (
+                  <p
+                    className={
+                      statusMessage.includes("Failed")
+                        ? "text-red-600"
+                        : "text-green-600"
+                    }
+                  >
+                    {statusMessage}
+                  </p>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </CardContent>
+      </Card>
+
+      {/* Purchased Plans Table */}
+      <Card>
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+          <CardTitle>Purchased Plans</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Profit %</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Plan Status</TableHead>
+                <TableHead>Purchased At</TableHead>
+                <TableHead>Expires At</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {purchasedPlans.map((sub) => {
+                const minInvestment = sub.amount;
+                const profitPercentage = parseFloat(
+                  sub.profit_percentage?.$numberDecimal || 0
+                );
+                const capitalLockin = sub.plan_id?.capital_lockin || 30;
+                const profitWithdrawal =
+                  sub.plan_id?.profit_withdrawal || "daily";
+
+                const totalProfit = (minInvestment * profitPercentage) / 100;
+                const dailyProfit = totalProfit / capitalLockin;
+
+                let profitAmount = 0;
+                if (profitWithdrawal === "daily") {
+                  profitAmount = dailyProfit;
+                } else if (profitWithdrawal === "weekly") {
+                  profitAmount = dailyProfit * 7;
+                } else if (profitWithdrawal === "monthly") {
+                  const now = new Date();
+                  const nextMonth = new Date(now);
+                  nextMonth.setMonth(nextMonth.getMonth() + 1);
+                  const diffTime = Math.abs(nextMonth - now);
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  profitAmount = dailyProfit * diffDays;
+                }
+
+                const totalReturn = minInvestment + totalProfit;
+
+                return (
+                  <TableRow key={sub._id}>
+                    <TableCell>
+                      {sub.user_id.username} ({sub.user_id.email})
+                    </TableCell>
+                    <TableCell>{sub.plan_id?.plan_name}</TableCell>
+                    <TableCell>
+                      {sub.amount} {sub.plan_id?.amount_type}
+                    </TableCell>
+                    <TableCell>
+                      {sub.profit_percentage?.$numberDecimal}%
+                    </TableCell>
+                    <TableCell>
+                      {sub.status === "pending" && (
+                        <Clock className="inline h-4 w-4 text-yellow-500" />
+                      )}
+                      {sub.status === "verified" && (
+                        <CheckCircle className="inline h-4 w-4 text-green-500" />
+                      )}
+                      {sub.status === "rejected" && (
+                        <XCircle className="inline h-4 w-4 text-red-500" />
+                      )}{" "}
+                      {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
+                    </TableCell>
+                    <TableCell>{sub.planStatus}</TableCell>
+                    <TableCell>
+                      {new Date(sub.purchased_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      {sub.expires_at
+                        ? new Date(sub.expires_at).toLocaleDateString()
+                        : "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        {sub.status === "pending" && (
+                          <>
+                            <Button
+                              onClick={() => handleApprove(sub._id)}
+                              disabled={isLoading}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <CheckCircle className="mr-2 h-4 w-4 text-green-500" />{" "}
+                              Approve
+                            </Button>
+                            <Dialog
+                              open={
+                                showAddPointsDialog &&
+                                selectedSubscriptionForPoints?._id === sub._id
+                              }
+                              onOpenChange={handlePointsDialogClose}
+                            >
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>
+                                    Add Points for {sub.user_id.username}'s Subscription
+                                  </DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <p>
+                                    <strong>Plan Name:</strong>{" "}
+                                    {selectedSubscriptionForPoints?.plan_id?.plan_name}
+                                  </p>
+                                  <p>
+                                    <strong>Amount:</strong>{" "}
+                                    {selectedSubscriptionForPoints?.amount}{" "}
+                                    {selectedSubscriptionForPoints?.plan_id?.amount_type}
+                                  </p>
+                                  <p>
+                                    <strong>Profit Percentage:</strong>{" "}
+                                    {selectedSubscriptionForPoints?.profit_percentage?.$numberDecimal}%
+                                  </p>
+                                  <div>
+                                    <label>Capital Amount</label>
+                                    <Input
+                                      type="number"
+                                      value={pointsAmount}
+                                      readOnly
+                                    />
+                                  </div>
+                                  <div>
+                                    <label>Profit Percentage (%)</label>
+                                    <Input
+                                      type="number"
+                                      value={profitPercentage}
+                                      readOnly
+                                    />
+                                  </div>
+                                  <div className="flex space-x-2">
+                                    <Button
+                                      onClick={handleAddPoints}
+                                      disabled={isLoading || selectedSubscriptionForPoints?.pointsAdded}
+                                      className="bg-[#d09d42] text-white hover:bg-[#0f1c3f]"
+                                    >
+                                      <Wallet className="mr-2 h-4 w-4" />{" "}
+                                      {selectedSubscriptionForPoints?.pointsAdded
+                                        ? "Points Added"
+                                        : "Add Points"}
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      onClick={handlePointsDialogClose}
+                                      disabled={isLoading}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                  {statusMessage && (
+                                    <p
+                                      className={
+                                        statusMessage.includes("Failed")
+                                          ? "text-red-600"
+                                          : "text-green-600"
+                                      }
+                                    >
+                                      {statusMessage}
+                                    </p>
+                                  )}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={isLoading}
+                                >
+                                  <XCircle className="mr-2 h-4 w-4 text-red-500" />{" "}
+                                  Reject
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Reject Subscription</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <Input
+                                    placeholder="Enter rejection reason"
+                                    value={rejectReason}
+                                    onChange={(e) =>
+                                      setRejectReason(e.target.value)
+                                    }
+                                  />
+                                  <Button
+                                    onClick={() => handleReject(sub._id)}
+                                    disabled={isLoading || !rejectReason}
+                                  >
+                                    Submit Rejection
+                                  </Button>
+                                  {statusMessage && (
+                                    <p
+                                      className={
+                                        statusMessage.includes("Failed")
+                                          ? "text-red-600"
+                                          : "text-green-600"
+                                      }
+                                    >
+                                      {statusMessage}
+                                    </p>
+                                  )}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </>
+                        )}
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedSubscription(sub)}
+                            >
+                              <Eye className="mr-2 h-4 w-4" /> View Details
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="h-[500px] overflow-auto">
+                            <DialogHeader>
+                              <DialogTitle>Subscription Details</DialogTitle>
+                            </DialogHeader>
+                            {selectedSubscription && (
+                              <div className="space-y-4">
+                                <p>
+                                  <strong>Subscription ID:</strong>{" "}
+                                  {selectedSubscription._id}
+                                </p>
+                                <p>
+                                  <strong>User:</strong>{" "}
+                                  {selectedSubscription.user_id.username} (
+                                  {selectedSubscription.user_id.email})
+                                </p>
+                                <p>
+                                  <strong>Phone Number:</strong>{" "}
+                                  {selectedSubscription.user_id.phone_number}
+                                </p>
+                                <p>
+                                  <strong>Plan:</strong>{" "}
+                                  {selectedSubscription.plan_id?.plan_name}
+                                </p>
+                                <p>
+                                  <strong>Amount:</strong>{" "}
+                                  {selectedSubscription.amount}{" "}
+                                  {selectedSubscription.plan_id?.amount_type}
+                                </p>
+                                <p>
+                                  <strong>Profit Percentage:</strong>{" "}
+                                  {
+                                    selectedSubscription.profit_percentage
+                                      ?.$numberDecimal
+                                  }
+                                  %
+                                </p>
+                                <p>
+                                  <strong>
+                                    Profit Amount (
+                                    {
+                                      selectedSubscription.plan_id
+                                        ?.profit_withdrawal
+                                    }
+                                    ):
+                                  </strong>{" "}
+                                  {profitAmount.toFixed(2)}{" "}
+                                  {selectedSubscription.plan_id?.amount_type}
+                                </p>
+                                <p>
+                                  <strong>Total Return:</strong>{" "}
+                                  {totalReturn.toFixed(2)}{" "}
+                                  {selectedSubscription.plan_id?.amount_type}
+                                </p>
+                                <p>
+                                  <strong>Status:</strong>{" "}
+                                  {selectedSubscription.status
+                                    .charAt(0)
+                                    .toUpperCase() +
+                                    selectedSubscription.status.slice(1)}
+                                </p>
+                                <p>
+                                  <strong>Plan Status:</strong>{" "}
+                                  {selectedSubscription.planStatus}
+                                </p>
+                                <p>
+                                  <strong>Purchased At:</strong>{" "}
+                                  {new Date(
+                                    selectedSubscription.purchased_at
+                                  ).toLocaleString()}
+                                </p>
+                                <p>
+                                  <strong>Expires At:</strong>{" "}
+                                  {selectedSubscription.expires_at
+                                    ? new Date(
+                                        selectedSubscription.expires_at
+                                      ).toLocaleString()
+                                    : "N/A"}
+                                </p>
+                                {selectedSubscription.rejected_reason && (
+                                  <p>
+                                    <strong>Rejection Reason:</strong>{" "}
+                                    {selectedSubscription.rejected_reason}
+                                  </p>
+                                )}
+                                {imageUrl && (
+                                  <div>
+                                    <p>
+                                      <strong>Payment Screenshot:</strong>
+                                    </p>
+                                    <Zoom>
+                                      <img
+                                        src={imageUrl}
+                                        alt="Payment Screenshot"
+                                        className="w-full max-w-md rounded-lg border shadow cursor-pointer"
+                                        onError={(e) => {
+                                          console.error(
+                                            "Failed to load payment screenshot:",
+                                            e
+                                          );
+                                          e.target.src = "/fallback-image.png";
+                                        }}
+                                      />
+                                    </Zoom>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          <Pagination className="mt-4">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={() =>
+                    handlePageChange(currentPage > 1 ? currentPage - 1 : 1)
+                  }
+                  disabled={currentPage === 1}
+                />
+              </PaginationItem>
+              {[...Array(totalPages)].map((_, i) => (
+                <PaginationItem key={i}>
+                  <PaginationLink
+                    href="#"
+                    onClick={() => handlePageChange(i + 1)}
+                    isActive={currentPage === i + 1}
+                  >
+                    {i + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={() =>
+                    handlePageChange(
+                      currentPage < totalPages ? currentPage + 1 : totalPages
+                    )
+                  }
+                  disabled={currentPage === totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </CardContent>
+      </Card>
     </div>
   );
 };

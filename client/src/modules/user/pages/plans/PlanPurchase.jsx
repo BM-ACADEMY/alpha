@@ -18,13 +18,6 @@ import {
 } from "@/components/ui/table";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   CreditCard,
   Tag,
   DollarSign,
@@ -52,12 +45,11 @@ const PlanPurchase = () => {
   const [profitCalculations, setProfitCalculations] = useState({});
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
-  const [showInstructionsDialog, setShowInstructionsDialog] = useState(true); // New state for instructions modal
+  const [showInstructionsDialog, setShowInstructionsDialog] = useState(true);
   const [subscriptionId, setSubscriptionId] = useState(null);
   const [file, setFile] = useState(null);
   const [adminInfo, setAdminInfo] = useState(null);
   const [qrCodeErrors, setQrCodeErrors] = useState({});
-  const [selectedAccountType, setSelectedAccountType] = useState(null);
   const [profileData, setProfileData] = useState(null);
   const navigate = useNavigate();
 
@@ -186,7 +178,6 @@ const PlanPurchase = () => {
     setAdminInfo(null);
     setStatusMessage("");
     setQrCodeErrors({});
-    setSelectedAccountType(null);
     setShowPurchaseDialog(true);
   };
 
@@ -223,12 +214,6 @@ const PlanPurchase = () => {
           });
           console.log("Admin Info Response:", adminRes.data);
           setAdminInfo(adminRes.data);
-          if (adminRes.data.accounts?.length > 0) {
-            const inrAccount = adminRes.data.accounts.find(
-              (acc) => acc.account_type === "INR"
-            );
-            setSelectedAccountType(inrAccount ? "INR" : "USDT");
-          }
         } catch (err) {
           console.error(
             "Failed to fetch admin info:",
@@ -245,13 +230,14 @@ const PlanPurchase = () => {
         error.message,
         error.response?.data
       );
-      setStatusMessage(
-        error.response?.data?.message || "Failed to create subscription"
-      );
-      showToast(
-        "error",
-        error.response?.data?.message || "Failed to create subscription"
-      );
+      const errorMessage =
+        error.response?.data?.message || "Failed to create subscription";
+      if (errorMessage === "Profit percentage not found for this plan, please contact admin") {
+        showToast("error", errorMessage);
+      } else {
+        setStatusMessage(errorMessage);
+        showToast("error", errorMessage);
+      }
     }
   };
 
@@ -265,12 +251,6 @@ const PlanPurchase = () => {
       });
       console.log("Admin Info Response (Retry):", adminRes.data);
       setAdminInfo(adminRes.data);
-      if (adminRes.data.accounts?.length > 0) {
-        const inrAccount = adminRes.data.accounts.find(
-          (acc) => acc.account_type === "INR"
-        );
-        setSelectedAccountType(inrAccount ? "INR" : "USDT");
-      }
     } catch (err) {
       console.error(
         "Retry fetch admin info failed:",
@@ -344,7 +324,6 @@ const PlanPurchase = () => {
         setSelectedPlan(null);
         setAdminInfo(null);
         setQrCodeErrors({});
-        setSelectedAccountType(null);
       }
     } catch (error) {
       console.error(
@@ -416,7 +395,7 @@ const PlanPurchase = () => {
               {account.account_number && (
                 <div className="flex items-center justify-between">
                   <span>
-                    <strong>Account Number:</strong> {account.account_number}
+                    < strong>Account Number: </strong> {account.account_number}
                   </span>
                   <Button
                     variant="ghost"
@@ -562,53 +541,52 @@ const PlanPurchase = () => {
     <div className="p-6 space-y-8">
       {/* Instructions Dialog */}
       <Dialog open={showInstructionsDialog} onOpenChange={setShowInstructionsDialog}>
-  <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto p-6">
-    <DialogHeader>
-      <DialogTitle className="text-2xl font-bold text-center">
-        Deposit Instructions
-      </DialogTitle>
-    </DialogHeader>
+        <DialogContent className="sm:max-w-[700px] max-h-[60vh] overflow-y-auto p-6">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">
+              Deposit Instructions
+            </DialogTitle>
+          </DialogHeader>
 
-    <div className="space-y-6 mt-4 text-sm text-gray-700">
-      {/* INR Deposits Section */}
-      <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
-        <h3 className="font-semibold text-lg text-indigo-600 mb-2">INR Deposits</h3>
-        <ul className="list-disc pl-5 space-y-1">
-          <li><strong>Method:</strong> Bank Transfer or UPI only.</li>
-          <li><strong>Upload Required:</strong> Payment screenshot and Reference Number/UTR.</li>
-          <li><strong>Limits:</strong> Minimum ₹5000 | Max No limit per transaction.</li>
-          <li><strong>Requirements:</strong> Only KYC-verified accounts can deposit.</li>
-          <li><strong>Important:</strong> Payments from third-party accounts will be rejected.</li>
-        </ul>
-      </div>
+          <div className="space-y-6 mt-4 text-sm text-gray-700">
+            {/* INR Deposits Section */}
+            <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
+              <h3 className="font-semibold text-lg text-indigo-600 mb-2">INR Deposits</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Method:</strong> Bank Transfer or UPI only.</li>
+                <li><strong>Upload Required:</strong> Payment screenshot and Reference Number/UTR.</li>
+                <li><strong>Limits:</strong> Minimum ₹5000 | Max No limit per transaction.</li>
+                <li><strong>Requirements:</strong> Only KYC-verified accounts can deposit.</li>
+                <li><strong>Important:</strong> Payments from third-party accounts will be rejected.</li>
+              </ul>
+            </div>
 
-      {/* USDT Deposits Section */}
-      <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
-        <h3 className="font-semibold text-lg text-green-600 mb-2">USDT Deposits</h3>
-        <ul className="list-disc pl-5 space-y-1">
-          <li><strong>Method:</strong> Transfer to Admin’s official crypto wallet.</li>
-          <li><strong>Upload Required:</strong> Transaction Hash (TxID). Screenshot optional.</li>
-          <li><strong>Limits:</strong> Min USDT 50| Max No limit per transaction.</li>
-          <li><strong>Network:</strong> TRC20 (default).</li>
-          <li><strong>Requirements:</strong> Only KYC-verified accounts can deposit.</li>
-        </ul>
-      </div>
+            {/* USDT Deposits Section */}
+            <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
+              <h3 className="font-semibold text-lg text-green-600 mb-2">USDT Deposits</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Method:</strong> Transfer to Admin’s official crypto wallet.</li>
+                <li><strong>Upload Required:</strong> Transaction Hash (TxID). Screenshot optional.</li>
+                <li><strong>Limits:</strong> Min USDT 50| Max No limit per transaction.</li>
+                <li><strong>Network:</strong> TRC20 (default).</li>
+                <li><strong>Requirements:</strong> Only KYC-verified accounts can deposit.</li>
+              </ul>
+            </div>
 
-      {/* Verification Section */}
-      <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
-        <h3 className="font-semibold text-lg text-red-600 mb-2">Verification</h3>
-        <p>All deposits will be verified by Admin within  <strong>24–48 hours</strong>.</p>
-      </div>
-    </div>
+            {/* Verification Section */}
+            <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
+              <h3 className="font-semibold text-lg text-red-600 mb-2">Verification</h3>
+              <p>All deposits will be verified by Admin within  <strong>24–48 hours</strong>.</p>
+            </div>
+          </div>
 
-    <DialogFooter className="mt-6">
-      <Button variant="default" className="w-full" onClick={() => setShowInstructionsDialog(false)}>
-        Got it
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-
+          <DialogFooter className="mt-6">
+            <Button variant="default" className="w-full" onClick={() => setShowInstructionsDialog(false)}>
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
@@ -661,7 +639,7 @@ const PlanPurchase = () => {
                           <CreditCard className="mr-2 h-4 w-4" /> Purchase
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent className="sm:max-w-[700px] max-h-[60vh] overflow-y-auto p-6">
                         <DialogHeader>
                           <DialogTitle>{plan?.plan_name} Details</DialogTitle>
                         </DialogHeader>
@@ -757,38 +735,25 @@ const PlanPurchase = () => {
                                   </p>
                                   {adminInfo.accounts?.length > 0 ? (
                                     <div className="mt-2">
-                                      <strong>Accounts:</strong>
+                                      <strong>Account Details:</strong>
                                       <div className="mt-2">
-                                        <Select
-                                          value={selectedAccountType}
-                                          onValueChange={setSelectedAccountType}
-                                        >
-                                          <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select account type" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {adminInfo.accounts.map((acc) => (
-                                              <SelectItem
-                                                key={acc._id}
-                                                value={acc.account_type}
-                                              >
-                                                {acc.account_type}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                        {selectedAccountType && (
-                                          <div className="mt-4">
-                                            {adminInfo.accounts
-                                              .filter(
-                                                (acc) =>
-                                                  acc.account_type ===
-                                                  selectedAccountType
-                                              )
-                                              .map((acc) =>
-                                                renderAccountDetails(acc)
-                                              )}
-                                          </div>
+                                        {adminInfo.accounts
+                                          .filter(
+                                            (acc) =>
+                                              acc.account_type ===
+                                              selectedPlan?.amount_type
+                                          )
+                                          .map((acc) =>
+                                            renderAccountDetails(acc)
+                                          )}
+                                        {adminInfo.accounts.filter(
+                                          (acc) =>
+                                            acc.account_type ===
+                                            selectedPlan?.amount_type
+                                        ).length === 0 && (
+                                          <p className="text-red-600">
+                                            No {selectedPlan?.amount_type} account found for admin.
+                                          </p>
                                         )}
                                       </div>
                                     </div>
