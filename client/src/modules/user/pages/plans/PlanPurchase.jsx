@@ -51,6 +51,7 @@ const PlanPurchase = () => {
   const [adminInfo, setAdminInfo] = useState(null);
   const [qrCodeErrors, setQrCodeErrors] = useState({});
   const [profileData, setProfileData] = useState(null);
+  const [userAccounts, setUserAccounts] = useState([]);
   const navigate = useNavigate();
 
   const cacheBusterRef = useRef(Date.now());
@@ -86,6 +87,26 @@ const PlanPurchase = () => {
     };
 
     fetchProfile();
+  }, [user]);
+
+  // Fetch user accounts
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchUserAccounts = async () => {
+      try {
+        const response = await axiosInstance.get(`/accounts/user/${user.id}`, {
+          withCredentials: true,
+        });
+        setUserAccounts(response.data);
+      } catch (error) {
+        console.error("Failed to fetch user accounts:", error);
+        setStatusMessage("Failed to load user account details");
+        showToast("error", "Failed to load user account details");
+      }
+    };
+
+    fetchUserAccounts();
   }, [user]);
 
   // Fetch plans
@@ -150,7 +171,7 @@ const PlanPurchase = () => {
     };
   }, []);
 
-  // Handle opening of purchase dialog with KYC and admin verification check
+  // Handle opening of purchase dialog with KYC, admin verification, and account check
   const handleOpenPurchaseDialog = (plan) => {
     // Check KYC details
     if (
@@ -169,6 +190,22 @@ const PlanPurchase = () => {
     // Check admin verification
     if (!profileData?.verified_by_admin) {
       showToast("error", "Account must be verified by admin. Wait 24-48 hrs.");
+      return;
+    }
+
+    // Check if user has an account matching the plan's amount_type
+    const hasMatchingAccount = userAccounts.some(
+      (account) => account.account_type === plan.amount_type
+    );
+
+    if (!hasMatchingAccount) {
+      showToast(
+        "error",
+        `Please add ${plan.amount_type} account details to purchase this plan`
+      );
+      setTimeout(() => {
+        navigate("/user-dashboard/profile");
+      }, 2000);
       return;
     }
 
@@ -395,7 +432,7 @@ const PlanPurchase = () => {
               {account.account_number && (
                 <div className="flex items-center justify-between">
                   <span>
-                    < strong>Account Number: </strong> {account.account_number}
+                    <strong>Account Number:</strong> {account.account_number}
                   </span>
                   <Button
                     variant="ghost"
@@ -576,7 +613,7 @@ const PlanPurchase = () => {
             {/* Verification Section */}
             <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
               <h3 className="font-semibold text-lg text-red-600 mb-2">Verification</h3>
-              <p>All deposits will be verified by Admin within  <strong>24–48 hours</strong>.</p>
+              <p>All deposits will be verified by Admin within <strong>24–48 hours</strong>.</p>
             </div>
           </div>
 
