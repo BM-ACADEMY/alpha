@@ -32,7 +32,6 @@ const WalletSchema = new mongoose.Schema({
   amount_type: {
     type: [String],
     enum: ['INR', 'USDT'],
-   
   },
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
