@@ -261,6 +261,86 @@ const getAllWallets = async (req, res) => {
   }
 };
 
+// New function to fetch all wallets for a specific user
+const getUserWallets = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
+    const user = await User.findById(userId).select('_id username email phone_number');
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const wallets = await Wallet.aggregate([
+      { $match: { user_id: new mongoose.Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: 'userplansubscriptions',
+          localField: 'subscription_id',
+          foreignField: '_id',
+          as: 'subscription',
+        },
+      },
+      {
+        $unwind: {
+          path: '$subscription',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user_id',
+          foreignField: '_id',
+          as: 'user_id',
+        },
+      },
+      {
+        $unwind: {
+          path: '$user_id',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          user_id: {
+            _id: '$user_id._id',
+            username: '$user_id.username',
+            email: '$user_id.email',
+            phone_number: '$user_id.phone_number',
+          },
+          subscription_id: 1,
+          plan_name: 1,
+          amount_type: 1,
+          userPlanCapitalAmount: 1,
+          dailyProfitAmount: 1,
+          referral_amount: 1,
+          totalWalletPoint: 1,
+          planStatus: '$subscription.planStatus',
+        },
+      },
+    ]);
+
+    res.json({
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        phone_number: user.phone_number,
+      },
+      wallets,
+    });
+  } catch (error) {
+    console.error("Get user wallets error:", error);
+    res.status(500).json({ message: error.message || "Internal server error" });
+  }
+};
+
 // Scheduler: Update wallets every day at midnight
 cron.schedule(
   "0 0 * * *",
@@ -340,7 +420,7 @@ cron.schedule(
 
           let referrerWallet = await Wallet.findOne({
             user_id: user.referred_by,
-            subscription_id: subscription._id, // Ensure unique wallet per subscription
+            subscription_id: subscription._id,
           }).session(session);
           if (!referrerWallet) {
             referrerWallet = new Wallet({
@@ -404,4 +484,5 @@ module.exports = {
   searchUserSubscriptions,
   addPointsToWallet,
   getAllWallets,
+  getUserWallets, // Export the new function
 };
