@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useContext } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -15,29 +16,30 @@ const WalletPage = () => {
   const userId = user?.id;
   const navigate = useNavigate();
 
-  const [wallet, setWallet] = useState(null);
+  const [wallets, setWallets] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
   const [redeemAmount, setRedeemAmount] = useState('');
   const [accountType, setAccountType] = useState('INR');
+  const [selectedWallet, setSelectedWallet] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [profileData, setProfileData] = useState(null);
 
-  // Fetch wallet data
+  // Fetch all wallets for the user
   useEffect(() => {
-    const fetchWallet = async () => {
+    const fetchWallets = async () => {
       try {
-        const response = await axiosInstance.get(`/redeem/wallet/${userId}`, {
+        const response = await axiosInstance.get(`/wallet-point/user/${userId}/wallets`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
-        setWallet(response.data);
+        setWallets(response.data.wallets || []);
       } catch (error) {
-        console.error('Fetch wallet error:', error);
+        console.error('Fetch wallets error:', error);
         showToast('error', 'Failed to fetch wallet data');
       }
     };
-    if (userId) fetchWallet();
+    if (userId) fetchWallets();
   }, [userId]);
 
   // Fetch user profile to check KYC details and admin verification
@@ -62,16 +64,18 @@ const WalletPage = () => {
     fetchProfile();
   }, [userId]);
 
-  // Calculate available profit
-  const availableProfit = wallet ? wallet.totalWalletPoint - wallet.userPlanCapitalAmount : 0;
+  // Calculate available profit for a specific wallet
+  const getAvailableProfit = (wallet) => {
+    return wallet ? wallet.totalWalletPoint - wallet.userPlanCapitalAmount : 0;
+  };
 
   // Handle redeem amount change with validation
   const handleAmountChange = (value) => {
     setRedeemAmount(value);
     if (!value || parseFloat(value) <= 0) {
       setError('Please enter a valid amount');
-    } else if (wallet && parseFloat(value) > availableProfit) {
-      setError(`Amount cannot exceed available profit (${availableProfit.toFixed(2)} INR)`);
+    } else if (selectedWallet && parseFloat(value) > getAvailableProfit(selectedWallet)) {
+      setError(`Amount cannot exceed available profit (${getAvailableProfit(selectedWallet).toFixed(2)} INR)`);
     } else if (accountType === 'INR' && parseFloat(value) < 1000) {
       setError('Minimum redeem amount is 1000 INR');
     } else if (accountType === 'USDT' && parseFloat(value) < 10) {
@@ -87,8 +91,8 @@ const WalletPage = () => {
       setError('Please enter a valid amount');
       return;
     }
-    if (parseFloat(redeemAmount) > availableProfit) {
-      setError(`Amount cannot exceed available profit (${availableProfit.toFixed(2)} INR)`);
+    if (parseFloat(redeemAmount) > getAvailableProfit(selectedWallet)) {
+      setError(`Amount cannot exceed available profit (${getAvailableProfit(selectedWallet).toFixed(2)} INR)`);
       return;
     }
     if (accountType === 'INR' && parseFloat(redeemAmount) < 1000) {
@@ -104,7 +108,7 @@ const WalletPage = () => {
     try {
       await axiosInstance.post(
         '/redeem/redeem-amount',
-        { user_id: userId, redeem_amount: parseFloat(redeemAmount), accountType },
+        { user_id: userId, redeem_amount: parseFloat(redeemAmount), accountType, subscription_id: selectedWallet.subscription_id },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
       showToast('success', 'Redeem request submitted successfully');
@@ -112,12 +116,13 @@ const WalletPage = () => {
       setRedeemAmount('');
       setAccountType('INR');
       setError('');
+      setSelectedWallet(null);
 
-      // Refresh wallet data
-      const updatedWallet = await axiosInstance.get(`/redeem/wallet/${userId}`, {
+      // Refresh wallets data
+      const updatedWallets = await axiosInstance.get(`/user/${userId}/wallets`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
-      setWallet(updatedWallet.data);
+      setWallets(updatedWallets.data.wallets || []);
     } catch (error) {
       showToast('error', error.response?.data?.message || 'Failed to submit redeem request');
     } finally {
@@ -126,7 +131,7 @@ const WalletPage = () => {
   };
 
   // Handle redeem button click with KYC and admin verification check
-  const handleOpenRedeemDialog = () => {
+  const handleOpenRedeemDialog = (wallet) => {
     // Check KYC details
     if (
       !profileData?.pan_number ||
@@ -147,12 +152,13 @@ const WalletPage = () => {
       return;
     }
 
-    // Open the modal with instructions
+    // Set selected wallet and open modal
+    setSelectedWallet(wallet);
     setShowInstructions(true);
     setIsModalOpen(true);
   };
 
-  if (!wallet) {
+  if (!wallets.length) {
     return (
       <div className="flex items-center justify-center p-6">
         <Loader2 className="h-6 w-6 text-blue-500 mr-2 animate-spin" />
@@ -162,60 +168,65 @@ const WalletPage = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
+    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-6 flex items-center">
         <Wallet className="h-6 w-6 mr-2 text-blue-600" />
         Wallet Information
       </h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="border p-4 rounded-md bg-gray-50">
-          <Label className="text-sm text-gray-500">User</Label>
-          <p className="text-lg font-semibold">
-            {wallet.user_id?.username || 'N/A'} ({wallet.user_id?.email || 'N/A'})
-          </p>
-        </div>
-        <div className="border p-4 rounded-md bg-gray-50">
-          <Label className="text-sm text-gray-500">Capital Amount</Label>
-          <p className="text-lg font-semibold">{wallet.userPlanCapitalAmount.toFixed(2)} INR</p>
-        </div>
-        <div className="border p-4 rounded-md bg-gray-50">
-          <Label className="text-sm text-gray-500">Daily Profit Amount</Label>
-          <p className="text-lg font-semibold">{wallet.dailyProfitAmount.toFixed(2)} INR</p>
-        </div>
-        <div className="border p-4 rounded-md bg-gray-50">
-          <Label className="text-sm text-gray-500">Total Wallet Points</Label>
-          <p className="text-lg font-semibold">{wallet.totalWalletPoint.toFixed(2)} INR</p>
-        </div>
-      </div>
+      {wallets.map((wallet, index) => (
+        <div key={wallet._id} className="mb-8 p-6 border rounded-lg bg-gray-50">
+          <h3 className="text-xl font-semibold mb-4">Plan: {wallet.plan_name}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div className="border p-4 rounded-md bg-white">
+              <Label className="text-sm text-gray-500">User</Label>
+              <p className="text-lg font-semibold">
+                {wallet.user_id?.username || 'N/A'} ({wallet.user_id?.email || 'N/A'})
+              </p>
+            </div>
+            <div className="border p-4 rounded-md bg-white">
+              <Label className="text-sm text-gray-500">Capital Amount</Label>
+              <p className="text-lg font-semibold">{wallet.userPlanCapitalAmount.toFixed(2)} {wallet.amount_type}</p>
+            </div>
+            <div className="border p-4 rounded-md bg-white">
+              <Label className="text-sm text-gray-500">Daily Profit Amount</Label>
+              <p className="text-lg font-semibold">{wallet.dailyProfitAmount.toFixed(2)} {wallet.amount_type}</p>
+            </div>
+            <div className="border p-4 rounded-md bg-white">
+              <Label className="text-sm text-gray-500">Total Wallet Points</Label>
+              <p className="text-lg font-semibold">{wallet.totalWalletPoint.toFixed(2)} {wallet.amount_type}</p>
+            </div>
+          </div>
 
-      <div className="mb-6 p-4 bg-blue-50 rounded-md">
-        <p className="text-sm text-gray-700">
-          <strong>Redeemable Amount:</strong> You can redeem up to{' '}
-          <strong>{availableProfit.toFixed(2)} INR</strong> from your accumulated profit.
-          {availableProfit < 1000 && accountType === 'INR' && (
-            <span className="text-red-600 block mt-1">
-              Your accumulated profit ({availableProfit.toFixed(2)} INR) is below the minimum redeem amount of 1000 INR. 
-              Please wait for more profit to accumulate or increase your investment.
-            </span>
-          )}
-          {availableProfit < 10 && accountType === 'USDT' && (
-            <span className="text-red-600 block mt-1">
-              Your accumulated profit ({availableProfit.toFixed(2)} INR) is below the minimum redeem amount of 10 USDT. 
-              Please wait for more profit to accumulate or increase your investment.
-            </span>
-          )}
-        </p>
-      </div>
+          <div className="mb-6 p-4 bg-blue-50 rounded-md">
+            <p className="text-sm text-gray-700">
+              <strong>Redeemable Amount:</strong> You can redeem up to{' '}
+              <strong>{getAvailableProfit(wallet).toFixed(2)} {wallet.amount_type}</strong> from your accumulated profit.
+              {getAvailableProfit(wallet) < 1000 && wallet.amount_type === 'INR' && (
+                <span className="text-red-600 block mt-1">
+                  Your accumulated profit ({getAvailableProfit(wallet).toFixed(2)} INR) is below the minimum redeem amount of 1000 INR.
+                  Please wait for more profit to accumulate or increase your investment.
+                </span>
+              )}
+              {getAvailableProfit(wallet) < 10 && wallet.amount_type === 'USDT' && (
+                <span className="text-red-600 block mt-1">
+                  Your accumulated profit ({getAvailableProfit(wallet).toFixed(2)} INR) is below the minimum redeem amount of 10 USDT.
+                  Please wait for more profit to accumulate or increase your investment.
+                </span>
+              )}
+            </p>
+          </div>
 
-      <Button
-        disabled={(accountType === 'INR' && availableProfit < 1000) || (accountType === 'USDT' && availableProfit < 10)}
-        onClick={handleOpenRedeemDialog}
-        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-      >
-        <Send className="h-5 w-5 mr-2" />
-        Redeem Amount
-      </Button>
+          <Button
+            disabled={(wallet.amount_type === 'INR' && getAvailableProfit(wallet) < 1000) || (wallet.amount_type === 'USDT' && getAvailableProfit(wallet) < 10)}
+            onClick={() => handleOpenRedeemDialog(wallet)}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            <Send className="h-5 w-5 mr-2" />
+            Redeem Amount
+          </Button>
+        </div>
+      ))}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto p-6">
@@ -264,12 +275,12 @@ const WalletPage = () => {
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle className="text-xl font-semibold">Redeem Request</DialogTitle>
+                <DialogTitle className="text-xl font-semibold">Redeem Request - {selectedWallet?.plan_name}</DialogTitle>
               </DialogHeader>
               <div className="space-y-6">
                 <div>
                   <Label htmlFor="redeemAmount" className="block text-sm font-medium text-gray-700">
-                    Redeem Amount (Max: {availableProfit.toFixed(2)} INR)
+                    Redeem Amount (Max: {getAvailableProfit(selectedWallet).toFixed(2)} {selectedWallet?.amount_type})
                   </Label>
                   <Input
                     id="redeemAmount"
@@ -313,6 +324,7 @@ const WalletPage = () => {
                     setIsModalOpen(false);
                     setRedeemAmount('');
                     setError('');
+                    setSelectedWallet(null);
                   }}
                 >
                   Cancel

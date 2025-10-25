@@ -100,16 +100,19 @@ export function NavUser({ user, logout }) {
               </div>
             </DropdownMenuLabel>
 
-            <DropdownMenuSeparator />
+            {/* Show separator + account option only for admin */}
+            {user?.role_id?.role_name === "admin" && (
+              <>
+                <DropdownMenuSeparator />
 
-            <DropdownMenuGroup>
-              {user?.role_id?.role_name === "admin" && (
-                <DropdownMenuItem onClick={goToSettings}>
-                  <IconUserCircle />
-                  Account
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuGroup>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={goToSettings}>
+                    <IconUserCircle />
+                    Account
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </>
+            )}
 
             <DropdownMenuSeparator />
 

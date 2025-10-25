@@ -130,7 +130,7 @@ const Dashboard = () => {
             </Card>
 
             {/* Wallet */}
-            <Card>
+            {/* <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Wallet</CardTitle>
                 <Wallet className="h-4 w-4 text-muted-foreground" />
@@ -140,7 +140,7 @@ const Dashboard = () => {
                 <p><strong>Daily Profit:</strong> {data?.wallet?.dailyProfitAmount?.toLocaleString() || 0} INR</p>
                 <p><strong>Total Points:</strong> {data?.wallet?.totalWalletPoint?.toLocaleString() || 0} INR</p>
               </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Referral */}
             <Card>

@@ -262,7 +262,7 @@ const createSubscription = async (req, res) => {
     if (!percentage) {
       console.log("Profit percentage not found for plan:", planExists.plan_name);
       return res.status(404).json({
-        message: "Profit percentage not found for this plan",
+        message: "Profit percentage not found for this plan, please contact admin",
       });
     }
 

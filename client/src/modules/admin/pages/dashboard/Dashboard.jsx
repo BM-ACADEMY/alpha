@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -66,7 +67,7 @@ const Dashboard = () => {
       });
       setIsLoading(false);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching dashboard data:", error);
       showToast(
         "error",
         error.response?.data?.message || "Failed to load dashboard data"
@@ -103,6 +104,17 @@ const Dashboard = () => {
   );
 
   const totalNotifications = notifications.pendingRedeem + notifications.unverifiedUsers;
+
+  // Format referral amount for display
+  const formatReferralAmount = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return "0.00";
+    }
+    return Number(amount).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -279,6 +291,9 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{data?.referralUsers || 0}</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  Total Referral Earnings: ₹ {formatReferralAmount(data?.totalReferralAmount)}
+                </div>
               </CardContent>
             </Card>
           </>
@@ -376,6 +391,82 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Referred Users List */}
+      <Card>
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+          <CardTitle>Total Referred Users List</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Username</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Referred By</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data?.referredUsersList?.length > 0 ? (
+                  data.referredUsersList.map((user) => (
+                    <TableRow key={user.user_id}>
+                      <TableCell>{user.username || 'N/A'}</TableCell>
+                      <TableCell>{user.email || 'N/A'}</TableCell>
+                      <TableCell>{user.referred_by_username || 'N/A'}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center">
+                      No referred users found
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Referral Earnings by User */}
+      <Card>
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+          <CardTitle>Referral Earnings by User</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Username</TableHead>
+                  <TableHead>Referral Earnings (₹)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data?.referralEarningsByUser?.length > 0 ? (
+                  data.referralEarningsByUser.map((user) => (
+                    <TableRow key={user.user_id}>
+                      <TableCell>{user.username || 'N/A'}</TableCell>
+                      <TableCell>{formatReferralAmount(user.referral_amount)}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-center">
+                      No referral earnings found
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

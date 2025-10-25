@@ -99,16 +99,18 @@ const PlanManagement = () => {
       const percentageData = response.data.find((p) => p.amount_type === amountType && p.category === "starter");
       if (percentageData) {
         setProfitPercentageFromBackend(percentageData.profit_percentage.$numberDecimal.toString());
-        setValue("profit_percentage", percentageData.profit_percentage.$numberDecimal.toString());
+        // Only set profit_percentage if not editing or if it's a new form
+        if (!editingId) {
+          setValue("profit_percentage", percentageData.profit_percentage.$numberDecimal.toString());
+        }
       }
     } catch (error) {
       showToast("error", `Failed to fetch profit percentage: ${error}`);
     }
   };
 
-
   useEffect(() => {
-    if (minInvestment && profitPercentage && profitWithdrawal) {
+    if (minInvestment && profitPercentage && profitWithdrawal && capitalLockin) {
       const minInvestmentNum = parseFloat(minInvestment);
       const profitPercentageNum = parseFloat(profitPercentage);
 
@@ -121,19 +123,15 @@ const PlanManagement = () => {
       let profitAmount = 0;
 
       if (profitWithdrawal === "daily") {
-        profitAmount = dailyProfit; // 12.5
+        profitAmount = dailyProfit;
       } else if (profitWithdrawal === "weekly") {
-        profitAmount = dailyProfit * 7; // 87.5
+        profitAmount = dailyProfit * 7;
       } else if (profitWithdrawal === "monthly") {
-        // get current date
         const now = new Date();
         const nextMonth = new Date(now);
         nextMonth.setMonth(nextMonth.getMonth() + 1);
-
-        // get days between current date and same date next month
         const diffTime = Math.abs(nextMonth - now);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
         profitAmount = dailyProfit * diffDays;
       }
 
@@ -143,8 +141,6 @@ const PlanManagement = () => {
       setValue("total_return_percentage", totalReturn.toFixed(2));
     }
   }, [minInvestment, profitPercentage, profitWithdrawal, capitalLockin, setValue]);
-
-
 
   // Fetch plans
   const fetchPlans = async () => {
@@ -185,11 +181,11 @@ const PlanManagement = () => {
           profit_percentage_day_week_month: "",
           total_return_percentage: "",
           notes: "",
-        })
+        });
       } else {
         await axiosInstance.post("/plans", payload);
         showToast("Success", "Plan created successfully");
-             form.reset({
+        form.reset({
           plan_name: "",
           profit_withdrawal: "daily",
           amount_type: "INR",
@@ -199,9 +195,8 @@ const PlanManagement = () => {
           profit_percentage_day_week_month: "",
           total_return_percentage: "",
           notes: "",
-        })
+        });
       }
-      form.reset();
       setEditingId(null);
       fetchPlans();
     } catch (err) {
@@ -257,10 +252,10 @@ const PlanManagement = () => {
   // Fetch profit percentage when amount_type changes
   useEffect(() => {
     const amountType = form.watch("amount_type");
-    if (amountType) {
+    if (amountType && !editingId) {
       fetchProfitPercentage(amountType);
     }
-  }, [form.watch("amount_type")]);
+  }, [form.watch("amount_type"), editingId]);
 
   useEffect(() => {
     fetchPlans();
@@ -271,8 +266,8 @@ const PlanManagement = () => {
       <h1 className="text-2xl font-bold mb-6 text-[#0F1C3F]">Manage Plans</h1>
 
       <Card className="mb-8 shadow-lg">
-       <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
-          <CardTitle >
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+          <CardTitle>
             {editingId ? "Edit Plan" : "Create Plan"}
           </CardTitle>
         </CardHeader>
@@ -399,11 +394,11 @@ const PlanManagement = () => {
                       <FormControl>
                         <Input
                           type="number"
-                          placeholder="Profit percentage (from backend)"
+                          placeholder="Enter profit percentage"
                           step="0.01"
                           {...field}
-                          disabled={true}
-                          className="w-full bg-gray-100"
+                          disabled={loading}
+                          className="w-full"
                         />
                       </FormControl>
                       <FormMessage />
@@ -479,7 +474,7 @@ const PlanManagement = () => {
                 <Button
                   type="submit"
                   disabled={!form.formState.isValid || loading}
-                 className="bg-[#d09d42] w-full text-white hover:bg-[#0f1c3f] cursor-pointer"
+                  className="bg-[#d09d42] w-full text-white hover:bg-[#0f1c3f] cursor-pointer"
                 >
                   {loading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -497,8 +492,8 @@ const PlanManagement = () => {
       </Card>
 
       <Card className="shadow-lg">
-     <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
-          <CardTitle >Existing Plans</CardTitle>
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+          <CardTitle>Existing Plans</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           {loading ? (

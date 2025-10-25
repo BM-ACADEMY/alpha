@@ -11,6 +11,7 @@ import ComplaintsTable from '@/modules/admin/pages/complaint/ComplaintsTable';
 import Profile from '@/modules/admin/pages/settings/Profile';
 import AdminRedeemRequests from '@/modules/admin/pages/redeem/AdminRedeemRequests';
 import UserVerificationTabs from '@/modules/admin/pages/verified/VerifiedUser';
+import Social from '@/modules/admin/pages/Social/Social';
 
 export const adminRoutes = [
   {
@@ -106,6 +107,22 @@ export const adminRoutes = [
     element: (
       <PrivateRoute allowedRole="admin">
         <UserVerificationTabs />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: '/admin-dashboard/user-verified',
+    element: (
+      <PrivateRoute allowedRole="admin">
+        <UserVerificationTabs />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: '/admin-dashboard/socialmedia',
+    element: (
+      <PrivateRoute allowedRole="admin">
+        <Social />
       </PrivateRoute>
     ),
   },

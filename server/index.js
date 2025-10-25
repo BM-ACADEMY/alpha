@@ -90,6 +90,7 @@ const reportRoute = require("./route/reportRoute");
 const profileImageRoute = require("./route/profileImageRoute");
 const dashboardRoute = require("./route/dashboardRoute");
 const redeemRoute = require("./route/redeemRoute");
+const socialMediaRoutes = require("./route/socialMediaRoutes");
 
 // Register Routes with Prefix
 app.use("/api/plans", planRoutes);
@@ -106,6 +107,7 @@ app.use("/api/reports", reportRoute);
 app.use("/api/profile-image", profileImageRoute);
 app.use("/api/dashboard-route", dashboardRoute);
 app.use("/api/redeem", redeemRoute);
+app.use("/api/socialmedia", socialMediaRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

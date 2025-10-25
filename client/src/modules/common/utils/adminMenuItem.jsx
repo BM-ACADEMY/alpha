@@ -9,7 +9,8 @@ import {
   LogOut,
   Percent ,
   MessageSquareWarning,
-  ShieldUser 
+  ShieldUser, 
+  Link
 } from 'lucide-react';
 
 export const adminMenuItems = {
@@ -68,6 +69,11 @@ export const adminMenuItems = {
       title: 'Redeem Request',
       url: '/admin-dashboard/redeem',
       icon: MessageSquareWarning,
+    },
+    {
+      title: 'Social Media',
+      url: '/admin-dashboard/socialmedia',
+      icon: Link,
     },
   ],
   navSecondary: [

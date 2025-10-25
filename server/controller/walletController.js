@@ -28,7 +28,7 @@ const searchUserSubscriptions = async (req, res) => {
       status: "verified",
       expires_at: { $gt: new Date() },
     })
-      .populate("plan_id", "plan_name capital_lockin")
+      .populate("plan_id", "plan_name capital_lockin amount_type")
       .lean();
 
     if (!subscriptions.length)
@@ -43,7 +43,10 @@ const searchUserSubscriptions = async (req, res) => {
         email: user.email,
         phone_number: user.phone_number,
       },
-      subscriptions,
+      subscriptions: subscriptions.map(sub => ({
+        ...sub,
+        pointsAdded: sub.pointsAdded || false,
+      })),
     });
   } catch (error) {
     console.error("Search user subscriptions error:", error);
@@ -56,7 +59,7 @@ const addPointsToWallet = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const { user_id, subscription_id, amount, profit_percentage } = req.body;
+    const { user_id, subscription_id, amount, profit_percentage, plan_name, amount_type } = req.body;
 
     if (
       !mongoose.Types.ObjectId.isValid(user_id) ||
@@ -72,6 +75,12 @@ const addPointsToWallet = async (req, res) => {
     if (isNaN(profit_percentage) || Number(profit_percentage) <= 0) {
       return res.status(400).json({ message: "Invalid profit percentage" });
     }
+    if (!plan_name) {
+      return res.status(400).json({ message: "Plan name is required" });
+    }
+    if (!['INR', 'USDT'].includes(amount_type)) {
+      return res.status(400).json({ message: "Invalid amount type" });
+    }
 
     const subscription = await UserPlanSubscription.findById(
       subscription_id
@@ -85,33 +94,43 @@ const addPointsToWallet = async (req, res) => {
       return res.status(404).json({ message: "Valid subscription not found" });
     }
 
+    if (subscription.pointsAdded) {
+      return res.status(400).json({ message: "Points already added for this subscription" });
+    }
+
     const plan = await Plan.findById(subscription.plan_id).session(session);
     if (!plan) return res.status(404).json({ message: "Plan not found" });
 
     const capitalLockin = plan.capital_lockin || 30;
     const totalProfit = (amount * Number(profit_percentage)) / 100;
-    const dailyProfit = totalProfit / capitalLockin; // Use findOneAndUpdate to handle atomicity and simplify logic
+    const dailyProfit = totalProfit / capitalLockin;
 
-    let wallet = await Wallet.findOneAndUpdate(
-      { user_id },
-      {
-        $inc: {
-          userPlanCapitalAmount: amount,
-          dailyProfitAmount: dailyProfit,
-          totalWalletPoint: amount + dailyProfit,
-        },
-        $setOnInsert: {
-          referral_amount: 0, // Set a default if a new doc is created
-        },
-      },
-      { new: true, upsert: true, session }
-    );
+    // Create a new wallet record for this subscription
+    const wallet = new Wallet({
+      user_id,
+      subscription_id,
+      plan_name,
+      amount_type,
+      userPlanCapitalAmount: amount,
+      dailyProfitAmount: dailyProfit,
+      totalWalletPoint: amount + dailyProfit,
+      referral_amount: 0,
+    });
+
+    await wallet.save({ session });
+
+    // Mark subscription as points added
+    subscription.pointsAdded = true;
+    await subscription.save({ session });
 
     await session.commitTransaction();
     res.status(200).json({
       message: "Points added to wallet successfully",
       wallet: {
         user_id: wallet.user_id,
+        subscription_id: wallet.subscription_id,
+        plan_name: wallet.plan_name,
+        amount_type: wallet.amount_type,
         userPlanCapitalAmount: wallet.userPlanCapitalAmount,
         dailyProfitAmount: wallet.dailyProfitAmount,
         totalWalletPoint: wallet.totalWalletPoint,
@@ -133,7 +152,6 @@ const getAllWallets = async (req, res) => {
   try {
     let matchQuery = {};
 
-    // Add search functionality
     if (search) {
       const users = await User.find({
         $or: [
@@ -144,27 +162,16 @@ const getAllWallets = async (req, res) => {
       }).select('_id');
 
       const userIds = users.map(user => user._id);
-      matchQuery.user_id = { $in: userIds.length ? userIds : [null] }; // Prevent empty $in
+      matchQuery.user_id = { $in: userIds.length ? userIds : [null] };
     }
 
-    // Aggregation pipeline to join Wallet with UserPlanSubscription
     const wallets = await Wallet.aggregate([
       { $match: matchQuery },
       {
         $lookup: {
           from: 'userplansubscriptions',
-          let: { user_id: '$user_id' },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ['$user_id', '$$user_id'] },
-                status: 'verified',
-                expires_at: { $gt: new Date() },
-              },
-            },
-            { $sort: { created_at: -1 } }, // Get the most recent subscription
-            { $limit: 1 }, // Ensure only one subscription per user
-          ],
+          localField: 'subscription_id',
+          foreignField: '_id',
           as: 'subscription',
         },
       },
@@ -202,6 +209,9 @@ const getAllWallets = async (req, res) => {
             email: '$user_id.email',
             phone_number: '$user_id.phone_number',
           },
+          subscription_id: 1,
+          plan_name: 1,
+          amount_type: 1,
           userPlanCapitalAmount: 1,
           dailyProfitAmount: 1,
           referral_amount: 1,
@@ -213,24 +223,13 @@ const getAllWallets = async (req, res) => {
       { $limit: limit * 1 },
     ]);
 
-    // Count total documents for pagination
     const countPipeline = [
       { $match: matchQuery },
       {
         $lookup: {
           from: 'userplansubscriptions',
-          let: { user_id: '$user_id' },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ['$user_id', '$$user_id'] },
-                status: 'verified',
-                expires_at: { $gt: new Date() },
-              },
-            },
-            { $sort: { created_at: -1 } },
-            { $limit: 1 },
-          ],
+          localField: 'subscription_id',
+          foreignField: '_id',
           as: 'subscription',
         },
       },
@@ -262,9 +261,89 @@ const getAllWallets = async (req, res) => {
   }
 };
 
-// Scheduler: Update wallets every minute for testing
+// New function to fetch all wallets for a specific user
+const getUserWallets = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
+    const user = await User.findById(userId).select('_id username email phone_number');
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const wallets = await Wallet.aggregate([
+      { $match: { user_id: new mongoose.Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: 'userplansubscriptions',
+          localField: 'subscription_id',
+          foreignField: '_id',
+          as: 'subscription',
+        },
+      },
+      {
+        $unwind: {
+          path: '$subscription',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user_id',
+          foreignField: '_id',
+          as: 'user_id',
+        },
+      },
+      {
+        $unwind: {
+          path: '$user_id',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          user_id: {
+            _id: '$user_id._id',
+            username: '$user_id.username',
+            email: '$user_id.email',
+            phone_number: '$user_id.phone_number',
+          },
+          subscription_id: 1,
+          plan_name: 1,
+          amount_type: 1,
+          userPlanCapitalAmount: 1,
+          dailyProfitAmount: 1,
+          referral_amount: 1,
+          totalWalletPoint: 1,
+          planStatus: '$subscription.planStatus',
+        },
+      },
+    ]);
+
+    res.json({
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        phone_number: user.phone_number,
+      },
+      wallets,
+    });
+  } catch (error) {
+    console.error("Get user wallets error:", error);
+    res.status(500).json({ message: error.message || "Internal server error" });
+  }
+};
+
+// Scheduler: Update wallets every day at midnight
 cron.schedule(
-  "0 0 * * *", // Runs every minute
+  "0 0 * * *",
   async () => {
     console.log("Daily profit scheduler started at:", new Date().toISOString());
     logCronRun("Daily profit scheduler started");
@@ -297,11 +376,14 @@ cron.schedule(
         const dailyProfit = totalProfit / capitalLockin;
 
         let wallet = await Wallet.findOne({
-          user_id: subscription.user_id,
+          subscription_id: subscription._id,
         }).session(session);
         if (!wallet) {
           wallet = new Wallet({
             user_id: subscription.user_id,
+            subscription_id: subscription._id,
+            plan_name: plan.plan_name,
+            amount_type: plan.amount_type,
             userPlanCapitalAmount: subscription.amount,
             dailyProfitAmount: dailyProfit,
             totalWalletPoint: subscription.amount + dailyProfit,
@@ -319,10 +401,8 @@ cron.schedule(
           `Updated wallet for user ${subscription.user_id}: Daily Profit = ${dailyProfit}`
         );
 
-        // Handle referral earnings (1% of referred user's daily profit)
         const user = await User.findById(subscription.user_id).session(session);
         if (user?.referred_by) {
-          // Check if the referrer exists
           const referrer = await User.findById(user.referred_by).session(
             session
           );
@@ -336,15 +416,18 @@ cron.schedule(
             continue;
           }
 
-          // Calculate referral profit as 1% of the referred user's daily profit
-          const referralProfit = dailyProfit * 0.01; // 1% of daily profit
+          const referralProfit = dailyProfit * 0.01;
 
           let referrerWallet = await Wallet.findOne({
             user_id: user.referred_by,
+            subscription_id: subscription._id,
           }).session(session);
           if (!referrerWallet) {
             referrerWallet = new Wallet({
               user_id: user.referred_by,
+              subscription_id: subscription._id,
+              plan_name: plan.plan_name,
+              amount_type: plan.amount_type,
               userPlanCapitalAmount: 0,
               dailyProfitAmount: 0,
               totalWalletPoint: referralProfit,
@@ -397,10 +480,9 @@ cron.schedule(
   }
 );
 
-
-
 module.exports = {
   searchUserSubscriptions,
   addPointsToWallet,
   getAllWallets,
+  getUserWallets, // Export the new function
 };
