@@ -10,7 +10,9 @@ import {
   Percent ,
   MessageSquareWarning,
   ShieldUser, 
-  Link
+  Link,
+  FileText, 
+  MessageCircleCodeIcon
 } from 'lucide-react';
 
 export const adminMenuItems = {
@@ -68,12 +70,17 @@ export const adminMenuItems = {
     {
       title: 'Redeem Request',
       url: '/admin-dashboard/redeem',
-      icon: MessageSquareWarning,
+      icon: MessageCircleCodeIcon,
     },
     {
       title: 'Social Media',
       url: '/admin-dashboard/socialmedia',
       icon: Link,
+    },
+     {
+      title: 'Blogs',
+      url: '/admin-dashboard/blogs',
+      icon: FileText,
     },
   ],
   navSecondary: [

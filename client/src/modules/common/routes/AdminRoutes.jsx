@@ -12,6 +12,7 @@ import Profile from '@/modules/admin/pages/settings/Profile';
 import AdminRedeemRequests from '@/modules/admin/pages/redeem/AdminRedeemRequests';
 import UserVerificationTabs from '@/modules/admin/pages/verified/VerifiedUser';
 import Social from '@/modules/admin/pages/Social/Social';
+import Blogs from '@/modules/admin/pages/blogs/blogs';
 
 export const adminRoutes = [
   {
@@ -123,6 +124,14 @@ export const adminRoutes = [
     element: (
       <PrivateRoute allowedRole="admin">
         <Social />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: '/admin-dashboard/blogs',
+    element: (
+      <PrivateRoute allowedRole="admin">
+        <Blogs />
       </PrivateRoute>
     ),
   },

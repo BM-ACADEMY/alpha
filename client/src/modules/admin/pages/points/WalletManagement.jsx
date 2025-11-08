@@ -332,7 +332,7 @@ const WalletManagement = () => {
             </TableBody>
           </Table>
           <Pagination className="mt-4">
-            <PaginationContent>
+            <PaginationContent>k
               <PaginationItem>
                 <PaginationPrevious
                   href="#"
