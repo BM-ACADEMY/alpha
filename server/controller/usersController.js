@@ -10,76 +10,38 @@ const UserPlanSubscription = require("../model/userSubscriptionPlanModel");
 const Wallet = require("../model/walletModel");
 const Plan = require("../model/planModel");
 const mongoose = require ("mongoose")
-
+// usersController.js
+// Example: controller/usersController.js
 exports.getUsersFilter = async (req, res) => {
-  try {
-    const { page = 1, limit = 10, search = '', emailVerified, adminVerified } = req.query;
+  const { page = 1, limit = 10, search, startDate, endDate, plan, emailVerified, adminVerified } = req.query;
+  const query = {};
 
-    // Build query object
-    const query = {
-      role_id: await Role.findOne({ role_name: "user" }).select('_id'),
-    };
-
-    // Add search filter (username, email, or phone_number)
-    if (search) {
-      query.$or = [
-        { username: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phone_number: { $regex: search, $options: 'i' } },
-      ];
-    }
-
-    // Add verification filters
-    if (emailVerified && emailVerified !== 'all') {
-      query.email_verified = emailVerified === 'yes';
-    }
-    if (adminVerified && adminVerified !== 'all') {
-      query.verified_by_admin = adminVerified === 'yes';
-    }
-
-    // Fetch users with pagination
-    const users = await User.find(query)
-      .select("-password")
-      .populate({
-        path: "role_id",
-        select: "role_name",
-      })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit))
-      .lean();
-
-    // Fetch total count for pagination
-    const total = await User.countDocuments(query);
-
-    // Fetch active plan for each user
-    const usersWithPlans = await Promise.all(users.map(async (user) => {
-      const subscription = await UserPlanSubscription.findOne({
-        user_id: user._id,
-        status: 'verified',
-        expires_at: { $gt: new Date() },
-      })
-        .populate('plan_id', 'plan_name')
-        .lean();
-
-      return {
-        ...user,
-        joinedDate: new Date(user.created_at).toLocaleDateString(),
-        activePlan: subscription ? subscription.plan_id?.plan_name : 'None',
-      };
-    }));
-
-    res.status(200).json({
-      users: usersWithPlans || [], // Ensure users is always an array
-      total: total || 0, // Ensure total is always a number
-    });
-  } catch (err) {
-    console.error("Error in getUsers:", err);
-    res.status(500).json({
-      message: err.message,
-      users: [], // Return empty array on error
-      total: 0,
-    });
+  if (search) {
+    query.$or = [
+      { username: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { phone_number: { $regex: search, $options: "i" } },
+    ];
   }
+
+  if (startDate || endDate) {
+    query.created_at = {};
+    if (startDate) query.created_at.$gte = new Date(startDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.created_at.$lte = end;
+    }
+  }
+
+  if (plan) query.activePlan = plan;
+  if (emailVerified !== "") query.email_verified = emailVerified === "true";
+  if (adminVerified !== "") query.verified_by_admin = adminVerified === "true";
+
+  const users = await User.find(query).skip((page - 1) * limit).limit(+limit).sort({ created_at: -1 });
+  const total = await User.countDocuments(query);
+
+  res.json({ users, total });
 };
 // Get all users with role = "user"
 exports.getUsers = async (req, res) => {
