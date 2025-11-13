@@ -89,8 +89,18 @@ const AdminUserManagement = () => {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 2019 }, (_, i) => 2020 + i);
   const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
 
   // Password validation
@@ -110,7 +120,8 @@ const AdminUserManagement = () => {
   };
 
   const isSubmitDisabled = () => {
-    const { username, email, phone_number, password, confirmPassword } = formData;
+    const { username, email, phone_number, password, confirmPassword } =
+      formData;
     if (editUserId) return !username || !email || !phone_number;
     return (
       !username ||
@@ -157,7 +168,10 @@ const AdminUserManagement = () => {
         const start = new Date();
         const end = new Date();
 
-        const year = selectedYearFilter === "all" ? currentYear : Number(selectedYearFilter);
+        const year =
+          selectedYearFilter === "all"
+            ? currentYear
+            : Number(selectedYearFilter);
         start.setFullYear(year);
         end.setFullYear(year);
 
@@ -166,8 +180,8 @@ const AdminUserManagement = () => {
           start.setMonth(monthIndex);
           end.setMonth(monthIndex);
         } else {
-          start.setMonth(0);   // January
-          end.setMonth(11);    // December
+          start.setMonth(0); // January
+          end.setMonth(11); // December
         }
 
         start.setDate(1);
@@ -195,7 +209,10 @@ const AdminUserManagement = () => {
       setPage(newPage);
     } catch (error) {
       console.error("Fetch users error:", error);
-      showToast("error", error.response?.data?.message || "Failed to fetch users");
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to fetch users"
+      );
       setUsers([]);
     } finally {
       setIsLoading(false);
@@ -210,7 +227,14 @@ const AdminUserManagement = () => {
   // Refetch on filter change or page change
   useEffect(() => {
     fetchUsers(1);
-  }, [search, selectedMonthFilter, selectedYearFilter, selectedPlan, emailVerifiedFilter, adminVerifiedFilter]);
+  }, [
+    search,
+    selectedMonthFilter,
+    selectedYearFilter,
+    selectedPlan,
+    emailVerifiedFilter,
+    adminVerifiedFilter,
+  ]);
 
   useEffect(() => {
     if (page > 1) {
@@ -251,7 +275,8 @@ const AdminUserManagement = () => {
   // Form handlers
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { username, email, phone_number, password, confirmPassword } = formData;
+    const { username, email, phone_number, password, confirmPassword } =
+      formData;
 
     if (!editUserId && password !== confirmPassword) {
       showToast("error", "Passwords do not match");
@@ -289,7 +314,10 @@ const AdminUserManagement = () => {
       resetForm();
       fetchUsers(page); // Refresh current page
     } catch (error) {
-      showToast("error", error.response?.data?.message || "Failed to save user");
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to save user"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -338,7 +366,10 @@ const AdminUserManagement = () => {
         fetchUsers(page);
       }
     } catch (error) {
-      showToast("error", error.response?.data?.message || "Failed to delete user");
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to delete user"
+      );
     } finally {
       setIsLoading(false);
       setIsDeleteDialogOpen(false);
@@ -350,14 +381,20 @@ const AdminUserManagement = () => {
     e.preventDefault();
     try {
       setIsLoading(true);
-      await axiosInstance.post("/users/verify-email", { email: newUserEmail, otp });
+      await axiosInstance.post("/users/verify-email", {
+        email: newUserEmail,
+        otp,
+      });
       showToast("success", "Email verified successfully");
       setIsOtpDialogOpen(false);
       setOtp("");
       setNewUserEmail("");
       fetchUsers(page);
     } catch (error) {
-      showToast("error", error.response?.data?.message || "Failed to verify OTP");
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to verify OTP"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -366,11 +403,16 @@ const AdminUserManagement = () => {
   const handleViewDetails = async (id) => {
     try {
       setIsLoading(true);
-      const response = await axiosInstance.get(`/users/fetch-full-details/${id}`);
+      const response = await axiosInstance.get(
+        `/users/fetch-full-details/${id}`
+      );
       setSelectedUserDetails(response.data);
       detailsRef.current?.scrollIntoView({ behavior: "smooth" });
     } catch (error) {
-      showToast("error", error.response?.data?.message || "Failed to fetch user details");
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to fetch user details"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -451,7 +493,9 @@ const AdminUserManagement = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold mb-4 text-[#0f1c3f]">User Management</h1>
+      <h1 className="text-2xl font-bold mb-4 text-[#0f1c3f]">
+        User Management
+      </h1>
 
       {/* ---------- FILTERS ---------- */}
       <div className="mb-6 space-y-4">
@@ -481,14 +525,20 @@ const AdminUserManagement = () => {
           <div className="space-y-1">
             <Label className="text-xs text-gray-600">Month</Label>
             <div className="relative">
-              <Select value={selectedMonthFilter} onValueChange={setSelectedMonthFilter}>
+              <Select
+                value={selectedMonthFilter}
+                onValueChange={setSelectedMonthFilter}
+              >
                 <SelectTrigger className="pr-10 h-9">
                   <SelectValue placeholder="All Months" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Months</SelectItem>
                   {months.map((month, idx) => (
-                    <SelectItem key={idx} value={String(idx + 1).padStart(2, "0")}>
+                    <SelectItem
+                      key={idx}
+                      value={String(idx + 1).padStart(2, "0")}
+                    >
                       {month}
                     </SelectItem>
                   ))}
@@ -511,7 +561,10 @@ const AdminUserManagement = () => {
           <div className="space-y-1">
             <Label className="text-xs text-gray-600">Year</Label>
             <div className="relative">
-              <Select value={selectedYearFilter} onValueChange={setSelectedYearFilter}>
+              <Select
+                value={selectedYearFilter}
+                onValueChange={setSelectedYearFilter}
+              >
                 <SelectTrigger className="pr-10 h-9">
                   <SelectValue placeholder="All Years" />
                 </SelectTrigger>
@@ -571,7 +624,10 @@ const AdminUserManagement = () => {
           <div className="space-y-1">
             <Label className="text-xs text-gray-600">Email Verified</Label>
             <div className="relative">
-              <Select value={emailVerifiedFilter} onValueChange={setEmailVerifiedFilter}>
+              <Select
+                value={emailVerifiedFilter}
+                onValueChange={setEmailVerifiedFilter}
+              >
                 <SelectTrigger className="pr-10 h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -598,7 +654,10 @@ const AdminUserManagement = () => {
           <div className="space-y-1">
             <Label className="text-xs text-gray-600">Admin Verified</Label>
             <div className="relative">
-              <Select value={adminVerifiedFilter} onValueChange={setAdminVerifiedFilter}>
+              <Select
+                value={adminVerifiedFilter}
+                onValueChange={setAdminVerifiedFilter}
+              >
                 <SelectTrigger className="pr-10 h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -647,47 +706,84 @@ const AdminUserManagement = () => {
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editUserId ? "Edit User" : "Add New User"}</DialogTitle>
+            <DialogTitle>
+              {editUserId ? "Edit User" : "Add New User"}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="username">Username</Label>
-              <Input id="username" name="username" value={formData.username} onChange={handleInputChange} required />
+              <Input
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleInputChange}
+                required
+              />
             </div>
             <div>
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} required />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+              />
             </div>
             <div>
               <Label htmlFor="phone_number">Phone Number</Label>
-              <Input id="phone_number" name="phone_number" value={formData.phone_number} onChange={handleInputChange} required />
+              <Input
+                id="phone_number"
+                name="phone_number"
+                value={formData.phone_number}
+                onChange={handleInputChange}
+                required
+              />
             </div>
             <div>
               <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" value={formData.password} onChange={handleInputChange} required={!editUserId} />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required={!editUserId}
+              />
               {!editUserId && (
                 <div className="mt-2 space-y-1 text-sm">
-                  {["minLength", "uppercase", "number", "specialChar"].map((key) => (
-                    <div key={key} className="flex items-center">
-                      {passwordValidations[key] ? (
-                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-red-500 mr-2" />
-                      )}
-                      <span>
-                        {key === "minLength" && "6+ chars"}
-                        {key === "uppercase" && "1 uppercase"}
-                        {key === "number" && "1 number"}
-                        {key === "specialChar" && "1 special char"}
-                      </span>
-                    </div>
-                  ))}
+                  {["minLength", "uppercase", "number", "specialChar"].map(
+                    (key) => (
+                      <div key={key} className="flex items-center">
+                        {passwordValidations[key] ? (
+                          <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500 mr-2" />
+                        )}
+                        <span>
+                          {key === "minLength" && "6+ chars"}
+                          {key === "uppercase" && "1 uppercase"}
+                          {key === "number" && "1 number"}
+                          {key === "specialChar" && "1 special char"}
+                        </span>
+                      </div>
+                    )
+                  )}
                 </div>
               )}
             </div>
             <div>
               <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input id="confirmPassword" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleInputChange} required={!editUserId} />
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                required={!editUserId}
+              />
             </div>
             <Button type="submit" disabled={isSubmitDisabled() || isLoading}>
               {isLoading ? "Saving..." : editUserId ? "Update" : "Register"}
@@ -699,9 +795,16 @@ const AdminUserManagement = () => {
       {/* OTP Dialog */}
       <Dialog open={isOtpDialogOpen} onOpenChange={setIsOtpDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Verify Email</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Verify Email</DialogTitle>
+          </DialogHeader>
           <form onSubmit={handleOtpSubmit} className="space-y-4">
-            <Input placeholder="Enter OTP" value={otp} onChange={(e) => setOtp(e.target.value)} required />
+            <Input
+              placeholder="Enter OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              required
+            />
             <Button type="submit" disabled={isLoading}>
               {isLoading ? "Verifying..." : "Verify OTP"}
             </Button>
@@ -738,8 +841,12 @@ const AdminUserManagement = () => {
                     <TableHead>Username</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
-                    <TableHead className="whitespace-nowrap">Email Verified</TableHead>
-                    <TableHead className="whitespace-nowrap">Admin Verified</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      Email Verified
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      Admin Verified
+                    </TableHead>
                     <TableHead>Joined Date</TableHead>
                     <TableHead>Active Plan</TableHead>
                     <TableHead>Actions</TableHead>
@@ -766,7 +873,9 @@ const AdminUserManagement = () => {
                             <XCircle className="h-4 w-4 text-red-500" />
                           )}
                         </TableCell>
-                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </TableCell>
                         <TableCell>
                           {user.activePlan && user.activePlan !== "None" ? (
                             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -777,7 +886,11 @@ const AdminUserManagement = () => {
                           )}
                         </TableCell>
                         <TableCell className="space-x-1">
-                          <Button variant="outline" size="sm" onClick={() => handleEdit(user)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(user)}
+                          >
                             <Edit className="h-4 w-4 mr-1" /> Edit
                           </Button>
                           <Button
@@ -790,7 +903,11 @@ const AdminUserManagement = () => {
                           >
                             <Trash2 className="h-4 w-4 mr-1" /> Delete
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleViewDetails(user._id)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewDetails(user._id)}
+                          >
                             <Eye className="h-4 w-4 mr-1" /> View
                           </Button>
                         </TableCell>
@@ -810,7 +927,8 @@ const AdminUserManagement = () => {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-6 px-2">
                   <div className="text-sm text-gray-600">
-                    Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} users
+                    Showing {(page - 1) * limit + 1} to{" "}
+                    {Math.min(page * limit, total)} of {total} users
                   </div>
                   <div className="flex items-center gap-1">
                     <Button
