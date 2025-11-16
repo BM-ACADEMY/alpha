@@ -705,4 +705,59 @@ exports.getUserreferralDashboard = async (req, res) => {
   }
 };
 
+// ---------------------------------------------------------------
+//  GET /api/users/referred-users   (admin referral dashboard)
+// ---------------------------------------------------------------
+exports.getAllReferredUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 15, search } = req.query;
+    const skip = (page - 1) * limit;
 
+    // 1. Only normal users (role = "user")
+    const userRole = await Role.findOne({ role_name: "user" }).select("_id");
+    if (!userRole) throw new Error("User role not found");
+
+    const filter = {
+      referred_by: { $ne: null },
+      role_id: userRole._id,
+    };
+
+    // 2. Search (username, email, phone, customerId, own referral_code)
+    if (search?.trim()) {
+      const regex = { $regex: search.trim(), $options: "i" };
+      filter.$or = [
+        { username: regex },
+        { email: regex },
+        { phone_number: regex },
+        { customerId: regex },
+        { referral_code: regex },
+      ];
+    }
+
+    const total = await User.countDocuments(filter);
+
+    const users = await User.find(filter)
+      .select("-password -email_otp")
+      .populate({
+        path: "referred_by",
+        select: "username customerId",   // <-- needed for the badge
+      })
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(+limit)
+      .lean();
+
+    res.json({
+      users,
+      pagination: {
+        total,
+        page: +page,
+        pages: Math.ceil(total / limit),
+        limit: +limit,
+      },
+    });
+  } catch (err) {
+    console.error("getAllReferredUsers error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

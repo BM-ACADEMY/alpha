@@ -26,4 +26,6 @@ router.get("/:id", authMiddleware, userController.getUserById);
 router.get("/fetch-full-details/:id", authMiddleware, userController.getUserDetails);
 
 router.get("/user-dashboards/:id", authMiddleware, userController.getUserreferralDashboard);
+// route/usersRoute.js
+router.get("/referred-users", authMiddleware, userController.getAllReferredUsers);
 module.exports = router;

@@ -12,7 +12,8 @@ import {
   ShieldUser, 
   Link,
   FileText, 
-  MessageCircleCodeIcon
+  MessageCircleCodeIcon,
+  UserMinus2
 } from 'lucide-react';
 
 export const adminMenuItems = {
@@ -81,6 +82,11 @@ export const adminMenuItems = {
       title: 'Blogs',
       url: '/admin-dashboard/blogs',
       icon: FileText,
+    },
+     {
+      title: 'Referral',
+      url: '/admin-dashboard/referral',
+      icon: UserMinus2,
     },
   ],
   navSecondary: [
