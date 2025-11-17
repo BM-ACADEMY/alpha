@@ -36,6 +36,10 @@ import {
   Eye,
   Banknote,
   Hash,
+  Wallet,
+  QrCode,
+  User,
+  Phone,
 } from "lucide-react";
 import axiosInstance from "@/modules/common/lib/axios";
 import { AuthContext } from "@/modules/common/context/AuthContext";
@@ -93,7 +97,12 @@ const AdminPurchasePlan = () => {
   const [profitCalculations, setProfitCalculations] = useState({});
   const [showProfitDialog, setShowProfitDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showAddPointsDialog, setShowAddPointsDialog] = useState(false);
+  const [selectedSubscriptionForPoints, setSelectedSubscriptionForPoints] = useState(null);
+  const [pointsAmount, setPointsAmount] = useState("");
+  const [profitPercentage, setProfitPercentage] = useState("");
   const debounceTimer = useRef(null);
+
   // Validate role_id
   useEffect(() => {
     if (!role_id) {
@@ -216,7 +225,6 @@ const AdminPurchasePlan = () => {
       return "/fallback-image.png";
     }
 
-    // Check cache first
     if (imageCache.has(filePath)) {
       return imageCache.get(filePath);
     }
@@ -235,7 +243,7 @@ const AdminPurchasePlan = () => {
         type: response.headers["content-type"],
       });
       const blobUrl = URL.createObjectURL(blob);
-      imageCache.set(filePath, blobUrl); // Cache the blob URL
+      imageCache.set(filePath, blobUrl);
       return blobUrl;
     } catch (error) {
       console.error("getImageUrl error:", {
@@ -271,25 +279,6 @@ const AdminPurchasePlan = () => {
     }, 1000);
   };
 
-  // Fetch admin account
-  // const fetchAdminAccount = () => {
-  //   if (!role_id) {
-  //     console.error("Cannot fetch admin account: role_id is undefined");
-  //     setStatusMessage("Invalid role ID");
-  //     return;
-  //   }
-  //   axiosInstance
-  //     .get(`/user-subscription-plan/admin-account/${role_id}`)
-  //     .then((res) => {
-  //       console.log("Admin account fetched:", res.data);
-  //       setAdminAccount(res.data);
-  //     })
-  //     .catch((error) => {
-  //       console.error("Fetch admin account error:", error.message, error.response?.data);
-  //       setStatusMessage("Failed to fetch admin account");
-  //     });
-  // };
-
   const fetchAdminAccount = async () => {
     if (!role_id) {
       console.error("Cannot fetch admin account: role_id is undefined");
@@ -304,7 +293,7 @@ const AdminPurchasePlan = () => {
       const account = res.data;
 
       const qrcodeUrl = account.qrcode
-        ? await getQrcodeImageUrl(account.qrcode, "qr_code") // 👈 same function you already have
+        ? await getQrcodeImageUrl(account.qrcode, "qr_code")
         : null;
 
       setAdminAccount({ ...account, qrcodeUrl });
@@ -331,7 +320,6 @@ const AdminPurchasePlan = () => {
   };
 
   // Proceed with subscription
-
   const handleProceed = () => {
     if (!selectedUser || !selectedPlan) {
       showToast("error", "Please select a user and plan");
@@ -350,9 +338,9 @@ const AdminPurchasePlan = () => {
         setSubscriptionId(res.data.subscription._id);
         fetchAdminAccount();
         showToast("success", "Subscription initiated successfully");
-        setSelectedPlan(selectedPlan); // Keep the selected plan
+        setSelectedPlan(selectedPlan);
         setShowProfitDialog(false);
-        setShowUploadDialog(true); // Open upload dialog
+        setShowUploadDialog(true);
       })
       .catch((error) => {
         console.error("Subscribe error:", error.message, error.response?.data);
@@ -366,67 +354,67 @@ const AdminPurchasePlan = () => {
   };
 
   // Handle file change
- const handleFileChange = (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    console.log("Selected file:", {
-      name: file.name,
-      size: file.size / 1024 / 1024,
-      type: file.type,
-    });
-    if (file.size > 200 * 1024 * 1024) {
-      setStatusMessage("File size exceeds 200MB limit");
-      return;
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      console.log("Selected file:", {
+        name: file.name,
+        size: file.size / 1024 / 1024,
+        type: file.type,
+      });
+      if (file.size > 200 * 1024 * 1024) {
+        setStatusMessage("File size exceeds 200MB limit");
+        return;
+      }
+      setPaymentScreenshot(file);
+      setStatusMessage("");
     }
-    setPaymentScreenshot(file);
-    setStatusMessage("");
-  }
-};
+  };
 
   // Submit screenshot
-const handleSubmit = async () => {
-  console.log("Submitting FormData:", {
-    paymentScreenshot,
-    subscriptionId,
-    username: selectedUser?.username,
-    amount,
-  });
-  if (!paymentScreenshot || !subscriptionId || !selectedUser?.username || !amount) {
-    console.error("Missing required fields:", {
-      hasPaymentScreenshot: !!paymentScreenshot,
+  const handleSubmit = async () => {
+    console.log("Submitting FormData:", {
+      paymentScreenshot,
       subscriptionId,
       username: selectedUser?.username,
       amount,
     });
-    showToast("error", "Please provide all required fields");
-    return;
-  }
+    if (!paymentScreenshot || !subscriptionId || !selectedUser?.username || !amount) {
+      console.error("Missing required fields:", {
+        hasPaymentScreenshot: !!paymentScreenshot,
+        subscriptionId,
+        username: selectedUser?.username,
+        amount,
+      });
+      showToast("error", "Please provide all required fields");
+      return;
+    }
     setIsLoading(true);
     setUploadProgress(0);
- const formData = new FormData();
-formData.append("payment_screenshot", paymentScreenshot);
-formData.append("subscription_id", subscriptionId);
-formData.append("username", selectedUser.username);
-formData.append("amount", amount);
+    const formData = new FormData();
+    formData.append("payment_screenshot", paymentScreenshot);
+    formData.append("subscription_id", subscriptionId);
+    formData.append("username", selectedUser.username);
+    formData.append("amount", amount);
 
     try {
       const res = await axiosInstance.post(
-  "/user-subscription-plan/upload-screenshot",
-  formData,
-  {
-    timeout: 300000,
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-    onUploadProgress: (progressEvent) => {
-      const percentCompleted = Math.round(
-        (progressEvent.loaded * 100) / progressEvent.total
+        "/user-subscription-plan/upload-screenshot",
+        formData,
+        {
+          timeout: 300000,
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setUploadProgress(percentCompleted);
+            console.log(`Upload progress: ${percentCompleted}%`);
+          },
+        }
       );
-      setUploadProgress(percentCompleted);
-      console.log(`Upload progress: ${percentCompleted}%`);
-    },
-  }
-);
       console.log("Upload success:", res.data);
       showToast("success", res.data.message);
       setSelectedPlan(null);
@@ -434,7 +422,7 @@ formData.append("amount", amount);
       setSubscriptionId(null);
       setAmount("");
       setUploadProgress(0);
-      setShowUploadDialog(false); // Close upload dialog
+      setShowUploadDialog(false);
       fetchPurchasedPlans(currentPage);
     } catch (error) {
       console.error("Upload error:", {
@@ -451,16 +439,30 @@ formData.append("amount", amount);
       setIsLoading(false);
     }
   };
-  // Approve subscription
+
+  // Approve subscription and prepare for points dialog
   const handleApprove = async (subscriptionId) => {
     setIsLoading(true);
+    console.log("Approving subscription:", subscriptionId);
     try {
       const res = await axiosInstance.patch(
         `/user-subscription-plan/verify/${subscriptionId}`
       );
       console.log("Subscription approved:", res.data);
       setStatusMessage(res.data.message);
-      fetchPurchasedPlans(currentPage);
+      const approvedSubscription = purchasedPlans.find(
+        (sub) => sub._id === subscriptionId
+      );
+      setSelectedSubscriptionForPoints({
+        ...approvedSubscription,
+        pointsAdded: false,
+      });
+      setPointsAmount(approvedSubscription.amount.toString());
+      setProfitPercentage(
+        approvedSubscription.profit_percentage?.$numberDecimal || "0"
+      );
+      setShowAddPointsDialog(true);
+      console.log("Points dialog opened for subscription:", subscriptionId);
     } catch (error) {
       console.error(
         "Approve subscription error:",
@@ -469,6 +471,61 @@ formData.append("amount", amount);
       );
       setStatusMessage(
         error.response?.data?.message || "Failed to approve subscription"
+      );
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to approve subscription"
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Add points to wallet
+  const handleAddPoints = async () => {
+    if (!selectedSubscriptionForPoints || !pointsAmount || !profitPercentage) {
+      setStatusMessage("Please ensure all fields are filled");
+      console.warn("Add points failed: Missing required fields", {
+        selectedSubscriptionForPoints,
+        pointsAmount,
+        profitPercentage,
+      });
+      return;
+    }
+    setIsLoading(true);
+    console.log("Adding points for subscription:", selectedSubscriptionForPoints._id);
+    try {
+      const res = await axiosInstance.post("/wallet-point/add-points", {
+        user_id: selectedSubscriptionForPoints.user_id._id,
+        subscription_id: selectedSubscriptionForPoints._id,
+        amount: Number(pointsAmount),
+        profit_percentage: Number(profitPercentage),
+        plan_name: selectedSubscriptionForPoints.plan_id?.plan_name,
+        amount_type: selectedSubscriptionForPoints.plan_id?.amount_type,
+      });
+      console.log("Points added:", res.data);
+      setStatusMessage(res.data.message);
+      setPurchasedPlans((prev) =>
+        prev.map((sub) =>
+          sub._id === selectedSubscriptionForPoints._id
+            ? { ...sub, pointsAdded: true }
+            : sub
+        )
+      );
+      setSelectedSubscriptionForPoints(null);
+      setPointsAmount("");
+      setProfitPercentage("");
+      setShowAddPointsDialog(false);
+      fetchPurchasedPlans(currentPage);
+      showToast("success", "Points added successfully");
+    } catch (error) {
+      console.error("Add points error:", error.message, error.response?.data);
+      setStatusMessage(
+        error.response?.data?.message || "Failed to add points to wallet"
+      );
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to add points to wallet"
       );
     } finally {
       setIsLoading(false);
@@ -528,6 +585,17 @@ formData.append("amount", amount);
   // Pagination handlers
   const handlePageChange = (page) => {
     setCurrentPage(page);
+  };
+
+  // Handle dialog close
+  const handlePointsDialogClose = () => {
+    console.log("Closing points dialog");
+    setShowAddPointsDialog(false);
+    setSelectedSubscriptionForPoints(null);
+    setPointsAmount("");
+    setProfitPercentage("");
+    setStatusMessage("");
+    fetchPurchasedPlans(currentPage);
   };
 
   return (
@@ -676,7 +744,7 @@ formData.append("amount", amount);
               ))}
             </TableBody>
           </Table>
-          {/* Upload Payment Dialog - Moved outside the table */}
+          {/* Upload Payment Dialog */}
           <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
             <DialogContent>
               <DialogHeader>
@@ -699,7 +767,6 @@ formData.append("amount", amount);
                     <h3 className="font-semibold mb-3">
                       Admin Payment Details
                     </h3>
-
                     <ul className="divide-y divide-gray-200 rounded-lg border bg-gray-50">
                       <li className="flex items-center gap-3 p-3">
                         <Banknote className="h-5 w-5 text-gray-600" />
@@ -745,7 +812,6 @@ formData.append("amount", amount);
                           UPI No: {adminAccount.upi_number || "N/A"}
                         </span>
                       </li>
-
                       {adminAccount.qrcodeUrl && (
                         <li className="flex flex-col gap-2 p-3">
                           <div className="flex items-center gap-3">
@@ -769,7 +835,6 @@ formData.append("amount", amount);
                         </li>
                       )}
                     </ul>
-
                     <p className="text-sm text-muted-foreground mt-3">
                       Pay manually using GPay (phone/UPI/QR) or bank transfer.
                     </p>
@@ -839,7 +904,6 @@ formData.append("amount", amount);
             </TableHeader>
             <TableBody>
               {purchasedPlans.map((sub) => {
-                // Calculate profit for display in View Details
                 const minInvestment = sub.amount;
                 const profitPercentage = parseFloat(
                   sub.profit_percentage?.$numberDecimal || 0
@@ -913,6 +977,82 @@ formData.append("amount", amount);
                               <CheckCircle className="mr-2 h-4 w-4 text-green-500" />{" "}
                               Approve
                             </Button>
+                            <Dialog
+                              open={
+                                showAddPointsDialog &&
+                                selectedSubscriptionForPoints?._id === sub._id
+                              }
+                              onOpenChange={handlePointsDialogClose}
+                            >
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>
+                                    Add Points for {sub.user_id.username}'s Subscription
+                                  </DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <p>
+                                    <strong>Plan Name:</strong>{" "}
+                                    {selectedSubscriptionForPoints?.plan_id?.plan_name}
+                                  </p>
+                                  <p>
+                                    <strong>Amount:</strong>{" "}
+                                    {selectedSubscriptionForPoints?.amount}{" "}
+                                    {selectedSubscriptionForPoints?.plan_id?.amount_type}
+                                  </p>
+                                  <p>
+                                    <strong>Profit Percentage:</strong>{" "}
+                                    {selectedSubscriptionForPoints?.profit_percentage?.$numberDecimal}%
+                                  </p>
+                                  <div>
+                                    <label>Capital Amount</label>
+                                    <Input
+                                      type="number"
+                                      value={pointsAmount}
+                                      readOnly
+                                    />
+                                  </div>
+                                  <div>
+                                    <label>Profit Percentage (%)</label>
+                                    <Input
+                                      type="number"
+                                      value={profitPercentage}
+                                      readOnly
+                                    />
+                                  </div>
+                                  <div className="flex space-x-2">
+                                    <Button
+                                      onClick={handleAddPoints}
+                                      disabled={isLoading || selectedSubscriptionForPoints?.pointsAdded}
+                                      className="bg-[#d09d42] text-white hover:bg-[#0f1c3f]"
+                                    >
+                                      <Wallet className="mr-2 h-4 w-4" />{" "}
+                                      {selectedSubscriptionForPoints?.pointsAdded
+                                        ? "Points Added"
+                                        : "Add Points"}
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      onClick={handlePointsDialogClose}
+                                      disabled={isLoading}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                  {statusMessage && (
+                                    <p
+                                      className={
+                                        statusMessage.includes("Failed")
+                                          ? "text-red-600"
+                                          : "text-green-600"
+                                      }
+                                    >
+                                      {statusMessage}
+                                    </p>
+                                  )}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
                             <Dialog>
                               <DialogTrigger asChild>
                                 <Button

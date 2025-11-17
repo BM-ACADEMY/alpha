@@ -1,42 +1,86 @@
-import { useState } from "react"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Code, Users, Copy } from "lucide-react"
-import { showToast } from "@/modules/common/toast/customToast"
+import { useState } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Code, Copy as CopyIcon, Share2 } from "lucide-react";
+import { showToast } from "@/modules/common/toast/customToast";
 
 const ReferralCard = ({ profileData }) => {
-  const [copied, setCopied] = useState(false)
+  const frontendDomain = import.meta.env.VITE_FRONTEND_URL;
 
-  const frontendDomain = import.meta.env.VITE_FRONTEND_URL // keep this in your .env
-
-  const referralCode = profileData.referral_code || null
+  const referralCode = profileData.referral_code || null;
   const referralLink = referralCode
     ? `${frontendDomain}/signup?ref=${referralCode}`
-    : null
+    : null;
 
-  const handleCopy = async () => {
-    if (referralLink) {
-      await navigator.clipboard.writeText(referralLink)
-      setCopied(true)
-      showToast("success",
-        "Referral link copied to clipboard!",
-      )
-      setTimeout(() => setCopied(false), 2000)
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopyCode = async () => {
+    if (referralCode) {
+      await navigator.clipboard.writeText(referralCode);
+      setCopiedCode(true);
+      showToast("success", "Referral code copied!");
+      setTimeout(() => setCopiedCode(false), 2000);
     }
-  }
+  };
+
+  const handleCopyLink = async () => {
+    if (referralLink) {
+      await navigator.clipboard.writeText(referralLink);
+      setCopiedLink(true);
+      showToast("success", "Referral link copied!");
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
+  const handleShareReferral = async () => {
+    if (!referralLink) {
+      showToast("error", "Referral link not available");
+      return;
+    }
+
+    const shareData = {
+      title: "Join with my referral link!",
+      text: "Sign up using my referral link and start earning rewards!",
+      url: referralLink,
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        showToast("success", "Referral link shared successfully!");
+      } catch (error) {
+        console.error("Share failed:", error);
+        showToast("error", "Failed to share referral link");
+      }
+    } else {
+      await navigator.clipboard.writeText(referralLink);
+      showToast("info", "Referral link copied (sharing not supported)");
+    }
+  };
 
   const referralItems = [
     {
       label: "Referral Code",
       value: referralCode || "Not generated",
-      icon: Code,
-      isLink: true,
+      copyAction: handleCopyCode,
+      copied: copiedCode,
+      showShare: false,
     },
     {
       label: "Referred By",
       value: profileData.referred_by?.username || "None",
-      icon: Users,
+      copyAction: null,
+      copied: false,
+      showShare: false,
     },
-  ]
+    {
+      label: "Referral Link",
+      value: referralLink || "Not generated",
+      copyAction: handleCopyLink,
+      copied: copiedLink,
+      showShare: true,
+    },
+  ];
 
   return (
     <Card>
@@ -49,21 +93,43 @@ const ReferralCard = ({ profileData }) => {
           {referralItems.map((item, index) => (
             <div
               key={index}
-              className="flex items-center bg-gray-100 px-4 py-3 text-sm"
+              className={`flex items-center px-4 py-3 text-sm ${
+                item.label === "Referral Code" && item.value !== "Not generated"
+                  ? "bg-yellow-50 border-l-4 border-yellow-400"
+                  : "bg-gray-100"
+              }`}
             >
-              <item.icon className="mr-2 h-4 w-4 text-muted-foreground" />
               <dt className="w-36 font-medium">{item.label}:</dt>
               <dd className="flex-1 flex items-center justify-between">
-                {item.isLink && referralLink ? (
-                  <button
-                    onClick={handleCopy}
-                    className="text-blue-600 hover:underline flex items-center gap-1"
-                  >
-                    {item.value}
-                    <Copy className="h-4 w-4" />
-                  </button>
+                {item.copyAction && item.value !== "Not generated" ? (
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-medium text-gray-800">
+                      {item.value}
+                    </span>
+                    <div className="flex gap-1">
+                      {/* Copy Button */}
+                      <button
+                        onClick={item.copyAction}
+                        className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition"
+                      >
+                        <CopyIcon className="w-3 h-3" />
+                        {item.copied ? "Copied" : "Copy"}
+                      </button>
+
+                      {/* Share Button (only for referral link) */}
+                      {item.showShare && (
+                        <button
+                          onClick={handleShareReferral}
+                          className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition"
+                        >
+                          <Share2 className="w-3 h-3" />
+                          Share
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 ) : (
-                  item.value
+                  <span className="text-gray-700">{item.value}</span>
                 )}
               </dd>
             </div>
@@ -71,7 +137,7 @@ const ReferralCard = ({ profileData }) => {
         </dl>
       </CardContent>
     </Card>
-  )
-}
+  );
+};
 
 export default ReferralCard;

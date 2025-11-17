@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -15,19 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"; // Assuming you have a Select component
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   CreditCard,
   Tag,
@@ -45,6 +34,8 @@ import {
 } from "lucide-react";
 import axiosInstance from "@/modules/common/lib/axios";
 import { AuthContext } from "@/modules/common/context/AuthContext";
+import { showToast } from "@/modules/common/toast/customToast";
+import { useNavigate } from "react-router-dom";
 
 const PlanPurchase = () => {
   const { user } = useContext(AuthContext);
@@ -54,13 +45,15 @@ const PlanPurchase = () => {
   const [profitCalculations, setProfitCalculations] = useState({});
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
+  const [showInstructionsDialog, setShowInstructionsDialog] = useState(true);
   const [subscriptionId, setSubscriptionId] = useState(null);
   const [file, setFile] = useState(null);
   const [adminInfo, setAdminInfo] = useState(null);
   const [qrCodeErrors, setQrCodeErrors] = useState({});
-  const [selectedAccountType, setSelectedAccountType] = useState(null); // State for dropdown
+  const [profileData, setProfileData] = useState(null);
+  const [userAccounts, setUserAccounts] = useState([]);
+  const navigate = useNavigate();
 
-  // Cache-busting timestamp ref to prevent repeated requests
   const cacheBusterRef = useRef(Date.now());
 
   // Validate role_id
@@ -68,8 +61,53 @@ const PlanPurchase = () => {
     if (!role_id) {
       console.error("Role ID is undefined");
       setStatusMessage("User role is not defined");
+      showToast("error", "User role is not defined");
     }
   }, [role_id]);
+
+  // Fetch user profile to check KYC details and admin verification
+  useEffect(() => {
+    if (!user?.id) {
+      setStatusMessage("User not logged in");
+      showToast("error", "User not logged in");
+      return;
+    }
+
+    const fetchProfile = async () => {
+      try {
+        const response = await axiosInstance.get(`/users/${user.id}`, {
+          withCredentials: true,
+        });
+        setProfileData(response.data);
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
+        setStatusMessage("Failed to load profile data");
+        showToast("error", "Failed to load profile data");
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
+
+  // Fetch user accounts
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchUserAccounts = async () => {
+      try {
+        const response = await axiosInstance.get(`/accounts/user/${user.id}`, {
+          withCredentials: true,
+        });
+        setUserAccounts(response.data);
+      } catch (error) {
+        console.error("Failed to fetch user accounts:", error);
+        setStatusMessage("Failed to load user account details");
+        showToast("error", "Failed to load user account details");
+      }
+    };
+
+    fetchUserAccounts();
+  }, [user]);
 
   // Fetch plans
   useEffect(() => {
@@ -119,8 +157,13 @@ const PlanPurchase = () => {
       })
       .catch((error) => {
         if (isMounted) {
-          console.error("Fetch plans error:", error.message, error.response?.data);
+          console.error(
+            "Fetch plans error:",
+            error.message,
+            error.response?.data
+          );
           setStatusMessage("Failed to fetch plans");
+          showToast("error", "Failed to fetch plans");
         }
       });
     return () => {
@@ -128,15 +171,50 @@ const PlanPurchase = () => {
     };
   }, []);
 
-  // Handle opening of dialogs
+  // Handle opening of purchase dialog with KYC, admin verification, and account check
   const handleOpenPurchaseDialog = (plan) => {
+    // Check KYC details
+    if (
+      !profileData?.pan_number ||
+      !profileData?.pan_image ||
+      !profileData?.aadhar_number ||
+      !profileData?.aadhar_image
+    ) {
+      showToast("error", "Please complete your KYC verification first");
+      setTimeout(() => {
+        navigate("/user-dashboard/profile");
+      }, 2000);
+      return;
+    }
+
+    // Check admin verification
+    if (!profileData?.verified_by_admin) {
+      showToast("error", "Account must be verified by admin. Wait 24-48 hrs.");
+      return;
+    }
+
+    // Check if user has an account matching the plan's amount_type
+    const hasMatchingAccount = userAccounts.some(
+      (account) => account.account_type === plan.amount_type
+    );
+
+    if (!hasMatchingAccount) {
+      showToast(
+        "error",
+        `Please add ${plan.amount_type} account details to purchase this plan`
+      );
+      setTimeout(() => {
+        navigate("/user-dashboard/profile");
+      }, 2000);
+      return;
+    }
+
     setSelectedPlan(plan);
     setSubscriptionId(null);
     setFile(null);
     setAdminInfo(null);
     setStatusMessage("");
     setQrCodeErrors({});
-    setSelectedAccountType(null); // Reset dropdown
     setShowPurchaseDialog(true);
   };
 
@@ -144,6 +222,7 @@ const PlanPurchase = () => {
   const handleProceedPayment = async () => {
     if (!selectedPlan || !user) {
       setStatusMessage("User or plan not selected");
+      showToast("error", "User or plan not selected");
       return;
     }
 
@@ -155,7 +234,8 @@ const PlanPurchase = () => {
           plan_id: selectedPlan._id,
           username: user.username,
           amount: parseFloat(selectedPlan.min_investment.$numberDecimal),
-        }
+        },
+        { withCredentials: true }
       );
 
       if (response.status === 201) {
@@ -166,19 +246,19 @@ const PlanPurchase = () => {
 
         // Fetch admin info
         try {
-          const adminRes = await axiosInstance.get("/users/admin-info");
+          const adminRes = await axiosInstance.get("/users/admin-info", {
+            withCredentials: true,
+          });
           console.log("Admin Info Response:", adminRes.data);
           setAdminInfo(adminRes.data);
-          // Preselect INR if available, else USDT
-          if (adminRes.data.accounts?.length > 0) {
-            const inrAccount = adminRes.data.accounts.find(
-              (acc) => acc.account_type === "INR"
-            );
-            setSelectedAccountType(inrAccount ? "INR" : "USDT");
-          }
         } catch (err) {
-          console.error("Failed to fetch admin info:", err.message, err.response?.data);
+          console.error(
+            "Failed to fetch admin info:",
+            err.message,
+            err.response?.data
+          );
           setStatusMessage("Failed to fetch admin account details");
+          showToast("error", "Failed to fetch admin account details");
         }
       }
     } catch (error) {
@@ -187,9 +267,14 @@ const PlanPurchase = () => {
         error.message,
         error.response?.data
       );
-      setStatusMessage(
-        error.response?.data?.message || "Failed to create subscription"
-      );
+      const errorMessage =
+        error.response?.data?.message || "Failed to create subscription";
+      if (errorMessage === "Profit percentage not found for this plan, please contact admin") {
+        showToast("error", errorMessage);
+      } else {
+        setStatusMessage(errorMessage);
+        showToast("error", errorMessage);
+      }
     }
   };
 
@@ -198,19 +283,19 @@ const PlanPurchase = () => {
     setStatusMessage("");
     setQrCodeErrors({});
     try {
-      const adminRes = await axiosInstance.get("/users/admin-info");
+      const adminRes = await axiosInstance.get("/users/admin-info", {
+        withCredentials: true,
+      });
       console.log("Admin Info Response (Retry):", adminRes.data);
       setAdminInfo(adminRes.data);
-      // Preselect INR if available, else USDT
-      if (adminRes.data.accounts?.length > 0) {
-        const inrAccount = adminRes.data.accounts.find(
-          (acc) => acc.account_type === "INR"
-        );
-        setSelectedAccountType(inrAccount ? "INR" : "USDT");
-      }
     } catch (err) {
-      console.error("Retry fetch admin info failed:", err.message, err.response?.data);
+      console.error(
+        "Retry fetch admin info failed:",
+        err.message,
+        err.response?.data
+      );
       setStatusMessage("Failed to fetch admin account details");
+      showToast("error", "Failed to fetch admin account details");
     }
   };
 
@@ -221,6 +306,7 @@ const PlanPurchase = () => {
       const isImage = /\.(jpg|jpeg|png|gif|bmp|tiff)$/i.test(selectedFile.name);
       if (!isImage) {
         setStatusMessage("Only image files are allowed");
+        showToast("error", "Only image files are allowed");
         setFile(null);
         return;
       }
@@ -232,7 +318,13 @@ const PlanPurchase = () => {
   // Handle screenshot upload
   const handleUploadScreenshot = async () => {
     if (!file || !subscriptionId || !user || !selectedPlan) {
-      setStatusMessage("Please select a file and ensure subscription is created");
+      setStatusMessage(
+        "Please select a file and ensure subscription is created"
+      );
+      showToast(
+        "error",
+        "Please select a file and ensure subscription is created"
+      );
       return;
     }
 
@@ -251,11 +343,16 @@ const PlanPurchase = () => {
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
+          withCredentials: true,
         }
       );
 
       if (response.status === 200) {
         setStatusMessage(
+          "Screenshot uploaded successfully! Awaiting verification."
+        );
+        showToast(
+          "success",
           "Screenshot uploaded successfully! Awaiting verification."
         );
         setShowPurchaseDialog(false);
@@ -264,7 +361,6 @@ const PlanPurchase = () => {
         setSelectedPlan(null);
         setAdminInfo(null);
         setQrCodeErrors({});
-        setSelectedAccountType(null);
       }
     } catch (error) {
       console.error(
@@ -275,12 +371,17 @@ const PlanPurchase = () => {
       setStatusMessage(
         error.response?.data?.message || "Failed to upload screenshot"
       );
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to upload screenshot"
+      );
     }
   };
 
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);
     setStatusMessage("Copied to clipboard!");
+    showToast("success", "Copied to clipboard!");
   };
 
   // Memoize account details to prevent re-renders
@@ -316,7 +417,8 @@ const PlanPurchase = () => {
               {account.account_holder_name && (
                 <div className="flex items-center justify-between">
                   <span>
-                    <strong>Account Holder:</strong> {account.account_holder_name}
+                    <strong>Account Holder:</strong>{" "}
+                    {account.account_holder_name}
                   </span>
                   <Button
                     variant="ghost"
@@ -435,7 +537,7 @@ const PlanPurchase = () => {
                           ...prev,
                           [account._id]: false,
                         }));
-                        cacheBusterRef.current = Date.now(); // Update cache buster
+                        cacheBusterRef.current = Date.now();
                       }}
                     >
                       Retry QR Code
@@ -451,7 +553,9 @@ const PlanPurchase = () => {
                         ...prev,
                         [account._id]: true,
                       }));
-                      console.error(`Failed to load QR code: ${account.qrcode}`);
+                      console.error(
+                        `Failed to load QR code: ${account.qrcode}`
+                      );
                     }}
                     onLoad={() =>
                       setQrCodeErrors((prev) => ({
@@ -472,6 +576,55 @@ const PlanPurchase = () => {
 
   return (
     <div className="p-6 space-y-8">
+      {/* Instructions Dialog */}
+      <Dialog open={showInstructionsDialog} onOpenChange={setShowInstructionsDialog}>
+        <DialogContent className="sm:max-w-[700px] max-h-[60vh] overflow-y-auto p-6">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">
+              Deposit Instructions
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 mt-4 text-sm text-gray-700">
+            {/* INR Deposits Section */}
+            <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
+              <h3 className="font-semibold text-lg text-indigo-600 mb-2">INR Deposits</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Method:</strong> Bank Transfer or UPI only.</li>
+                <li><strong>Upload Required:</strong> Payment screenshot and Reference Number/UTR.</li>
+                <li><strong>Limits:</strong> Minimum ₹5000 | Max No limit per transaction.</li>
+                <li><strong>Requirements:</strong> Only KYC-verified accounts can deposit.</li>
+                <li><strong>Important:</strong> Payments from third-party accounts will be rejected.</li>
+              </ul>
+            </div>
+
+            {/* USDT Deposits Section */}
+            <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
+              <h3 className="font-semibold text-lg text-green-600 mb-2">USDT Deposits</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Method:</strong> Transfer to Admin’s official crypto wallet.</li>
+                <li><strong>Upload Required:</strong> Transaction Hash (TxID). Screenshot optional.</li>
+                <li><strong>Limits:</strong> Min USDT 50| Max No limit per transaction.</li>
+                <li><strong>Network:</strong> TRC20 (default).</li>
+                <li><strong>Requirements:</strong> Only KYC-verified accounts can deposit.</li>
+              </ul>
+            </div>
+
+            {/* Verification Section */}
+            <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
+              <h3 className="font-semibold text-lg text-red-600 mb-2">Verification</h3>
+              <p>All deposits will be verified by Admin within <strong>24–48 hours</strong>.</p>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button variant="default" className="w-full" onClick={() => setShowInstructionsDialog(false)}>
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle>Available Plans</CardTitle>
@@ -496,7 +649,9 @@ const PlanPurchase = () => {
                   <TableCell>
                     {plan?.min_investment?.$numberDecimal} {plan?.amount_type}
                   </TableCell>
-                  <TableCell>{plan?.profit_percentage?.$numberDecimal}%</TableCell>
+                  <TableCell>
+                    {plan?.profit_percentage?.$numberDecimal}%
+                  </TableCell>
                   <TableCell>{plan?.capital_lockin || "N/A"}</TableCell>
                   <TableCell>
                     {profitCalculations[plan._id]?.profitAmount}{" "}
@@ -508,7 +663,9 @@ const PlanPurchase = () => {
                   </TableCell>
                   <TableCell>
                     <Dialog
-                      open={showPurchaseDialog && selectedPlan?._id === plan._id}
+                      open={
+                        showPurchaseDialog && selectedPlan?._id === plan._id
+                      }
                       onOpenChange={setShowPurchaseDialog}
                     >
                       <DialogTrigger asChild>
@@ -519,14 +676,13 @@ const PlanPurchase = () => {
                           <CreditCard className="mr-2 h-4 w-4" /> Purchase
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent className="sm:max-w-[700px] max-h-[60vh] overflow-y-auto p-6">
                         <DialogHeader>
                           <DialogTitle>{plan?.plan_name} Details</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4">
                           {!subscriptionId ? (
                             <>
-                              {/* Plan Details */}
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="flex items-center">
                                   <Tag className="mr-2 h-4 w-4 text-gray-500" />
@@ -604,8 +760,6 @@ const PlanPurchase = () => {
                                 Subscription created successfully! Please upload
                                 your payment screenshot.
                               </div>
-
-                              {/* Admin Info */}
                               {adminInfo ? (
                                 <div className="p-3 border rounded bg-gray-50 text-sm text-left">
                                   <p>
@@ -618,38 +772,25 @@ const PlanPurchase = () => {
                                   </p>
                                   {adminInfo.accounts?.length > 0 ? (
                                     <div className="mt-2">
-                                      <strong>Accounts:</strong>
+                                      <strong>Account Details:</strong>
                                       <div className="mt-2">
-                                        <Select
-                                          value={selectedAccountType}
-                                          onValueChange={setSelectedAccountType}
-                                        >
-                                          <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select account type" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {adminInfo.accounts.map((acc) => (
-                                              <SelectItem
-                                                key={acc._id}
-                                                value={acc.account_type}
-                                              >
-                                                {acc.account_type}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                        {selectedAccountType && (
-                                          <div className="mt-4">
-                                            {adminInfo.accounts
-                                              .filter(
-                                                (acc) =>
-                                                  acc.account_type ===
-                                                  selectedAccountType
-                                              )
-                                              .map((acc) =>
-                                                renderAccountDetails(acc)
-                                              )}
-                                          </div>
+                                        {adminInfo.accounts
+                                          .filter(
+                                            (acc) =>
+                                              acc.account_type ===
+                                              selectedPlan?.amount_type
+                                          )
+                                          .map((acc) =>
+                                            renderAccountDetails(acc)
+                                          )}
+                                        {adminInfo.accounts.filter(
+                                          (acc) =>
+                                            acc.account_type ===
+                                            selectedPlan?.amount_type
+                                        ).length === 0 && (
+                                          <p className="text-red-600">
+                                            No {selectedPlan?.amount_type} account found for admin.
+                                          </p>
                                         )}
                                       </div>
                                     </div>
@@ -664,8 +805,6 @@ const PlanPurchase = () => {
                                   Loading admin account details...
                                 </p>
                               )}
-
-                              {/* Retry Button for Admin Info */}
                               {statusMessage.includes(
                                 "Failed to fetch admin account details"
                               ) && (
@@ -677,8 +816,6 @@ const PlanPurchase = () => {
                                   Retry Fetching Admin Info
                                 </Button>
                               )}
-
-                              {/* Upload Screenshot */}
                               <div className="flex flex-col space-y-4 mt-4">
                                 <input
                                   type="file"

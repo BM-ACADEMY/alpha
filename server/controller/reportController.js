@@ -89,7 +89,7 @@ exports.getOverallReports = async (req, res) => {
       { $match: { status: 'verified' } },
       { $lookup: { from: 'plans', localField: 'plan_id', foreignField: '_id', as: 'plan' } },
       { $unwind: '$plan' },
-      { $group: { _id: { $toLower: { $trim: { input: '$plan.plan_name' } } }, count: { $sum: 1 } } },
+      { $group: { _id: '$plan.plan_name', count: { $sum: 1 } } },
     ]);
     let planWiseCounts = {};
     planWise.forEach((g) => {

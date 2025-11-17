@@ -48,26 +48,40 @@ exports.createComplaint = async (req, res) => {
 };
 
 // Get All Complaints with Pagination
+// Updated Backend Function (complaintController.js)
+// complaintController.js
+// controller/complaintController.js - Update getAllComplaints to populate replies.admin_id
 exports.getAllComplaints = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const { user_id, status, page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const complaints = await Complaint.find()
+    const filter = {};
+    if (user_id) {
+      filter.user_id = user_id;
+    }
+    if (status && status !== 'All') {
+      filter.status = status;
+    }
+
+    const complaints = await Complaint.find(filter)
       .populate('user_id', 'username email phone_number')
+      .populate({
+        path: 'replies.admin_id',
+        select: 'username' // Populate admin username for display
+      })
       .skip(skip)
-      .limit(limit)
+      .limit(parseInt(limit))
       .sort({ created_at: -1 });
 
-    const total = await Complaint.countDocuments();
+    const total = await Complaint.countDocuments(filter);
 
     res.json({ complaints, total, page, limit });
   } catch (err) {
+    console.error('Error in getAllComplaints:', err);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };
-
 // Get Complaint By ID
 exports.getComplaintById = async (req, res) => {
   try {
@@ -97,45 +111,75 @@ exports.markAsRead = async (req, res) => {
 };
 
 // Send Reply Email
+// exports.sendReply = async (req, res) => {
+//   try {
+//     const { message } = req.body;
+//     const complaint = await Complaint.findById(req.params.id).populate('user_id', 'username email');
+//     if (!complaint) return res.status(404).json({ message: 'Complaint not found' });
+
+//     const user = complaint.user_id;
+
+//     const htmlContent = `
+//       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+//         <div style="background: #1e293b; padding: 20px; text-align: center;">
+//           <h2 style="color: #ffffff; margin: 0;">Alpha R - Trading Platform</h2>
+//         </div>
+//         <div style="padding: 20px; color: #333;">
+//           <p>Dear <strong>${user.username}</strong>,</p>
+//           <p>Thank you for contacting our support team regarding your complaint.</p>
+//           <p><strong>Our Reply:</strong></p>
+//           <div style="background: #f9fafb; padding: 15px; border-left: 4px solid #1e40af; margin: 10px 0;">
+//             ${message}
+//           </div>
+//           <p>If you have any further questions, feel free to reply to this email.</p>
+//           <p>Best Regards, <br/> <strong>Alpha R Support Team</strong></p>
+//         </div>
+//         <div style="background: #f3f4f6; text-align: center; padding: 15px; font-size: 12px; color: #555;">
+//           &copy; ${new Date().getFullYear()} Alpha R. All rights reserved.<br/>
+//           This is an automated message, please do not reply directly.
+//         </div>
+//       </div>
+//     `;
+
+//     await transporter.sendMail({
+//       from: `"Alpha R Support" <${process.env.EMAIL_USER}>`,
+//       to: user.email,
+//       subject: 'Reply to Your Complaint - Alpha R',
+//       html: htmlContent,
+//     });
+
+//     res.json({ message: 'Reply sent successfully' });
+//   } catch (err) {
+//     res.status(500).json({ message: 'Server Error', error: err.message });
+//   }
+// };
+
+// controller/complaintController.js - Update sendReply to handle undefined req.user safely
 exports.sendReply = async (req, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized: Admin authentication required' });
+    }
+
     const { message } = req.body;
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ message: 'Reply message is required' });
+    }
+
     const complaint = await Complaint.findById(req.params.id).populate('user_id', 'username email');
     if (!complaint) return res.status(404).json({ message: 'Complaint not found' });
 
-    const user = complaint.user_id;
-
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-        <div style="background: #1e293b; padding: 20px; text-align: center;">
-          <h2 style="color: #ffffff; margin: 0;">Alpha R - Trading Platform</h2>
-        </div>
-        <div style="padding: 20px; color: #333;">
-          <p>Dear <strong>${user.username}</strong>,</p>
-          <p>Thank you for contacting our support team regarding your complaint.</p>
-          <p><strong>Our Reply:</strong></p>
-          <div style="background: #f9fafb; padding: 15px; border-left: 4px solid #1e40af; margin: 10px 0;">
-            ${message}
-          </div>
-          <p>If you have any further questions, feel free to reply to this email.</p>
-          <p>Best Regards, <br/> <strong>Alpha R Support Team</strong></p>
-        </div>
-        <div style="background: #f3f4f6; text-align: center; padding: 15px; font-size: 12px; color: #555;">
-          &copy; ${new Date().getFullYear()} Alpha R. All rights reserved.<br/>
-          This is an automated message, please do not reply directly.
-        </div>
-      </div>
-    `;
-
-    await transporter.sendMail({
-      from: `"Alpha R Support" <${process.env.EMAIL_USER}>`,
-      to: user.email,
-      subject: 'Reply to Your Complaint - Alpha R',
-      html: htmlContent,
+    // Add reply to complaint
+    complaint.replies.push({
+      message: message.trim(),
+      admin_id: req.user.id // Now safely accessible
     });
+    
+    await complaint.save();
 
-    res.json({ message: 'Reply sent successfully' });
+    res.json({ message: 'Reply sent successfully', complaint });
   } catch (err) {
+    console.error('Error in sendReply:', err); // Log for debugging
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };
@@ -185,16 +229,48 @@ exports.deleteImage = async (req, res) => {
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };
+
+
+// exports.getComplaintImage = async (req, res) => {
+//   const { user_id, filename } = req.params;
+//   const complaint = await Complaint.findOne({ user_id, image_urls: { $elemMatch: { $regex: filename } } });
+//   let filePath;
+
+//   if (complaint && complaint.folder_prefix) {
+//     filePath = path.join(__dirname, '../Uploads', 'complaints', `${complaint.folder_prefix}${user_id}`, filename);
+//   } else {
+//     filePath = path.join(__dirname, '../Uploads', 'complaints', user_id, filename);
+//   }
+
+//   console.log('getComplaintImage called:', { user_id, filename, filePath });
+
+//   if (!fs.existsSync(filePath)) {
+//     console.error('Image not found:', filePath);
+//     return res.status(404).json({ message: 'Image not found' });
+//   }
+
+//   if (req.user && req.user.role !== 'admin' && req.user.id !== user_id) {
+//     console.error('Unauthorized access:', { user: req.user, user_id });
+//     return res.status(403).json({ message: 'Unauthorized' });
+//   }
+
+//   const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+//   res.setHeader('Content-Type', mimeType);
+//   res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+//   res.sendFile(filePath, (err) => {
+//     if (err) {
+//       console.error('Error sending file:', err);
+//       res.status(500).json({ message: 'Error serving file' });
+//     }
+//   });
+// };
+// Delete Complaint
+
+// complaintController.js
 exports.getComplaintImage = async (req, res) => {
   const { user_id, filename } = req.params;
-  const complaint = await Complaint.findOne({ user_id, image_urls: { $elemMatch: { $regex: filename } } });
-  let filePath;
-
-  if (complaint && complaint.folder_prefix) {
-    filePath = path.join(__dirname, '../Uploads', 'complaints', `${complaint.folder_prefix}${user_id}`, filename);
-  } else {
-    filePath = path.join(__dirname, '../Uploads', 'complaints', user_id, filename);
-  }
+  const filePath = path.join(__dirname, '../Uploads', FOLDER_NAME, user_id, filename);
 
   console.log('getComplaintImage called:', { user_id, filename, filePath });
 
@@ -203,6 +279,7 @@ exports.getComplaintImage = async (req, res) => {
     return res.status(404).json({ message: 'Image not found' });
   }
 
+  // Authorization check
   if (req.user && req.user.role !== 'admin' && req.user.id !== user_id) {
     console.error('Unauthorized access:', { user: req.user, user_id });
     return res.status(403).json({ message: 'Unauthorized' });
@@ -219,7 +296,31 @@ exports.getComplaintImage = async (req, res) => {
     }
   });
 };
-// Delete Complaint
+
+// complaintController.js
+exports.updateComplaintStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['Pending', 'Resolved', 'Rejected'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status value' });
+    }
+
+    const complaint = await Complaint.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    res.json({ message: 'Complaint status updated', complaint });
+  } catch (err) {
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+};
+
 exports.deleteComplaint = async (req, res) => {
   try {
     const complaint = await Complaint.findById(req.params.id).populate('user_id', '_id');

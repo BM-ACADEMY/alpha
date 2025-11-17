@@ -1,4 +1,20 @@
+// complaintModel.js
 const mongoose = require('mongoose');
+
+const ReplySchema = new mongoose.Schema({
+  message: {
+    type: String,
+    required: true,
+  },
+  created_at: {
+    type: Date,
+    default: Date.now,
+  },
+  admin_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  }
+});
 
 const ComplaintSchema = new mongoose.Schema({
   user_id: {
@@ -9,6 +25,7 @@ const ComplaintSchema = new mongoose.Schema({
   complaint_type: {
     type: String,
     required: true,
+    enum: ['Billing', 'Deposit', 'Withdrawal', 'Others'],
   },
   description: {
     type: String,
@@ -21,6 +38,12 @@ const ComplaintSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  status: {
+    type: String,
+    enum: ['Pending', 'Resolved', 'Rejected'],
+    default: 'Pending',
+  },
+  replies: [ReplySchema],
   created_at: {
     type: Date,
     default: Date.now,

@@ -8,7 +8,12 @@ import {
   User,
   LogOut,
   Percent ,
-  MessageSquareWarning
+  MessageSquareWarning,
+  ShieldUser, 
+  Link,
+  FileText, 
+  MessageCircleCodeIcon,
+  UserMinus2
 } from 'lucide-react';
 
 export const adminMenuItems = {
@@ -44,6 +49,11 @@ export const adminMenuItems = {
       icon: Percent ,
     },
     {
+      title: 'Users Verified',
+      url: '/admin-dashboard/user-verified',
+      icon:  ShieldUser,
+    },
+    {
       title: 'Reports',
       url: '/admin-dashboard/reports',
       icon: FileBarChart,
@@ -59,14 +69,24 @@ export const adminMenuItems = {
       icon: MessageSquareWarning,
     },
     {
-      title: 'Complaints',
-      url: '/admin-dashboard/complaint',
-      icon: MessageSquareWarning,
-    },
-    {
       title: 'Redeem Request',
       url: '/admin-dashboard/redeem',
-      icon: MessageSquareWarning,
+      icon: MessageCircleCodeIcon,
+    },
+    {
+      title: 'Social Media',
+      url: '/admin-dashboard/socialmedia',
+      icon: Link,
+    },
+     {
+      title: 'Blogs',
+      url: '/admin-dashboard/blogs',
+      icon: FileText,
+    },
+     {
+      title: 'Referral',
+      url: '/admin-dashboard/referral',
+      icon: UserMinus2,
     },
   ],
   navSecondary: [

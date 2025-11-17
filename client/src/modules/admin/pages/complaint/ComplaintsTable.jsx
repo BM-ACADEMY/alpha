@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '@/modules/common/lib/axios';
 import {
@@ -9,6 +8,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -21,9 +26,10 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Eye, Mail, CheckCircle, Trash, Send } from 'lucide-react';
+import { Eye, MessageSquareMore, CheckCircle, Trash, Send, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showToast } from '@/modules/common/toast/customToast';
 import ConfirmationDialog from '@/modules/common/reusable/ConfirmationDialog';
 import LightGallery from 'lightgallery/react';
@@ -32,7 +38,7 @@ import 'lightgallery/css/lg-zoom.css';
 import 'lightgallery/css/lg-thumbnail.css';
 import lgThumbnail from 'lightgallery/plugins/thumbnail';
 import lgZoom from 'lightgallery/plugins/zoom';
-import { getImageUrl } from './ImageUtils'; // Import getImageUrl
+import { getImageUrl } from './ImageUtils';
 
 const ComplaintsTable = () => {
   const [complaints, setComplaints] = useState([]);
@@ -40,24 +46,28 @@ const ComplaintsTable = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
-  const [dialogMode, setDialogMode] = useState(null); // 'view' or 'reply'
+  const [dialogMode, setDialogMode] = useState(null);
   const [replyData, setReplyData] = useState({ email: '', username: '', phone: '', message: '' });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [complaintToDelete, setComplaintToDelete] = useState(null);
-  const [imageUrls, setImageUrls] = useState({}); // Store blob URLs for images
+  const [imageUrls, setImageUrls] = useState({});
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [isSendingReply, setIsSendingReply] = useState(false);
 
   useEffect(() => {
     fetchComplaints();
-  }, [page]);
+  }, [page, statusFilter]);
 
-  // Fetch complaints and preload images
   const fetchComplaints = async () => {
     try {
-      const res = await axiosInstance.get(`/complaints/fetch-all-complaints?page=${page}&limit=${limit}`);
+      const params = { page, limit };
+      if (statusFilter !== 'All') {
+        params.status = statusFilter;
+      }
+      const res = await axiosInstance.get(`/complaints/fetch-all-complaints`, { params });
       setComplaints(res.data.complaints);
       setTotal(res.data.total);
 
-      // Preload images for all complaints
       const newImageUrls = {};
       for (const complaint of res.data.complaints) {
         if (complaint.image_urls && complaint.image_urls.length > 0) {
@@ -86,6 +96,17 @@ const ComplaintsTable = () => {
     }
   };
 
+  const handleUpdateStatus = async (id, status) => {
+    try {
+      await axiosInstance.patch(`/complaints/update-status/${id}`, { status });
+      fetchComplaints();
+      showToast('success', `Complaint status updated to ${status}`);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      showToast('error', 'Failed to update status');
+    }
+  };
+
   const handleViewDetails = (e, complaint) => {
     e.stopPropagation();
     setSelectedComplaint(complaint);
@@ -106,15 +127,23 @@ const ComplaintsTable = () => {
 
   const handleSendReply = async (e) => {
     e.stopPropagation();
+    if (!replyData.message.trim()) {
+      showToast('error', 'Reply message cannot be empty');
+      return;
+    }
+    setIsSendingReply(true);
     try {
-      await axiosInstance.post(`/complaints/reply-to-customer/${selectedComplaint._id}/reply`, { message: replyData.message });
+      await axiosInstance.post(`/complaints/reply-to-customer/${selectedComplaint._id}/reply`, { message: replyData.message.trim() }, { withCredentials: true });
       showToast('success', 'Reply sent successfully');
       setReplyData({ email: '', username: '', phone: '', message: '' });
       setSelectedComplaint(null);
       setDialogMode(null);
+      fetchComplaints();
     } catch (err) {
       console.error('Failed to send reply:', err);
-      showToast('error', 'Failed to send reply');
+      showToast('error', err.response?.data?.message || 'Failed to send reply');
+    } finally {
+      setIsSendingReply(false);
     }
   };
 
@@ -137,6 +166,11 @@ const ComplaintsTable = () => {
     setComplaintToDelete(null);
   };
 
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setPage(1); // Reset to page 1 when filter changes
+  };
+
   const totalPages = Math.ceil(total / limit);
   const colors = [
     "bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500",
@@ -157,14 +191,27 @@ const ComplaintsTable = () => {
 
   return (
     <div className="p-4">
+      <div className="mb-4">
+        <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Resolved">Resolved</SelectItem>
+            <SelectItem value="Rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>User</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Description</TableHead>
-            <TableHead>Created At</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Created At</TableHead>
             <TableHead className="text-center">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -186,54 +233,86 @@ const ComplaintsTable = () => {
                 {c.description}
               </TableCell>
               <TableCell>
-                {new Date(c.created_at).toLocaleString()}
+                <Select
+                  value={c.status}
+                  onValueChange={(value) => handleUpdateStatus(c._id, value)}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Resolved">Resolved</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
               </TableCell>
               <TableCell>
-                {c.is_read ? (
-                  <Badge className="bg-green-500 hover:bg-green-600">Read</Badge>
-                ) : (
-                  <Badge className="bg-red-500 hover:bg-red-600">Unread</Badge>
-                )}
+                {new Date(c.created_at).toLocaleString()}
               </TableCell>
               <TableCell className="flex justify-center gap-2">
                 {!c.is_read && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hover:bg-green-100 cursor-pointer"
-                    onClick={(e) => handleMarkRead(e, c._id)}
-                    title="Mark as Read"
-                  >
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hover:bg-green-100 cursor-pointer"
+                          onClick={(e) => handleMarkRead(e, c._id)}
+                        >
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Mark as Read</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hover:bg-blue-100 cursor-pointer"
-                  onClick={(e) => handleViewDetails(e, c)}
-                  title="View Details"
-                >
-                  <Eye className="h-5 w-5 text-blue-600" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hover:bg-yellow-100 cursor-pointer"
-                  onClick={(e) => handleOpenReply(e, c)}
-                  title="Send Reply"
-                >
-                  <Mail className="h-5 w-5 text-yellow-600" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hover:bg-red-100 cursor-pointer"
-                  onClick={(e) => handleDelete(e, c._id)}
-                  title="Delete"
-                >
-                  <Trash className="h-5 w-5 text-red-600" />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-blue-100 cursor-pointer"
+                        onClick={(e) => handleViewDetails(e, c)}
+                      >
+                        <Eye className="h-5 w-5 text-blue-600" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>View Details</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-yellow-100 cursor-pointer"
+                        onClick={(e) => handleOpenReply(e, c)}
+                      >
+                        <MessageSquareMore className="h-5 w-5 text-yellow-600" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Reply</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-red-100 cursor-pointer"
+                        onClick={(e) => handleDelete(e, c._id)}
+                      >
+                        <Trash className="h-5 w-5 text-red-600" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </TableCell>
             </TableRow>
           ))}
@@ -268,6 +347,37 @@ const ComplaintsTable = () => {
                     <TableCell><strong>Description</strong></TableCell>
                     <TableCell>{selectedComplaint.description}</TableCell>
                   </TableRow>
+                  <TableRow>
+                    <TableCell><strong>Status</strong></TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          selectedComplaint.status === 'Resolved'
+                            ? 'success'
+                            : selectedComplaint.status === 'Rejected'
+                            ? 'destructive'
+                            : 'warning'
+                        }
+                      >
+                        {selectedComplaint.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                  {selectedComplaint.replies?.length > 0 && (
+                    <TableRow>
+                      <TableCell><strong>Replies</strong></TableCell>
+                      <TableCell>
+                        {selectedComplaint.replies.map((reply, index) => (
+                          <div key={index} className="border p-2 mb-2 rounded">
+                            <p className="text-sm text-gray-500">
+                              {new Date(reply.created_at).toLocaleString()}
+                            </p>
+                            <p>{reply.message}</p>
+                          </div>
+                        ))}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
               {selectedComplaint.image_urls.length > 0 && (
@@ -311,8 +421,22 @@ const ComplaintsTable = () => {
                 placeholder="Reply message"
                 rows={5}
               />
-              <Button onClick={handleSendReply}>
-                <Send className='w-4 h-4 mr-2' /> Send Reply
+              <Button 
+                onClick={handleSendReply} 
+                disabled={isSendingReply}
+                className="bg-[#0f1c3f] hover:bg-[#0f1c3fc7] text-white flex items-center justify-center transition-all duration-300"
+              >
+                {isSendingReply ? (
+                  <div className="flex items-center">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin text-white" />
+                    <span>Sending...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <Send className="w-4 h-4 mr-2" />
+                    <span>Send Reply</span>
+                  </div>
+                )}
               </Button>
             </div>
           </DialogContent>

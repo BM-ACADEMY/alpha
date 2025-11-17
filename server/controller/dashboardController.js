@@ -1,19 +1,16 @@
 const mongoose = require("mongoose");
-const User = require("../model/usersModel"); // Adjust path as needed
-const Plan = require("../model/planModel"); // Adjust path as needed
-const UserPlanSubscription = require("../model/userSubscriptionPlanModel"); // Adjust path as needed
+const User = require("../model/usersModel");
+const Plan = require("../model/planModel");
+const UserPlanSubscription = require("../model/userSubscriptionPlanModel");
 const Wallet = require("../model/walletModel");
 
 const getDashboardData = async (req, res) => {
   try {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    const { filter = "monthly" } = req.query;
+    const now = new Date();
+    const startOfToday = new Date(now.setHours(0, 0, 0, 0));
+    const endOfToday = new Date(now.setHours(23, 59, 59, 999));
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Total Users
     const totalUsers = await User.countDocuments();
@@ -37,9 +34,7 @@ const getDashboardData = async (req, res) => {
           as: "plan",
         },
       },
-      {
-        $unwind: "$plan",
-      },
+      { $unwind: "$plan" },
       {
         $group: {
           _id: "$plan.amount_type",
@@ -50,9 +45,7 @@ const getDashboardData = async (req, res) => {
 
     // Total Amount by currency
     const totalAmount = await UserPlanSubscription.aggregate([
-      {
-        $match: { status: "verified" },
-      },
+      { $match: { status: "verified" } },
       {
         $lookup: {
           from: "plans",
@@ -61,9 +54,7 @@ const getDashboardData = async (req, res) => {
           as: "plan",
         },
       },
-      {
-        $unwind: "$plan",
-      },
+      { $unwind: "$plan" },
       {
         $group: {
           _id: "$plan.amount_type",
@@ -72,44 +63,139 @@ const getDashboardData = async (req, res) => {
       },
     ]);
 
-    // New Users Today (using created_at from User schema)
+    // New Users Today
     const newUsersToday = await User.countDocuments({
       created_at: { $gte: startOfToday, $lte: endOfToday },
     });
 
-    // Referral Users
-    const referralUsers = await User.countDocuments({
-      referred_by: { $ne: null },
-    });
+    // Referral Users and Total Referral Amount with Debugging
+    const referralUsersData = await User.aggregate([
+      {
+        $match: {
+          referred_by: { $ne: null },
+        },
+      },
+      {
+        $lookup: {
+          from: "wallets",
+          localField: "_id",
+          foreignField: "user_id",
+          as: "wallet",
+        },
+      },
+      {
+        $unwind: {
+          path: "$wallet",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "referred_by",
+          foreignField: "_id",
+          as: "referrer",
+        },
+      },
+      {
+        $unwind: {
+          path: "$referrer",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          user_id: "$_id",
+          username: "$username",
+          email: "$email",
+          referral_amount: { $ifNull: ["$wallet.referral_amount", 0] },
+          referred_by_username: "$referrer.username",
+          referred_by_id: "$referrer._id",
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          referralUsers: { $sum: 1 },
+          totalReferralAmount: { $sum: "$referral_amount" },
+          referredUsersList: {
+            $push: {
+              user_id: "$user_id",
+              username: "$username",
+              email: "$email",
+              referred_by_username: "$referred_by_username",
+              referred_by_id: "$referred_by_id",
+            },
+          },
+          referralEarningsByUser: {
+            $push: {
+              user_id: "$referred_by_id",
+              username: "$referred_by_username",
+              referral_amount: "$referral_amount",
+            },
+          },
+        },
+      },
+    ]);
 
-    // Plan-wise User Count Over Time (last 7 months)
-    const months = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      months.push({
-        name: date.toLocaleString("default", { month: "short" }),
-        date: date,
-      });
+    console.log("Referral Users Aggregation Result:", referralUsersData);
+
+    const referralUsers = referralUsersData[0]?.referralUsers || 0;
+    const totalReferralAmount = referralUsersData[0]?.totalReferralAmount || 0;
+    const referredUsersList = referralUsersData[0]?.referredUsersList || [];
+    const referralEarningsByUser = referralUsersData[0]?.referralEarningsByUser
+      .filter((item) => item.user_id && item.referral_amount > 0)
+      .reduce((acc, item) => {
+        const existing = acc.find((x) => x.user_id.toString() === item.user_id.toString());
+        if (existing) {
+          existing.referral_amount += item.referral_amount;
+        } else {
+          acc.push({ ...item });
+        }
+        return acc;
+      }, []);
+
+    // Plan-wise User Count Over Time
+    let periods = [];
+    if (filter === "weekly") {
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i * 7);
+        periods.push({
+          name: `Week ${i + 1}`,
+          start: new Date(date.setHours(0, 0, 0, 0)),
+          end: new Date(date.setHours(23, 59, 59, 999)),
+        });
+      }
+    } else if (filter === "yearly") {
+      for (let i = 2; i >= 0; i--) {
+        const date = new Date();
+        date.setFullYear(date.getFullYear() - i);
+        periods.push({
+          name: date.getFullYear().toString(),
+          start: new Date(date.getFullYear(), 0, 1),
+          end: new Date(date.getFullYear(), 11, 31, 23, 59, 59, 999),
+        });
+      }
+    } else {
+      // Monthly (default)
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        periods.push({
+          name: date.toLocaleString("default", { month: "short" }),
+          start: new Date(date.getFullYear(), date.getMonth(), 1),
+          end: new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999),
+        });
+      }
     }
 
     const planUserCounts = await Promise.all(
-      months.map(async (month) => {
-        const startOfMonth = new Date(
-          month.date.getFullYear(),
-          month.date.getMonth(),
-          1
-        );
-        const endOfMonth = new Date(
-          month.date.getFullYear(),
-          month.date.getMonth() + 1,
-          0
-        );
-
+      periods.map(async (period) => {
         const subscriptions = await UserPlanSubscription.aggregate([
           {
             $match: {
-              purchased_at: { $gte: startOfMonth, $lte: endOfMonth },
+              purchased_at: { $gte: period.start, $lte: period.end },
               status: "verified",
             },
           },
@@ -121,9 +207,7 @@ const getDashboardData = async (req, res) => {
               as: "plan",
             },
           },
-          {
-            $unwind: "$plan",
-          },
+          { $unwind: "$plan" },
           {
             $group: {
               _id: {
@@ -144,19 +228,23 @@ const getDashboardData = async (req, res) => {
           },
         ]);
 
-        const result = { name: month.name };
+        const result = { name: period.name };
         subscriptions.forEach((sub) => {
           result[sub._id] = sub.count;
         });
-        return result;
+        return {
+          name: period.name,
+          starter: result.starter || 0,
+          advanced: result.advanced || 0,
+          premium: result.premium || 0,
+          elite: result.elite || 0,
+        };
       })
     );
 
     // Currency Distribution
     const currencyDistribution = await UserPlanSubscription.aggregate([
-      {
-        $match: { status: "verified" },
-      },
+      { $match: { status: "verified" } },
       {
         $lookup: {
           from: "plans",
@@ -165,9 +253,7 @@ const getDashboardData = async (req, res) => {
           as: "plan",
         },
       },
-      {
-        $unwind: "$plan",
-      },
+      { $unwind: "$plan" },
       {
         $group: {
           _id: "$plan.amount_type",
@@ -201,13 +287,10 @@ const getDashboardData = async (req, res) => {
       },
       newUsersToday,
       referralUsers,
-      planUserCounts: planUserCounts.map((month) => ({
-        name: month.name,
-        starter: month.starter || 0,
-        advanced: month.advanced || 0,
-        premium: month.premium || 0,
-        elite: month.elite || 0,
-      })),
+      totalReferralAmount: Number(totalReferralAmount.toFixed(2)),
+      referredUsersList,
+      referralEarningsByUser,
+      planUserCounts,
       currencyDistribution,
     };
 
@@ -220,7 +303,7 @@ const getDashboardData = async (req, res) => {
 
 const getUserDashboardData = async (req, res) => {
   try {
-    const userId = req.params.id; // Assuming user ID is available from authentication middleware
+    const userId = req.params.id;
 
     // Fetch user profile
     const user = await User.findById(userId).select(
@@ -232,7 +315,7 @@ const getUserDashboardData = async (req, res) => {
 
     // Fetch wallet information
     const wallet = await Wallet.findOne({ user_id: userId }).select(
-      "userPlanCapitalAmount dailyProfitAmount totalWalletPoint"
+      "userPlanCapitalAmount dailyProfitAmount totalWalletPoint referral_amount"
     );
 
     // Fetch active plans
@@ -274,13 +357,49 @@ const getUserDashboardData = async (req, res) => {
           0
         );
 
-        const walletData = await Wallet.findOne({
+        const walletData = await Wallet.find({
           user_id: userId,
-          created_at: { $gte: startOfMonth, $lte: endOfMonth },
-        }).select("dailyProfitAmount");
+          updated_at: { $gte: startOfMonth, $lte: endOfMonth },
+        }).select("dailyProfitAmount updated_at");
+
+        // Sum daily profits for the month
+        const totalProfit = walletData.reduce(
+          (sum, data) => sum + Number(data.dailyProfitAmount || 0),
+          0
+        );
 
         return {
           name: month.name,
+          profit: totalProfit,
+        };
+      })
+    );
+
+    // Fetch daily profit for the last 30 days
+    const days = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      days.push({
+        name: date.toLocaleString("default", { day: "numeric", month: "short" }),
+        date: date,
+      });
+    }
+
+    const dailyProfitOverTime = await Promise.all(
+      days.map(async (day) => {
+        const startOfDay = new Date(day.date);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(day.date);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const walletData = await Wallet.findOne({
+          user_id: userId,
+          updated_at: { $gte: startOfDay, $lte: endOfDay },
+        }).select("dailyProfitAmount");
+
+        return {
+          name: day.name,
           profit: walletData ? Number(walletData.dailyProfitAmount) : 0,
         };
       })
@@ -301,11 +420,13 @@ const getUserDashboardData = async (req, res) => {
             userPlanCapitalAmount: Number(wallet.userPlanCapitalAmount),
             dailyProfitAmount: Number(wallet.dailyProfitAmount),
             totalWalletPoint: Number(wallet.totalWalletPoint),
+            referral_amount: Number(wallet.referral_amount),
           }
         : {
             userPlanCapitalAmount: 0,
             dailyProfitAmount: 0,
             totalWalletPoint: 0,
+            referral_amount: 0,
           },
       activePlans: activePlans.map((plan) => ({
         planName: plan.plan_id.plan_name,
@@ -317,6 +438,7 @@ const getUserDashboardData = async (req, res) => {
       })),
       referralCount,
       profitOverTime,
+      dailyProfitOverTime,
     };
 
     res.status(200).json(dashboardData);

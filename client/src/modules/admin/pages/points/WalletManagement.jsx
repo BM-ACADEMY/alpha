@@ -9,6 +9,7 @@ import axiosInstance from '@/modules/common/lib/axios';
 
 const WalletManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [walletSearchQuery, setWalletSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
@@ -19,9 +20,11 @@ const WalletManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [planStatusFilter, setPlanStatusFilter] = useState('all');
+  const [amountTypeFilter, setAmountTypeFilter] = useState('all');
   const debounceTimer = useRef(null);
 
-  // Debounce search
+  // Debounce search for user subscriptions
   const handleSearch = (e) => {
     setSearchQuery(e.target.value);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -56,6 +59,15 @@ const WalletManagement = () => {
     }, 1000);
   };
 
+  // Debounce search for wallets
+  const handleWalletSearch = (e) => {
+    setWalletSearchQuery(e.target.value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      fetchWallets(1, e.target.value, planStatusFilter, amountTypeFilter);
+    }, 1000);
+  };
+
   // Handle subscription selection
   const handleSubscriptionSelect = (subscription) => {
     setSelectedSubscription(subscription);
@@ -76,10 +88,20 @@ const WalletManagement = () => {
         subscription_id: selectedSubscription._id,
         amount: Number(amount),
         profit_percentage: Number(profitPercentage),
+        plan_name: selectedSubscription.plan_id?.plan_name || 'N/A',
+        amount_type: selectedSubscription.plan_id?.amount_type || 'N/A',
       });
       console.log('Points added:', res.data);
       setStatusMessage(res.data.message);
-      fetchWallets(currentPage);
+      setSubscriptions((prev) =>
+        prev.map((sub) =>
+          sub._id === selectedSubscription._id ? { ...sub, pointsAdded: true } : sub
+        )
+      );
+      setSelectedSubscription(null);
+      setAmount('');
+      setProfitPercentage('');
+      fetchWallets(currentPage, walletSearchQuery, planStatusFilter, amountTypeFilter);
     } catch (error) {
       console.error('Add points error:', error.message, error.response?.data);
       setStatusMessage(error.response?.data?.message || 'Failed to add points to wallet');
@@ -88,13 +110,16 @@ const WalletManagement = () => {
     }
   };
 
-  // Fetch all wallets
-  const fetchWallets = async (page) => {
+  // Fetch all wallets with search, status, and amount type filter
+  const fetchWallets = async (page, search = '', status = 'all', amountType = 'all') => {
     try {
-      const res = await axiosInstance.get(`/wallet-point/wallets?page=${page}&limit=10`);
+      let url = `/wallet-point/wallets?page=${page}&limit=10`;
+      if (search) url += `&search=${encodeURIComponent(search)}`;
+      if (status !== 'all') url += `&planStatus=${status}`;
+      if (amountType !== 'all') url += `&amountType=${amountType}`;
+
+      const res = await axiosInstance.get(url);
       setWallets(res.data.wallets);
-      console.log(res.data,"wallere");
-      
       setTotalPages(res.data.totalPages);
     } catch (error) {
       console.error('Fetch wallets error:', error.message, error.response?.data);
@@ -102,10 +127,24 @@ const WalletManagement = () => {
     }
   };
 
-  // Fetch wallets on mount and page change
+  // Handle plan status filter change
+  const handlePlanStatusFilter = (status) => {
+    setPlanStatusFilter(status);
+    setCurrentPage(1);
+    fetchWallets(1, walletSearchQuery, status, amountTypeFilter);
+  };
+
+  // Handle amount type filter change
+  const handleAmountTypeFilter = (type) => {
+    setAmountTypeFilter(type);
+    setCurrentPage(1);
+    fetchWallets(1, walletSearchQuery, planStatusFilter, type);
+  };
+
+  // Fetch wallets on mount and when page, search, or filters change
   useEffect(() => {
-    fetchWallets(currentPage);
-  }, [currentPage]);
+    fetchWallets(currentPage, walletSearchQuery, planStatusFilter, amountTypeFilter);
+  }, [currentPage, planStatusFilter, amountTypeFilter]);
 
   // Pagination handlers
   const handlePageChange = (page) => {
@@ -151,26 +190,31 @@ const WalletManagement = () => {
                 <TableRow>
                   <TableHead>Plan Name</TableHead>
                   <TableHead>Amount</TableHead>
+                  <TableHead>Amount Type</TableHead>
                   <TableHead>Profit %</TableHead>
                   <TableHead>Expires At</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {subscriptions.map((sub) => (
                   <TableRow key={sub._id}>
-                    <TableCell>{sub.plan_id.plan_name}</TableCell>
-                    <TableCell>{sub.amount}</TableCell>
-                    <TableCell>{sub.profit_percentage.$numberDecimal}%</TableCell>
-                    <TableCell>{new Date(sub.expires_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{sub.plan_id?.plan_name || 'N/A'}</TableCell>
+                    <TableCell>{sub.amount || 'N/A'}</TableCell>
+                    <TableCell>{sub.plan_id?.amount_type || 'N/A'}</TableCell>
+                    <TableCell>{sub.profit_percentage?.$numberDecimal || '0'}%</TableCell>
+                    <TableCell>{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell>{sub.planStatus || 'N/A'}</TableCell>
                     <TableCell>
                       <Button
                         onClick={() => handleSubscriptionSelect(sub)}
                         variant="outline"
                         size="sm"
                         className="cursor-pointer"
+                        disabled={sub.pointsAdded || !sub.planStatus || sub.planStatus !== 'Active'}
                       >
-                        Select
+                        {sub.pointsAdded ? 'Points Added' : 'Select'}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -190,11 +234,30 @@ const WalletManagement = () => {
           <CardContent>
             <div className="space-y-4">
               <div>
+                <label>Plan Name</label>
+                <Input
+                  type="text"
+                  value={selectedSubscription.plan_id?.plan_name || 'N/A'}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label>Amount Type</label>
+                <Input
+                  type="text"
+                  value={selectedSubscription.plan_id?.amount_type || 'N/A'}
+                  readOnly
+                  className="bg-gray-100 cursor-not-allowed"
+                />
+              </div>
+              <div>
                 <label>Capital Amount</label>
                 <Input
                   type="number"
                   value={amount}
                   readOnly
+                  className="bg-gray-100 cursor-not-allowed"
                 />
               </div>
               <div>
@@ -203,9 +266,14 @@ const WalletManagement = () => {
                   type="number"
                   value={profitPercentage}
                   readOnly
+                  className="bg-gray-100 cursor-not-allowed"
                 />
               </div>
-              <Button onClick={handleAddPoints} disabled={isLoading}    className="mb-4 bg-[#d09d42] text-white hover:bg-[#0f1c3f] cursor-pointer">
+              <Button
+                onClick={handleAddPoints}
+                disabled={isLoading}
+                className="mb-4 bg-[#d09d42] text-white hover:bg-[#0f1c3f] cursor-pointer"
+              >
                 <Wallet className="mr-2 h-4 w-4" /> Add Points
               </Button>
               {statusMessage && (
@@ -220,28 +288,66 @@ const WalletManagement = () => {
 
       {/* Wallets Table */}
       <Card>
-        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded"> 
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
           <CardTitle>Wallet Information</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="flex items-center space-x-4 mb-4">
+            <div className="flex items-center space-x-2">
+              <Input
+                placeholder="Search by username, email, or phone"
+                value={walletSearchQuery}
+                onChange={handleWalletSearch}
+              />
+              <Search className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="flex items-center space-x-2">
+              <select
+                value={planStatusFilter}
+                onChange={(e) => handlePlanStatusFilter(e.target.value)}
+                className="border rounded p-2"
+              >
+                <option value="all">All</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <select
+                value={amountTypeFilter}
+                onChange={(e) => handleAmountTypeFilter(e.target.value)}
+                className="border rounded p-2"
+              >
+                <option value="all">All Types</option>
+                <option value="INR">INR</option>
+                <option value="USDT">USDT</option>
+              </select>
+            </div>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Capital Amount</TableHead>
                 <TableHead>Daily Profit</TableHead>
+                <TableHead>Referral Earnings</TableHead>
                 <TableHead>Total Wallet Points</TableHead>
+                <TableHead>Plan Status</TableHead>
+                <TableHead>Amount Type</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {wallets.map((wallet) => (
                 <TableRow key={wallet._id}>
                   <TableCell>
-                    {wallet?.user_id?.username} ({wallet?.user_id?.email})
+                    {wallet?.user_id?.username || 'N/A'} ({wallet?.user_id?.email || 'N/A'})
                   </TableCell>
-                  <TableCell>{wallet.userPlanCapitalAmount}</TableCell>
-                  <TableCell>{wallet.dailyProfitAmount.toFixed(2)}</TableCell>
-                  <TableCell>{wallet.totalWalletPoint.toFixed(2)}</TableCell>
+                  <TableCell>{wallet.userPlanCapitalAmount || '0'}</TableCell>
+                  <TableCell>{wallet.dailyProfitAmount?.toFixed(2) || '0.00'}</TableCell>
+                  <TableCell>{wallet.referral_amount?.toFixed(2) || '0.00'}</TableCell>
+                  <TableCell>{wallet.totalWalletPoint?.toFixed(2) || '0.00'}</TableCell>
+                  <TableCell>{wallet.planStatus || 'N/A'}</TableCell>
+                  <TableCell>{wallet.amount_type || 'N/A'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

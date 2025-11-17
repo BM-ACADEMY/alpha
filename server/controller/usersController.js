@@ -9,8 +9,40 @@ const Account = require("../model/accountModel");
 const UserPlanSubscription = require("../model/userSubscriptionPlanModel");
 const Wallet = require("../model/walletModel");
 const Plan = require("../model/planModel");
+const mongoose = require ("mongoose")
+// usersController.js
+// Example: controller/usersController.js
+exports.getUsersFilter = async (req, res) => {
+  const { page = 1, limit = 10, search, startDate, endDate, plan, emailVerified, adminVerified } = req.query;
+  const query = {};
 
-// Get all users
+  if (search) {
+    query.$or = [
+      { username: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+      { phone_number: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  if (startDate || endDate) {
+    query.created_at = {};
+    if (startDate) query.created_at.$gte = new Date(startDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.created_at.$lte = end;
+    }
+  }
+
+  if (plan) query.activePlan = plan;
+  if (emailVerified !== "") query.email_verified = emailVerified === "true";
+  if (adminVerified !== "") query.verified_by_admin = adminVerified === "true";
+
+  const users = await User.find(query).skip((page - 1) * limit).limit(+limit).sort({ created_at: -1 });
+  const total = await User.countDocuments(query);
+
+  res.json({ users, total });
+};
 // Get all users with role = "user"
 exports.getUsers = async (req, res) => {
   try {
@@ -81,67 +113,6 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
-// Register User
-// exports.registerUser = async (req, res) => {
-//   const { username, email, phone_number, password, confirmPassword } = req.body;
-
-//   if (password !== confirmPassword) {
-//     return res.status(400).json({ message: "Passwords do not match" });
-//   }
-
-//   try {
-//     // Check if email or phone number already exists
-//     const existingUser = await User.findOne({
-//       $or: [{ email }, { phone_number }],
-//     });
-
-//     if (existingUser) {
-//       return res
-//         .status(400)
-//         .json({ message: "Email or phone number already exists" });
-//     }
-
-//     // Hash password
-//     const hashedPassword = await bcrypt.hash(password, 10);
-//     const otp = crypto.randomInt(100000, 999999).toString(); // 6-digit OTP
-
-//     // Get default role (e.g., "User")
-//     const defaultRole = await Role.findOne({ role_name: "user" });
-//     if (!defaultRole) {
-//       return res
-//         .status(500)
-//         .json({ message: "Default role not found in database" });
-//     }
-//     console.log(defaultRole, "default r");
-
-//     // Create new user
-//     const user = new User({
-//       username,
-//       email,
-//       phone_number,
-//       password: hashedPassword,
-//       email_otp: otp,
-//       role_id: defaultRole._id,
-//     });
-
-//     await user.save();
-
-//     // Send OTP email
-//     await transporter.sendMail({
-//       from: process.env.EMAIL_USER,
-//       to: email,
-//       subject: "Verify Your Email",
-//       text: `Your OTP for email verification is: ${otp}`,
-//     });
-
-//     res.status(201).json({
-//       message: "User registered. Please verify your email with the OTP sent.",
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
 exports.registerUser = async (req, res) => {
   const {
     username,
@@ -233,11 +204,12 @@ exports.registerUser = async (req, res) => {
           referrerWallet = new Wallet({
             user_id: referred_by,
             userPlanCapitalAmount: 0,
-            dailyProfitAmount: referralProfit,
+            dailyProfitAmount: 0,
             totalWalletPoint: referralProfit,
+            referral_amount: referralProfit,
           });
         } else {
-          referrerWallet.dailyProfitAmount += referralProfit;
+          referrerWallet.referral_amount += referralProfit;
           referrerWallet.totalWalletPoint += referralProfit;
         }
         await referrerWallet.save();
@@ -386,6 +358,30 @@ exports.loginUser = async (req, res) => {
   }
 };
 
+
+// Verify OTP
+exports.verifyOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  try {
+    const user = await User.findOne({ email, email_otp: otp });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid OTP or email" });
+    }
+
+    // Optionally, you can mark the OTP as verified or clear it here
+    // For security, you might want to keep the OTP until the password is reset
+    // user.email_otp = null;
+    // await user.save();
+
+    res.status(200).json({ message: "OTP verified successfully" });
+  } catch (error) {
+    console.error("Verify OTP error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
 // Forgot Password
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
@@ -528,5 +524,240 @@ exports.getAdminInfo = async (req, res) => {
   } catch (error) {
     console.error('Error fetching admin info:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+
+// usersController.js
+exports.getReferralUsers = async (req, res) => {
+  try {
+    const { referred_by } = req.query;
+    console.log('Fetching referred users for:', referred_by);
+
+    // Validate referred_by as ObjectId
+    if (referred_by && !mongoose.Types.ObjectId.isValid(referred_by)) {
+      return res.status(400).json({ message: 'Invalid referred_by ID' });
+    }
+
+    // Build query object
+    const query = { role_id: await Role.findOne({ role_name: "user" }).select('_id') };
+    if (referred_by) {
+      query.referred_by = referred_by;
+    }
+
+    const users = await User.find(query)
+      .select("-password")
+      .populate({
+        path: "role_id",
+        select: "role_name",
+      })
+      .lean(); // Use lean for better performance
+
+    // Fetch subscription status for each user
+    const usersWithStatus = await Promise.all(users.map(async (user) => {
+      const subscription = await UserPlanSubscription.findOne({
+        user_id: user._id,
+        status: 'verified',
+        expires_at: { $gt: new Date() },
+      })
+        .populate('plan_id', 'plan_name')
+        .lean();
+
+      return {
+        ...user,
+        subscriptionStatus: subscription ? 'Active' : 'Inactive',
+        activePlan: subscription ? subscription.plan_id?.plan_name : 'None',
+      };
+    }));
+
+    console.log('Referred Users with Status:', usersWithStatus);
+
+    res.status(200).json(usersWithStatus);
+  } catch (err) {
+    console.error('Error in getReferralUsers:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// In usersController.js
+// usersController.js
+// exports.getUserreferralDashboard = async (req, res) => {
+//   try {
+//     const userId = req.params.id;
+//     if (!mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(400).json({ message: 'Invalid user ID' });
+//     }
+
+//     const user = await User.findById(userId).lean();
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+
+//     const wallet = await Wallet.findOne({ user_id: userId }).lean();
+//     const subscriptions = await UserPlanSubscription.find({
+//       user_id: userId,
+//       status: 'verified',
+//       expires_at: { $gt: new Date() },
+//     })
+//       .populate('plan_id', 'plan_name capital_lockin')
+//       .lean();
+
+//     // Calculate referral count
+//     const referralCount = await User.countDocuments({ referred_by: userId });
+
+//     // Use referral_amount from wallet
+//     const referralEarnings = wallet ? wallet.referral_amount : 0;
+//        console.log(wallet,'wallet');
+       
+//     res.json({
+//       user: {
+//         _id: user._id,
+//         username: user.username,
+//         email: user.email,
+//       },
+//       wallet: wallet || {
+//         userPlanCapitalAmount: 0,
+//         dailyProfitAmount: 0,
+//         totalWalletPoint: 0,
+//         referral_amount: 0,
+//       },
+//       subscriptions,
+//       referralCount,
+//       referralEarnings,
+//     });
+//   } catch (error) {
+//     console.error('Get user dashboard error:', error);
+//     res.status(500).json({ message: error.message || 'Internal server error' });
+//   }
+// };
+
+
+exports.getUserreferralDashboard = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+
+    const user = await User.findById(userId).lean();
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const wallet = await Wallet.findOne({ user_id: userId }).lean();
+    const subscriptions = await UserPlanSubscription.find({
+      user_id: userId,
+      status: 'verified',
+      expires_at: { $gt: new Date() },
+    })
+      .populate('plan_id', 'plan_name capital_lockin')
+      .lean();
+
+    // Calculate referral count
+    const referralCount = await User.countDocuments({ referred_by: userId });
+
+    // Calculate daily and monthly referral profits
+    const referredUsers = await User.find({ referred_by: userId }).lean();
+    let dailyReferralProfit = 0;
+
+    for (const referredUser of referredUsers) {
+      const subscription = await UserPlanSubscription.findOne({
+        user_id: referredUser._id,
+        status: 'verified',
+        expires_at: { $gt: new Date() },
+      })
+        .populate('plan_id')
+        .lean();
+
+      if (subscription && subscription.plan_id) {
+        const plan = subscription.plan_id;
+        const capitalLockin = plan.capital_lockin || 30;
+        const totalProfit = (subscription.amount * Number(plan.profit_percentage)) / 100;
+        const dailyProfit = totalProfit / capitalLockin;
+        dailyReferralProfit += dailyProfit * 0.01; // 1% of referred user's daily profit
+      }
+    }
+
+    const monthlyReferralProfit = dailyReferralProfit * 30; // Estimate for 30 days
+    const referralEarnings = wallet ? wallet.referral_amount : 0;
+
+    res.json({
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+      },
+      wallet: wallet || {
+        userPlanCapitalAmount: 0,
+        dailyProfitAmount: 0,
+        totalWalletPoint: 0,
+        referral_amount: 0,
+      },
+      subscriptions,
+      referralCount,
+      referralEarnings,
+      dailyReferralProfit: Number(dailyReferralProfit.toFixed(2)),
+      monthlyReferralProfit: Number(monthlyReferralProfit.toFixed(2)),
+    });
+  } catch (error) {
+    console.error('Get user dashboard error:', error);
+    res.status(500).json({ message: error.message || 'Internal server error' });
+  }
+};
+
+// ---------------------------------------------------------------
+//  GET /api/users/referred-users   (admin referral dashboard)
+// ---------------------------------------------------------------
+exports.getAllReferredUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 15, search } = req.query;
+    const skip = (page - 1) * limit;
+
+    // 1. Only normal users (role = "user")
+    const userRole = await Role.findOne({ role_name: "user" }).select("_id");
+    if (!userRole) throw new Error("User role not found");
+
+    const filter = {
+      referred_by: { $ne: null },
+      role_id: userRole._id,
+    };
+
+    // 2. Search (username, email, phone, customerId, own referral_code)
+    if (search?.trim()) {
+      const regex = { $regex: search.trim(), $options: "i" };
+      filter.$or = [
+        { username: regex },
+        { email: regex },
+        { phone_number: regex },
+        { customerId: regex },
+        { referral_code: regex },
+      ];
+    }
+
+    const total = await User.countDocuments(filter);
+
+    const users = await User.find(filter)
+      .select("-password -email_otp")
+      .populate({
+        path: "referred_by",
+        select: "username customerId",   // <-- needed for the badge
+      })
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(+limit)
+      .lean();
+
+    res.json({
+      users,
+      pagination: {
+        total,
+        page: +page,
+        pages: Math.ceil(total / limit),
+        limit: +limit,
+      },
+    });
+  } catch (err) {
+    console.error("getAllReferredUsers error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };

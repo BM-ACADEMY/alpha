@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Lock, KeyRound, LockKeyhole, Eye, EyeOff } from "lucide-react";
+import { Lock, LockKeyhole, Eye, EyeOff } from "lucide-react";
 import { showToast } from "@/modules/common/toast/customToast";
 import axiosInstance from "../../lib/axios";
 import logo from "@/assets/images/alphalogo.png";
@@ -11,11 +11,9 @@ function ResetPassword() {
   const { state } = useLocation();
 
   const [formData, setFormData] = useState({
-    otp: "",
     newPassword: "",
     confirmPassword: "",
   });
-
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -62,15 +60,18 @@ function ResetPassword() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!state?.email || state?.from !== "verify-otp") {
+      showToast("error", "Invalid access. Please verify OTP first.");
+      navigate("/forgot-password");
+      return;
+    }
     setLoading(true);
     try {
       const response = await axiosInstance.post("users/reset-password", {
         email: state?.email,
-        otp: formData.otp,
         newPassword: formData.newPassword,
         confirmPassword: formData.confirmPassword,
       });
-
       showToast("success", response?.data?.message || "Password reset successful.");
       navigate("/user-login");
     } catch (error) {
@@ -86,36 +87,18 @@ function ResetPassword() {
       style={{ backgroundImage: `url(${bg})` }}
     >
       <div className="absolute inset-0 bg-black/40" />
-
-      {/* Logo */}
       <div className="absolute top-5 left-8 z-20 flex items-center gap-3">
         <img src={logo} alt="Logo" className="h-[50px]" />
         <span className="text-[#7f9ebb] text-xl font-bold">ALPHA R</span>
       </div>
-
       <form
         onSubmit={handleSubmit}
         className="relative z-20 w-full max-w-md text-center border border-white/20 rounded-2xl px-8 py-10 bg-white/10 backdrop-blur-xl shadow-lg hover:shadow-xl transition-shadow duration-300"
       >
         <h1 className="text-gray-100 text-3xl font-semibold">Reset Password</h1>
         <p className="text-gray-200 text-sm mt-2">
-          Enter the OTP and set your new password
+          Set your new password
         </p>
-
-        {/* OTP Field */}
-        <div className="flex items-center w-full mt-8 bg-white border border-gray-300/80 h-12 rounded-full overflow-hidden pl-6 gap-2">
-          <KeyRound className="w-5 h-5 text-gray-500" />
-          <input
-            type="text"
-            value={formData.otp}
-            onChange={(e) => setFormData({ ...formData, otp: e.target.value })}
-            placeholder="Enter 6-digit OTP"
-            className="bg-transparent text-gray-700 placeholder-gray-500 outline-none text-sm w-full h-full"
-            required
-          />
-        </div>
-
-        {/* New Password */}
         <div className="flex items-center mt-4 w-full bg-white border border-gray-300/80 h-12 rounded-full overflow-hidden pl-6 pr-4 gap-2">
           <Lock className="w-5 h-5 text-gray-500" />
           <input
@@ -137,8 +120,6 @@ function ResetPassword() {
             {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
           </span>
         </div>
-
-        {/* Password Strength Meter */}
         {formData.newPassword && (
           <div className="mt-2 px-4 w-full">
             <div className="w-full h-2 bg-gray-300 rounded-full overflow-hidden">
@@ -156,8 +137,6 @@ function ResetPassword() {
             </p>
           </div>
         )}
-
-        {/* Confirm Password */}
         <div className="flex items-center mt-4 w-full bg-white border border-gray-300/80 h-12 rounded-full overflow-hidden pl-6 pr-4 gap-2">
           <LockKeyhole className="w-5 h-5 text-gray-500" />
           <input
@@ -177,8 +156,6 @@ function ResetPassword() {
             {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
           </span>
         </div>
-
-        {/* Submit Button */}
         <button
           type="submit"
           disabled={loading}
@@ -210,13 +187,11 @@ function ResetPassword() {
             </>
           )}
         </button>
-
-        {/* Back to login */}
         <p className="text-gray-200 text-sm mt-4">
           Remembered your password?{" "}
           <span
             onClick={() => navigate("/user-login")}
-            className="text-grey-200 cursor-pointer hover:underline"
+            className="text-gray-200 cursor-pointer hover:underline"
           >
             Login
           </span>

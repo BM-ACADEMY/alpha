@@ -5,7 +5,20 @@ const WalletSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
-    unique: true,
+  },
+  subscription_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserPlanSubscription',
+    required: true,
+  },
+  plan_name: {
+    type: String,
+    required: true,
+  },
+  amount_type: {
+    type: String,
+    enum: ['INR', 'USDT'],
+    required: true,
   },
   userPlanCapitalAmount: {
     type: Number,
@@ -18,6 +31,12 @@ const WalletSchema = new mongoose.Schema({
     min: 0,
   },
   totalWalletPoint: {
+    type: Number,
+    required: true,
+    min: 0,
+    default: 0,
+  },
+  referral_amount: {
     type: Number,
     required: true,
     min: 0,

@@ -14,6 +14,8 @@ import { adminRoutes } from '@/modules/common/routes/AdminRoutes';
 import Page from './modules/admin/page';
 import ReferralRegister from './modules/common/pages/ReferralRegister';
 import Mainsection from './modules/Homepage/Main/Mainsection';
+import VerifyOtp from './modules/common/pages/verify/OtpInput';
+
 
 function App() {
   return (
@@ -29,6 +31,8 @@ function App() {
         <Route path="/user-login" element={<PrivateRoute allowedRole="login"><UserLogin /></PrivateRoute>} />
         <Route path="/admin-login" element={<PrivateRoute allowedRole="login"><AdminLogin /></PrivateRoute>} />
         <Route path="/signup" element={<PrivateRoute allowedRole="public"><ReferralRegister /></PrivateRoute>} />
+        <Route path="/verify-otp" element={<PrivateRoute allowedRole="public"><VerifyOtp /></PrivateRoute>} />
+
 
         {/* User and Admin Routes */}
         <Route element={<Page />}>

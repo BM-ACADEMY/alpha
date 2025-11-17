@@ -84,11 +84,18 @@ export default function HeroSection() {
 
         {/* CTA Button */}
         <motion.button
-          className="bg-[#d29e45] hover:bg-[#d29e45be] text-white rounded-full px-7 h-11 transition-colors duration-300"
-          variants={fadeUp}
-        >
-          Get started
-        </motion.button>
+  className="bg-[#d29e45] hover:bg-[#d29e45be] text-white rounded-full px-7 h-11 transition-colors duration-300"
+  variants={fadeUp}
+  onClick={() => {
+    const aboutSection = document.getElementById("about");
+    if (aboutSection) {
+      aboutSection.scrollIntoView({ behavior: "smooth" });
+    }
+  }}
+>
+  Get started
+</motion.button>
+
       </motion.div>
     </div>
   );

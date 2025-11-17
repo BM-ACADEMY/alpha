@@ -18,4 +18,11 @@ router.get('/get-all-request', authMiddleware, redeemController.getAllRedeemRequ
 // PATCH /redeem/:id/status - Update redeem request status
 router.put('/update-status/:id', authMiddleware, redeemController.updateRedeemStatus);
 
+
+router.get('/user-requests/:user_id', authMiddleware, redeemController.getUserRedeemRequests);
+
+
+router.get('/transactions/:user_id', authMiddleware, redeemController.getUserTransactions);
+
+
 module.exports = router;

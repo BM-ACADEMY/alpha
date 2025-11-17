@@ -242,16 +242,16 @@ const createSubscription = async (req, res) => {
       });
     }
 
-    // Check for active subscriptions
-    const activeSubscription = await UserPlanSubscription.findOne({
-      user_id,
-      planStatus: "Active",
-      expires_at: { $gt: new Date() },
-    });
-    if (activeSubscription) {
-      console.log("Active subscription exists for user_id:", user_id);
-      return res.status(400).json({ message: "User already has an active subscription" });
-    }
+    // // Check for active subscriptions
+    // const activeSubscription = await UserPlanSubscription.findOne({
+    //   user_id,
+    //   planStatus: "Active",
+    //   expires_at: { $gt: new Date() },
+    // });
+    // if (activeSubscription) {
+    //   console.log("Active subscription exists for user_id:", user_id);
+    //   return res.status(400).json({ message: "User already has an active subscription" });
+    // }
     
     // Fetch profit percentage from Percentage model
     const percentage = await Percentage.findOne({
@@ -262,7 +262,7 @@ const createSubscription = async (req, res) => {
     if (!percentage) {
       console.log("Profit percentage not found for plan:", planExists.plan_name);
       return res.status(404).json({
-        message: "Profit percentage not found for this plan",
+        message: "Profit percentage not found for this plan, please contact admin",
       });
     }
 
@@ -289,9 +289,10 @@ const createSubscription = async (req, res) => {
   }
 };
 const getPurchasedPlans = async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
+  const { page = 1, limit = 10, user_id } = req.query;
   try {
-    const subscriptions = await UserPlanSubscription.find()
+    const query = user_id ? { user_id, planStatus: "Active", expires_at: { $gt: new Date() } } : {};
+    const subscriptions = await UserPlanSubscription.find(query)
       .populate("user_id", "username email phone_number")
       .populate(
         "plan_id",
@@ -300,7 +301,7 @@ const getPurchasedPlans = async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .exec();
-    const count = await UserPlanSubscription.countDocuments();
+    const count = await UserPlanSubscription.countDocuments(query);
     res.json({
       subscriptions,
       totalPages: Math.ceil(count / limit),
@@ -308,7 +309,7 @@ const getPurchasedPlans = async (req, res) => {
     });
   } catch (error) {
     console.error("Get purchased plans error:", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message || "Internal server error" });
   }
 };
 
@@ -377,6 +378,8 @@ const getImage = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
 
 module.exports = {
   searchUser,
