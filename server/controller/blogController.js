@@ -186,3 +186,36 @@ export const updateBlog = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// controller/blogController.js
+export const getPublishedBlogs = async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    // ──────────────────────────────────────────────────────
+    // 1. Build the search part (unchanged)
+    // ──────────────────────────────────────────────────────
+    const searchQuery = search
+      ? {
+          $or: [
+            { title: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } },
+          ],
+        }
+      : {};
+
+    // ──────────────────────────────────────────────────────
+    // 2. **Always** add the “approved” filter
+    // ──────────────────────────────────────────────────────
+    const finalQuery = {
+      ...searchQuery,
+      publish: true,               // ← NEW
+    };
+
+    const blogs = await Blog.find(finalQuery).sort({ createdAt: -1 });
+    res.json(blogs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
