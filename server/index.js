@@ -1,13 +1,18 @@
-const express = require("express");
-const cors = require("cors");
-const dotenv = require("dotenv");
-const cookieParser = require("cookie-parser");
-const connectDB = require("./config/db");
-const helmet = require("helmet");
-const morgan = require("morgan");
-const path = require("path");
-const fs = require("fs");
-const multer = require("multer");
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
+import connectDB from "./config/db.js";
+import helmet from "helmet";
+import morgan from "morgan";
+import path from "path";
+import fs from "fs";
+import multer from "multer";
+import { fileURLToPath } from "url";
+
+// === Fix __dirname in ESM ===
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config();
@@ -17,16 +22,17 @@ const app = express();
 // Create Uploads directory
 const uploadsDir = path.join(__dirname, "Uploads");
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(UploadsDir, { recursive: true });
+  fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 // CORS Configuration
 const allowedOrigins = [
-  process.env.FRONTEND_URL, process.env.PRODUCTION_URL, // Fallback to localhost:3000
-];
+  process.env.FRONTEND_URL || "http://localhost:3000",
+  process.env.PRODUCTION_URL,
+].filter(Boolean); // Remove empty values
+
 const corsOptions = {
   origin: function (origin, callback) {
-    // console.log("CORS Origin:", origin); // Debug origin
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -39,27 +45,25 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
-// Apply CORS to all routes, including static files
+// Apply CORS to all routes
 app.use(cors(corsOptions));
 
 // Serve static files with explicit CORS headers
 app.use(
   "/Uploads",
   (req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", allowedOrigins[0]);
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PATCH, PUT, DELETE, OPTIONS"
-    );
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    }
     next();
   },
   express.static(uploadsDir)
 );
 
 // Apply other middlewares
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 app.use(helmet());
 app.use(morgan("dev"));
@@ -72,27 +76,28 @@ app.use("/api/user-subscription-plan/upload-screenshot", (req, res, next) => {
 
 // Health Check Route
 app.get("/", (req, res) => {
-  res.status(200).send("API is running...");
+  res.status(200).json({ message: "API is running..." });
 });
 
-// Route Imports
-const planRoutes = require("./route/planRoute");
-const percentageRoutes = require("./route/percentageRoute");
-const testimonialRoutes = require("./route/testimonialRoute");
-const complaintRoutes = require("./route/complaintRoute");
-const userRoutes = require("./route/usersRoute");
-const rolesRoutes = require("./route/rolesRoute");
-const accountRoutes = require("./route/accountRoute");
-const addressRoutes = require("./route/addressRoute");
-const userSubscriptionPlanRoute = require("./route/userSubscriptionPlanRoute");
-const walletRoute = require("./route/walletRoute");
-const reportRoute = require("./route/reportRoute");
-const profileImageRoute = require("./route/profileImageRoute");
-const dashboardRoute = require("./route/dashboardRoute");
-const redeemRoute = require("./route/redeemRoute");
-const socialMediaRoutes = require("./route/socialMediaRoutes");
+// === Route Imports (ALL with .js extension) ===
+import planRoutes from "./route/planRoute.js";
+import percentageRoutes from "./route/percentageRoute.js";
+import testimonialRoutes from "./route/testimonialRoute.js";
+import complaintRoutes from "./route/complaintRoute.js";
+import userRoutes from "./route/usersRoute.js";
+import rolesRoutes from "./route/rolesRoute.js";
+import accountRoutes from "./route/accountRoute.js";
+import addressRoutes from "./route/addressRoute.js";
+import userSubscriptionPlanRoute from "./route/userSubscriptionPlanRoute.js";
+import walletRoute from "./route/walletRoute.js";
+import reportRoute from "./route/reportRoute.js";
+import profileImageRoute from "./route/profileImageRoute.js";
+import dashboardRoute from "./route/dashboardRoute.js";
+import redeemRoute from "./route/redeemRoute.js";
+import socialMediaRoutes from "./route/socialMediaRoutes.js";
+import blogRoutes from "./route/blogRoute.js";
 
-// Register Routes with Prefix
+// === Register Routes with Prefix ===
 app.use("/api/plans", planRoutes);
 app.use("/api/percentages", percentageRoutes);
 app.use("/api/testimonials", testimonialRoutes);
@@ -108,8 +113,9 @@ app.use("/api/profile-image", profileImageRoute);
 app.use("/api/dashboard-route", dashboardRoute);
 app.use("/api/redeem", redeemRoute);
 app.use("/api/socialmedia", socialMediaRoutes);
+app.use("/api/blogs", blogRoutes);
 
-// Global Error Handler
+// === Global Error Handler ===
 app.use((err, req, res, next) => {
   console.error("Server error:", {
     message: err.message,
@@ -117,6 +123,7 @@ app.use((err, req, res, next) => {
     method: req.method,
     path: req.path,
   });
+
   if (err instanceof multer.MulterError) {
     return res.status(400).json({ message: `Multer error: ${err.message}` });
   }
@@ -126,21 +133,25 @@ app.use((err, req, res, next) => {
   if (err.code === "ECONNRESET" || err.code === "ECONNABORTED") {
     return res.status(503).json({ message: "Request aborted by client or server" });
   }
-  res.status(500).json({ message: err.message || "Internal server error" });
+
+  res.status(err.status || 500).json({
+    message: err.message || "Internal server error",
+  });
 });
 
-// Connect to DB and Start Server
+// === Connect to DB and Start Server ===
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
     await connectDB();
     app.listen(PORT, () => {
-      console.log(`✅ Server running at http://localhost:${PORT}`);
+      console.log(`Server running at http://localhost:${PORT}`);
     });
   } catch (error) {
-    console.error("❌ Failed to start server:", error.message);
+    console.error("Failed to start server:", error.message);
     process.exit(1);
   }
 };
+
 startServer();

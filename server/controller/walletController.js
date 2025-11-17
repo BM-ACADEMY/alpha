@@ -146,12 +146,22 @@ const addPointsToWallet = async (req, res) => {
   }
 };
 
-// Get all wallet points with pagination, search, and status filter
+// ──────────────────────────────────────────────────────
+// 1. Add amountType to the query parameters
+// ──────────────────────────────────────────────────────
 const getAllWallets = async (req, res) => {
-  const { page = 1, limit = 10, search = '', planStatus = 'all' } = req.query;
+  const {
+    page = 1,
+    limit = 10,
+    search = '',
+    planStatus = 'all',
+    amountType = 'all',          // <-- NEW
+  } = req.query;
+
   try {
     let matchQuery = {};
 
+    // ── Search by user fields ─────────────────────────────────────
     if (search) {
       const users = await User.find({
         $or: [
@@ -161,11 +171,17 @@ const getAllWallets = async (req, res) => {
         ],
       }).select('_id');
 
-      const userIds = users.map(user => user._id);
+      const userIds = users.map(u => u._id);
       matchQuery.user_id = { $in: userIds.length ? userIds : [null] };
     }
 
-    const wallets = await Wallet.aggregate([
+    // ── Amount Type filter ────────────────────────────────────────
+    if (amountType !== 'all') {
+      matchQuery.amount_type = amountType;   // <-- NEW
+    }
+
+    // ── Aggregation pipeline ───────────────────────────────────────
+    const pipeline = [
       { $match: matchQuery },
       {
         $lookup: {
@@ -176,16 +192,12 @@ const getAllWallets = async (req, res) => {
         },
       },
       {
-        $unwind: {
-          path: '$subscription',
-          preserveNullAndEmptyArrays: true,
-        },
+        $unwind: { path: '$subscription', preserveNullAndEmptyArrays: true },
       },
-      {
-        $match: planStatus !== 'all' ? {
-          'subscription.planStatus': planStatus,
-        } : {},
-      },
+      // Plan-status filter (if not "all")
+      ...(planStatus !== 'all'
+        ? [{ $match: { 'subscription.planStatus': planStatus } }]
+        : []),
       {
         $lookup: {
           from: 'users',
@@ -194,12 +206,7 @@ const getAllWallets = async (req, res) => {
           as: 'user_id',
         },
       },
-      {
-        $unwind: {
-          path: '$user_id',
-          preserveNullAndEmptyArrays: true,
-        },
-      },
+      { $unwind: { path: '$user_id', preserveNullAndEmptyArrays: true } },
       {
         $project: {
           _id: 1,
@@ -219,10 +226,13 @@ const getAllWallets = async (req, res) => {
           planStatus: '$subscription.planStatus',
         },
       },
-      { $skip: (page - 1) * limit },
-      { $limit: limit * 1 },
-    ]);
+      { $skip: (page - 1) * Number(limit) },
+      { $limit: Number(limit) },
+    ];
 
+    const wallets = await Wallet.aggregate(pipeline);
+
+    // ── Count pipeline (same filters) ───────────────────────────────
     const countPipeline = [
       { $match: matchQuery },
       {
@@ -233,34 +243,26 @@ const getAllWallets = async (req, res) => {
           as: 'subscription',
         },
       },
-      {
-        $unwind: {
-          path: '$subscription',
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      planStatus !== 'all' ? {
-        $match: {
-          'subscription.planStatus': planStatus,
-        },
-      } : { $match: {} },
+      { $unwind: { path: '$subscription', preserveNullAndEmptyArrays: true } },
+      ...(planStatus !== 'all'
+        ? [{ $match: { 'subscription.planStatus': planStatus } }]
+        : []),
       { $count: 'total' },
     ];
 
     const countResult = await Wallet.aggregate(countPipeline);
-    const total = countResult.length > 0 ? countResult[0].total : 0;
+    const total = countResult[0]?.total || 0;
 
     res.json({
       wallets,
       totalPages: Math.ceil(total / limit),
-      currentPage: page * 1,
+      currentPage: Number(page),
     });
   } catch (error) {
-    console.error("Get wallets error:", error);
-    res.status(500).json({ message: error.message || "Internal server error" });
+    console.error('Get wallets error:', error);
+    res.status(500).json({ message: error.message || 'Internal server error' });
   }
 };
-
 // New function to fetch all wallets for a specific user
 const getUserWallets = async (req, res) => {
   const { userId } = req.params;

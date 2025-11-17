@@ -31,9 +31,11 @@ import axiosInstance from "@/modules/common/lib/axios";
 import ConfirmationDialog from "@/modules/common/reusable/ConfirmationDialog";
 import { showToast } from "@/modules/common/toast/customToast";
 
-// Form validation schema
+// -------------------------------------------------
+// Validation schema
+// -------------------------------------------------
 const formSchema = z.object({
-  category: z.enum(["starter", "advanced", "premium", "elite"]),
+  category: z.string().min(1, { message: "Please select a plan" }),
   amount_type: z.enum(["INR", "USDT"]),
   profit_percentage: z.string().refine(
     (val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 0,
@@ -50,6 +52,9 @@ const formSchema = z.object({
 });
 
 const PercentageManager = () => {
+  // -----------------------------------------------------------------
+  // State
+  // -----------------------------------------------------------------
   const [percentages, setPercentages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -57,10 +62,19 @@ const PercentageManager = () => {
   const [editingId, setEditingId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Plans
+  const [plans, setPlans] = useState([]);
+  const [filteredPlans, setFilteredPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [isPlansReady, setIsPlansReady] = useState(false);
+
+  // Pending edit payload
+  const [pendingEdit, setPendingEdit] = useState(null);
+
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      category: "starter",
+      category: "",
       amount_type: "INR",
       profit_percentage: "",
       withdrawal_percentage: "",
@@ -68,23 +82,108 @@ const PercentageManager = () => {
     },
   });
 
-  // Fetch all percentages
+  // -----------------------------------------------------------------
+  // Fetch percentages
+  // -----------------------------------------------------------------
   const fetchPercentages = async () => {
     try {
       setIsLoading(true);
-      const response = await axiosInstance.get("/percentages/fetch-all-percentages");
-      setPercentages(response.data);
+      const { data } = await axiosInstance.get("/percentages/fetch-all-percentages");
+      setPercentages(data);
     } catch (error) {
       showToast(
         "error",
-        `Failed to fetch percentages : ${error}`,
+        `Failed to fetch percentages: ${error.response?.data?.message || error.message}`
       );
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Create or Update percentage
+  // -----------------------------------------------------------------
+  // Fetch plans
+  // -----------------------------------------------------------------
+  const fetchPlans = async () => {
+    try {
+      setPlansLoading(true);
+      const { data } = await axiosInstance.get("/plans");
+      setPlans(data);
+    } catch (error) {
+      showToast(
+        "error",
+        `Failed to load plans: ${error.response?.data?.message || error.message}`
+      );
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  // -----------------------------------------------------------------
+  // Filter plans when amount_type changes
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    const amt = form.watch("amount_type");
+    if (!amt) {
+      setFilteredPlans([]);
+      setIsPlansReady(false);
+      return;
+    }
+    const filtered = plans.filter((p) => p.amount_type === amt);
+    setFilteredPlans(filtered);
+    setIsPlansReady(true);
+  }, [form.watch("amount_type"), plans]);
+
+  // -----------------------------------------------------------------
+  // Reset category when amount_type changes
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "amount_type") {
+        form.setValue("category", "");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  // -----------------------------------------------------------------
+  // Apply pending edit – safely
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    if (!pendingEdit || !isPlansReady) return;
+
+    const { id, category, profit, withdrawal, platform } = pendingEdit;
+
+    // Normalize for comparison
+    const savedPlanName = category.trim().toLowerCase();
+    const planExists = filteredPlans.some(
+      (p) => p.plan_name.trim().toLowerCase() === savedPlanName
+    );
+
+    // Always set the saved category (plan name)
+    form.setValue("category", category);
+
+    // Set other fields
+    form.setValue("profit_percentage", profit);
+    form.setValue("withdrawal_percentage", withdrawal);
+    form.setValue("platform_percentage", platform);
+    setEditingId(id);
+
+    // Only warn if plan is truly missing
+    if (!planExists) {
+      showToast(
+        "warning",
+        `The saved plan "${category}" is not available for ${form.getValues(
+          "amount_type"
+        )}. You can select a different one.`
+      );
+    }
+
+    setPendingEdit(null);
+  }, [pendingEdit, isPlansReady, filteredPlans, form]);
+
+  // -----------------------------------------------------------------
+  // Submit (create / update)
+  // -----------------------------------------------------------------
   const onSubmit = async (values) => {
     try {
       setIsSubmitting(true);
@@ -97,91 +196,101 @@ const PercentageManager = () => {
 
       if (editingId) {
         await axiosInstance.put(`/percentages/update-percentage/${editingId}`, payload);
-        showToast(
-          "Success",
-          "Percentage updated successfully",
-        );
-        form.reset({
-          profit_percentage: '',
-          withdrawal_percentage: '',
-          platform_percentage: ''
-        });
+        showToast("Success", "Percentage updated successfully");
         setEditingId(null);
       } else {
         await axiosInstance.post("/percentages/add-percentage", payload);
-        showToast(
-          "Success",
-          "Percentage created successfully",
-        );
-        form.reset({
-          profit_percentage: '',
-          withdrawal_percentage: '',
-          platform_percentage: ''
-        });
+        showToast("Success", "Percentage created successfully");
       }
+
+      const keepAmt = form.getValues("amount_type");
+      form.reset({
+        category: "",
+        amount_type: keepAmt,
+        profit_percentage: "",
+        withdrawal_percentage: "",
+        platform_percentage: "",
+      });
+
       fetchPercentages();
     } catch (error) {
       showToast(
         "Error",
-        `${error.response?.data?.message || "Operation failed"}`,
+        `${error.response?.data?.message || "Operation failed"}`
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle edit
+  // -----------------------------------------------------------------
+  // EDIT – reliable
+  // -----------------------------------------------------------------
   const handleEdit = async (id) => {
     try {
-      const response = await axiosInstance.get(`/percentages/fetch-percentage-by-id/${id}`);
-      const percentage = response.data;
-      form.reset({
-        category: percentage.category,
-        amount_type: percentage.amount_type,
-        profit_percentage: percentage.profit_percentage.$numberDecimal.toString(),
-        withdrawal_percentage: percentage.withdrawal_percentage.$numberDecimal.toString(),
-        platform_percentage: percentage.platform_percentage.$numberDecimal.toString(),
+      const { data: percentage } = await axiosInstance.get(
+        `/percentages/fetch-percentage-by-id/${id}`
+      );
+
+      // 1. Set amount_type → triggers filteredPlans
+      form.setValue("amount_type", percentage.amount_type);
+
+      // 2. Store rest → applied after dropdown is ready
+      setPendingEdit({
+        id,
+        category: percentage.category, // e.g., "basic"
+        profit: percentage.profit_percentage.$numberDecimal.toString(),
+        withdrawal: percentage.withdrawal_percentage.$numberDecimal.toString(),
+        platform: percentage.platform_percentage.$numberDecimal.toString(),
       });
-      setEditingId(id);
     } catch (error) {
       showToast(
         "Error",
-        `Failed to fetch percentage data : ${error}`,
+        `Failed to fetch percentage data: ${error.response?.data?.message || error.message}`
       );
     }
   };
 
-  // Handle delete
+  // -----------------------------------------------------------------
+  // DELETE
+  // -----------------------------------------------------------------
   const handleDelete = async () => {
     try {
       await axiosInstance.delete(`/percentages/delete-percentage/${deleteId}`);
-      showToast(
-        "Success",
-        "Percentage deleted successfully",
-      );
+      showToast("Success", "Percentage deleted successfully");
       fetchPercentages();
     } catch (error) {
       showToast(
         "Error",
-        `${error.response?.data?.message || "Deletion failed"}`,
+        `${error.response?.data?.message || "Deletion failed"}`
       );
+    } finally {
+      setIsDialogOpen(false);
+      setDeleteId(null);
     }
   };
 
-  // Open delete confirmation dialog
   const openDeleteDialog = (id) => {
     setDeleteId(id);
     setIsDialogOpen(true);
   };
 
+  // -----------------------------------------------------------------
+  // Initial load
+  // -----------------------------------------------------------------
   useEffect(() => {
     fetchPercentages();
+    fetchPlans();
   }, []);
 
+  // -----------------------------------------------------------------
+  // Render
+  // -----------------------------------------------------------------
   return (
     <div className="container mx-auto p-6 max-w-7xl">
+      {/* ==================== FORM CARD ==================== */}
       <Card className="mb-8 shadow-lg">
-       <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
           <CardTitle>
             {editingId ? "Edit Percentage" : "Create Percentage"}
           </CardTitle>
@@ -190,29 +299,7 @@ const PercentageManager = () => {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="starter">Starter</SelectItem>
-                          <SelectItem value="advanced">Advanced</SelectItem>
-                          <SelectItem value="premium">Premium</SelectItem>
-                          <SelectItem value="elite">Elite</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* ----- Amount Type ----- */}
                 <FormField
                   control={form.control}
                   name="amount_type"
@@ -234,6 +321,50 @@ const PercentageManager = () => {
                     </FormItem>
                   )}
                 />
+
+                {/* ----- Dynamic Category (Plan) ----- */}
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category (Plan)</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={plansLoading || !isPlansReady}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue
+                              placeholder={
+                                plansLoading
+                                  ? "Loading plans..."
+                                  : !isPlansReady
+                                  ? "Select Amount Type first"
+                                  : "Select a plan"
+                              }
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+
+                        <SelectContent>
+                          {filteredPlans.map((plan) => {
+                            const label = `${plan.amount_type} - ${plan.plan_name}`;
+                            return (
+                              <SelectItem key={plan._id} value={plan.plan_name}>
+                                {label}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* ----- Profit % ----- */}
                 <FormField
                   control={form.control}
                   name="profit_percentage"
@@ -253,6 +384,8 @@ const PercentageManager = () => {
                     </FormItem>
                   )}
                 />
+
+                {/* ----- Withdrawal % ----- */}
                 <FormField
                   control={form.control}
                   name="withdrawal_percentage"
@@ -272,6 +405,8 @@ const PercentageManager = () => {
                     </FormItem>
                   )}
                 />
+
+                {/* ----- Platform % ----- */}
                 <FormField
                   control={form.control}
                   name="platform_percentage"
@@ -292,24 +427,34 @@ const PercentageManager = () => {
                   )}
                 />
               </div>
-              <div className="flex gap-3">
+
+              {/* ----- Responsive Buttons ----- */}
+              <div className="flex flex-col sm:flex-row gap-3 mt-4">
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-[#d09d42] w-full text-white hover:bg-[#0f1c3f] cursor-pointer"
+                  className="bg-[#d09d42] flex-1 text-white hover:bg-[#0f1c3f]"
                 >
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingId ? "Update Percentage" : "Create Percentage"}
                 </Button>
+
                 {editingId && (
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      form.reset();
+                      const keepAmt = form.getValues("amount_type");
+                      form.reset({
+                        category: "",
+                        amount_type: keepAmt,
+                        profit_percentage: "",
+                        withdrawal_percentage: "",
+                        platform_percentage: "",
+                      });
                       setEditingId(null);
                     }}
-                    className="border-gray-300"
+                    className="flex-1 border-gray-300"
                   >
                     Cancel Edit
                   </Button>
@@ -320,9 +465,10 @@ const PercentageManager = () => {
         </CardContent>
       </Card>
 
+      {/* ==================== LIST CARD ==================== */}
       <Card className="shadow-lg">
         <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
-          <CardTitle >Percentages List</CardTitle>
+          <CardTitle>Percentages List</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           {isLoading ? (
@@ -346,6 +492,7 @@ const PercentageManager = () => {
                     <TableHead className="font-semibold text-gray-700">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
+
                 <TableBody>
                   {percentages.map((percentage) => (
                     <TableRow
@@ -353,16 +500,17 @@ const PercentageManager = () => {
                       className="hover:bg-gray-100 transition-colors duration-200"
                     >
                       <TableCell
-                        className={`font-medium capitalize ${percentage.category === "starter"
+                        className={`font-medium capitalize ${
+                          percentage.category.toLowerCase().includes("starter")
                             ? "text-green-600"
-                            : percentage.category === "advanced"
-                              ? "text-blue-600"
-                              : percentage.category === "premium"
-                                ? "text-yellow-600"
-                                : percentage.category === "elite"
-                                  ? "text-purple-600"
-                                  : "text-gray-600"
-                          }`}
+                            : percentage.category.toLowerCase().includes("advanced")
+                            ? "text-blue-600"
+                            : percentage.category.toLowerCase().includes("premium")
+                            ? "text-yellow-600"
+                            : percentage.category.toLowerCase().includes("elite")
+                            ? "text-purple-600"
+                            : "text-gray-600"
+                        }`}
                       >
                         {percentage.category}
                       </TableCell>
@@ -371,17 +519,22 @@ const PercentageManager = () => {
                         className={
                           percentage.amount_type === "INR"
                             ? "text-green-600 font-semibold"
-                            : percentage.amount_type === "USDT"
-                              ? "text-blue-600 font-semibold"
-                              : "text-gray-600"
+                            : "text-blue-600 font-semibold"
                         }
                       >
                         {percentage.amount_type}
                       </TableCell>
 
-                      <TableCell>{percentage.profit_percentage.$numberDecimal.toString()}</TableCell>
-                      <TableCell>{percentage.withdrawal_percentage.$numberDecimal.toString()}</TableCell>
-                      <TableCell>{percentage.platform_percentage.$numberDecimal.toString()}</TableCell>
+                      <TableCell>
+                        {percentage.profit_percentage.$numberDecimal.toString()}
+                      </TableCell>
+                      <TableCell>
+                        {percentage.withdrawal_percentage.$numberDecimal.toString()}
+                      </TableCell>
+                      <TableCell>
+                        {percentage.platform_percentage.$numberDecimal.toString()}
+                      </TableCell>
+
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
@@ -413,6 +566,7 @@ const PercentageManager = () => {
         </CardContent>
       </Card>
 
+      {/* ==================== DELETE DIALOG ==================== */}
       <ConfirmationDialog
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}

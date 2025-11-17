@@ -21,6 +21,7 @@ const WalletManagement = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [planStatusFilter, setPlanStatusFilter] = useState('all');
+  const [amountTypeFilter, setAmountTypeFilter] = useState('all');
   const debounceTimer = useRef(null);
 
   // Debounce search for user subscriptions
@@ -63,7 +64,7 @@ const WalletManagement = () => {
     setWalletSearchQuery(e.target.value);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
-      fetchWallets(currentPage, e.target.value, planStatusFilter);
+      fetchWallets(1, e.target.value, planStatusFilter, amountTypeFilter);
     }, 1000);
   };
 
@@ -92,7 +93,6 @@ const WalletManagement = () => {
       });
       console.log('Points added:', res.data);
       setStatusMessage(res.data.message);
-      // Update subscriptions to reflect pointsAdded status
       setSubscriptions((prev) =>
         prev.map((sub) =>
           sub._id === selectedSubscription._id ? { ...sub, pointsAdded: true } : sub
@@ -101,7 +101,7 @@ const WalletManagement = () => {
       setSelectedSubscription(null);
       setAmount('');
       setProfitPercentage('');
-      fetchWallets(currentPage, walletSearchQuery, planStatusFilter);
+      fetchWallets(currentPage, walletSearchQuery, planStatusFilter, amountTypeFilter);
     } catch (error) {
       console.error('Add points error:', error.message, error.response?.data);
       setStatusMessage(error.response?.data?.message || 'Failed to add points to wallet');
@@ -110,13 +110,14 @@ const WalletManagement = () => {
     }
   };
 
-  // Fetch all wallets with search and filter
-  const fetchWallets = async (page, search = '', status = 'all') => {
+  // Fetch all wallets with search, status, and amount type filter
+  const fetchWallets = async (page, search = '', status = 'all', amountType = 'all') => {
     try {
       let url = `/wallet-point/wallets?page=${page}&limit=10`;
       if (search) url += `&search=${encodeURIComponent(search)}`;
       if (status !== 'all') url += `&planStatus=${status}`;
-      
+      if (amountType !== 'all') url += `&amountType=${amountType}`;
+
       const res = await axiosInstance.get(url);
       setWallets(res.data.wallets);
       setTotalPages(res.data.totalPages);
@@ -130,13 +131,20 @@ const WalletManagement = () => {
   const handlePlanStatusFilter = (status) => {
     setPlanStatusFilter(status);
     setCurrentPage(1);
-    fetchWallets(1, walletSearchQuery, status);
+    fetchWallets(1, walletSearchQuery, status, amountTypeFilter);
   };
 
-  // Fetch wallets on mount and when page, search, or filter changes
+  // Handle amount type filter change
+  const handleAmountTypeFilter = (type) => {
+    setAmountTypeFilter(type);
+    setCurrentPage(1);
+    fetchWallets(1, walletSearchQuery, planStatusFilter, type);
+  };
+
+  // Fetch wallets on mount and when page, search, or filters change
   useEffect(() => {
-    fetchWallets(currentPage, walletSearchQuery, planStatusFilter);
-  }, [currentPage, planStatusFilter]);
+    fetchWallets(currentPage, walletSearchQuery, planStatusFilter, amountTypeFilter);
+  }, [currentPage, planStatusFilter, amountTypeFilter]);
 
   // Pagination handlers
   const handlePageChange = (page) => {
@@ -304,6 +312,17 @@ const WalletManagement = () => {
                 <option value="Inactive">Inactive</option>
               </select>
             </div>
+            <div className="flex items-center space-x-2">
+              <select
+                value={amountTypeFilter}
+                onChange={(e) => handleAmountTypeFilter(e.target.value)}
+                className="border rounded p-2"
+              >
+                <option value="all">All Types</option>
+                <option value="INR">INR</option>
+                <option value="USDT">USDT</option>
+              </select>
+            </div>
           </div>
           <Table>
             <TableHeader>
@@ -314,6 +333,7 @@ const WalletManagement = () => {
                 <TableHead>Referral Earnings</TableHead>
                 <TableHead>Total Wallet Points</TableHead>
                 <TableHead>Plan Status</TableHead>
+                <TableHead>Amount Type</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -327,6 +347,7 @@ const WalletManagement = () => {
                   <TableCell>{wallet.referral_amount?.toFixed(2) || '0.00'}</TableCell>
                   <TableCell>{wallet.totalWalletPoint?.toFixed(2) || '0.00'}</TableCell>
                   <TableCell>{wallet.planStatus || 'N/A'}</TableCell>
+                  <TableCell>{wallet.amount_type || 'N/A'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
