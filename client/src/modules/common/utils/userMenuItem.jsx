@@ -1,3 +1,4 @@
+import { IconBlocks } from '@tabler/icons-react';
 import {
   LayoutDashboard,
   BarChart,
@@ -68,6 +69,11 @@ export const userMenuItems = {
       title: 'Social Media',
       url: '/user-dashboard/social',
       icon: Link,
+    },
+    {
+      title: 'Blogs',
+      url: '/user-dashboard/blogs',
+      icon: IconBlocks,
     },
   ],
   navSecondary: [

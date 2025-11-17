@@ -18,6 +18,7 @@ import { getImageUrl } from '@/utils/ImageHelper';
 export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [publish, setPublish] = useState(false); // NEW: publish state
   const [imageFiles, setImageFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
@@ -26,12 +27,13 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
   const resetForm = () => {
     setTitle('');
     setDescription('');
+    setPublish(false); // Reset publish
     setImageFiles([]);
     setPreviews([]);
     setExistingImages([]);
   };
 
-  // FIXED: Populate form when modal opens with initialBlog
+  // Populate form when modal opens or initialBlog changes
   useEffect(() => {
     if (!open) {
       resetForm();
@@ -41,6 +43,7 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
     if (initialBlog) {
       setTitle(initialBlog.title || '');
       setDescription(initialBlog.description || '');
+      setPublish(!!initialBlog.publish); // Set publish status
       setExistingImages(initialBlog.images ? [...initialBlog.images] : []);
       setPreviews(
         initialBlog.images ? initialBlog.images.map(getImageUrl) : []
@@ -111,6 +114,7 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
     const form = new FormData();
     form.append('title', title.trim());
     form.append('description', description.trim());
+    form.append('publish', publish); // SEND PUBLISH STATUS
 
     existingImages.forEach((path) => form.append('existingImages', path));
     imageFiles.forEach((file) => form.append('images', file));
@@ -174,6 +178,20 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
               rows={4}
               className="mt-1"
             />
+          </div>
+
+          {/* Publish Toggle */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="publish"
+              checked={publish}
+              onChange={(e) => setPublish(e.target.checked)}
+              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+            />
+            <Label htmlFor="publish" className="cursor-pointer select-none">
+              Publish this blog
+            </Label>
           </div>
 
           {/* Existing Images */}
