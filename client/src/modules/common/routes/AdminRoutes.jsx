@@ -14,7 +14,7 @@ import UserVerificationTabs from '@/modules/admin/pages/verified/VerifiedUser';
 import Social from '@/modules/admin/pages/Social/Social';
 import Blogs from '@/modules/admin/pages/blogs/blogs';
 import Referral from '@/modules/admin/pages/referrals/referral'
-
+import Testimonials from '@/modules/admin/pages/testimonials/testimonial'
 export const adminRoutes = [
   {
     path: '/admin-dashboard',
@@ -141,6 +141,14 @@ export const adminRoutes = [
     element: (
       <PrivateRoute allowedRole="admin">
         <Referral />
+      </PrivateRoute>
+    ),
+  },
+   {
+    path: '/admin-dashboard/testimonials',
+    element: (
+      <PrivateRoute allowedRole="admin">
+        <Testimonials />
       </PrivateRoute>
     ),
   },

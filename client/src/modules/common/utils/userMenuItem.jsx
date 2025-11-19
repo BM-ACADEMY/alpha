@@ -75,6 +75,11 @@ export const userMenuItems = {
       url: '/user-dashboard/blogs',
       icon: IconBlocks,
     },
+     {
+      title: 'Testimonial',
+      url: '/user-dashboard/testimonials',
+      icon: IconBlocks,
+    },
   ],
   navSecondary: [
     {
