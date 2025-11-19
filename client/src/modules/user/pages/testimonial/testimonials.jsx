@@ -1,3 +1,4 @@
+// components/TestimonialForm.jsx
 import React, { useContext, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,18 +13,15 @@ import { Star, Edit2, Trash2 } from "lucide-react";
 import { AuthContext } from "@/modules/common/context/AuthContext";
 import axiosInstance from "@/modules/common/lib/axios";
 
-/* ------------------- Safe Rating Badge Color ------------------- */
 const getRatingColor = (rating) => {
-  const r = typeof rating === "number" ? rating : 0;
-  if (r >= 4.5) return "bg-green-500 text-white";
-  if (r >= 3) return "bg-yellow-500 text-white";
-  if (r > 0) return "bg-red-500 text-white";
+  if (rating >= 4.5) return "bg-green-500 text-white";
+  if (rating >= 3.5) return "bg-yellow-500 text-white";
+  if (rating >= 1) return "bg-red-500 text-white";
   return "bg-gray-200 text-gray-700";
 };
 
-/* ------------------- Read-Only Star Rating (Safe) ------------------- */
 function ReadOnlyHalfStarRating({ value }) {
-  const rating = typeof value === "number" && value >= 0 ? value : 0;
+  const rating = Number(value) || 0;
 
   return (
     <div className="flex items-center gap-1">
@@ -55,7 +53,6 @@ function ReadOnlyHalfStarRating({ value }) {
   );
 }
 
-/* ------------------- Editable Half-Star Rating ------------------- */
 function HalfStarRating({ value, onRate, disabled }) {
   const [hover, setHover] = useState(0);
   const displayValue = hover || value || 0;
@@ -97,23 +94,17 @@ function HalfStarRating({ value, onRate, disabled }) {
           </div>
         );
       })}
-      <div
-        className={`ml-3 rounded-full px-3 py-1 text-xs font-medium shadow ${getRatingColor(
-          value
-        )}`}
-      >
-        {(value || 0).toFixed(1)} / 5
-      </div>
+      <span className="ml-3 text-sm font-medium text-gray-600">
+        {value ? value.toFixed(1) : "0.0"} / 5.0
+      </span>
     </div>
   );
 }
 
-/* ------------------- Main Component ------------------- */
 export default function TestimonialForm() {
   const { user } = useContext(AuthContext);
-
-  const [review, setReview] = useState(null);        // null = no review, object = has review
-  const [isEditing, setIsEditing] = useState(false); // only true when editing
+  const [review, setReview] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -121,37 +112,36 @@ export default function TestimonialForm() {
   const [rating, setRating] = useState(0);
   const [comments, setComments] = useState("");
 
-  /* ------------------- Fetch User's Review on Mount ------------------- */
   useEffect(() => {
     if (!user) {
       setIsLoading(false);
       return;
     }
 
-    const fetchMyReview = async () => {
+    const fetchReview = async () => {
       try {
         setIsLoading(true);
         const res = await axiosInstance.get("/testimonials/my-reviews");
         setReview(res.data);
-        setRating(res.data?.rating || 0);
-        setComments(res.data?.comments || "");
+        setRating(res.data.rating);
+        setComments(res.data.comments || "");
       } catch (err) {
         if (err.response?.status !== 404) {
-          console.error("Error loading review:", err);
+          console.error("Error fetching review:", err);
+          setError("Failed to load your review.");
         }
-        setReview(null); // No review found
+        setREVIEW(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchMyReview();
+    fetchReview();
   }, [user]);
 
-  /* ------------------- Submit (Create or Update) ------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!user || !rating) {
+    if (!user || rating < 0.5) {
       setError("Please select a rating.");
       return;
     }
@@ -164,19 +154,14 @@ export default function TestimonialForm() {
 
       let response;
       if (review) {
-        // Update existing
-        response = await axiosInstance.put(`/testimonials/${review.id}`, payload);
+        response = await axiosInstance.put(`/testimonials/${review._id}`, payload);
       } else {
-        // Create new
-        response = await axiosInstance.post("/testimonials", {
-          ...payload,
-          user_id: user.id,
-        });
+        response = await axiosInstance.post("/testimonials", payload);
       }
 
-      const updatedReview = response.data.testimonial || response.data;
-      setReview(updatedReview);
-      setIsEditing(false); // Exit edit mode
+      const updated = response.data.testimonial || response.data;
+      setReview(updated);
+      setIsEditing(false);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save review.");
     } finally {
@@ -184,13 +169,12 @@ export default function TestimonialForm() {
     }
   };
 
-  /* ------------------- Delete Review ------------------- */
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete your review?")) return;
+    if (!confirm("Delete your review permanently?")) return;
 
     setIsDeleting(true);
     try {
-      await axiosInstance.delete(`/testimonials/${review.id}`);
+      await axiosInstance.delete(`/testimonials/${review._id}`);
       setReview(null);
       setRating(0);
       setComments("");
@@ -201,10 +185,9 @@ export default function TestimonialForm() {
     }
   };
 
-  /* ------------------- Loading State ------------------- */
   if (isLoading) {
     return (
-      <Card className="max-w-md mx-auto mt-10">
+      <Card className="max-w-2xl mx-auto mt-10">
         <CardContent className="py-12 text-center text-gray-500">
           Loading your review...
         </CardContent>
@@ -212,7 +195,17 @@ export default function TestimonialForm() {
     );
   }
 
-  /* ------------------- CASE 1: User HAS a review → Show only review + Edit/Delete ------------------- */
+  if (!user) {
+    return (
+      <Card className="max-w-md mx-auto mt-10">
+        <CardContent className="py-12 text-center">
+          <p className="text-gray-600">Please log in to leave or view your review.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // SHOW EXISTING REVIEW
   if (review && !isEditing) {
     return (
       <Card className="max-w-2xl mx-auto mt-10 shadow-lg">
@@ -221,7 +214,7 @@ export default function TestimonialForm() {
             <div>
               <CardTitle>Your Review</CardTitle>
               <CardDescription>
-                By <strong>{user?.name || user?.email}</strong>
+                By <strong>{user.name || user.email}</strong>
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -229,13 +222,12 @@ export default function TestimonialForm() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  setRating(review.rating || 0);
+                  setRating(review.rating);
                   setComments(review.comments || "");
                   setIsEditing(true);
                 }}
               >
-                <Edit2 className="w-4 h-4 mr-1" />
-                Edit
+                <Edit2 className="w-4 h-4 mr-1" /> Edit
               </Button>
               <Button
                 size="sm"
@@ -264,66 +256,13 @@ export default function TestimonialForm() {
     );
   }
 
-  /* ------------------- CASE 2: Editing Existing Review ------------------- */
-  if (isEditing && review) {
-    return (
-      <Card className="max-w-md mx-auto mt-10 shadow-lg">
-        <CardHeader>
-          <CardTitle>Edit Your Review</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Rating <span className="text-red-500">*</span>
-              </label>
-              <HalfStarRating value={rating} onRate={setRating} disabled={isSubmitting} />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="edit-comments" className="text-sm font-medium">
-                Your Review (optional)
-              </label>
-              <Textarea
-                id="edit-comments"
-                placeholder="Update your experience..."
-                value={comments}
-                onChange={(e) => setComments(e.target.value)}
-                disabled={isSubmitting}
-                className="min-h-[120px] resize-none"
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <Button type="submit" disabled={isSubmitting} className="flex-1">
-                {isSubmitting ? "Saving..." : "Update Review"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsEditing(false)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-            </div>
-
-            {error && <p className="text-sm text-red-600 text-center">{error}</p>}
-          </form>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  /* ------------------- CASE 3: No Review → Show ONLY the form ------------------- */
+  // EDIT OR CREATE FORM
   return (
     <Card className="max-w-md mx-auto mt-10 shadow-lg">
       <CardHeader>
-        <CardTitle>Leave a Review</CardTitle>
+        <CardTitle>{review ? "Edit Your Review" : "Leave a Review"}</CardTitle>
         <CardDescription>
-          {user
-            ? `Hi ${user.name || user.email}, your feedback matters!`
-            : "Please log in to leave a review."}
+          Hi {user.name || user.email}, your feedback matters!
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -332,7 +271,7 @@ export default function TestimonialForm() {
             <label className="text-sm font-medium">
               Rating <span className="text-red-500">*</span>
             </label>
-            <HalfStarRating value={rating} onRate={setRating} disabled={isSubmitting || !user} />
+            <HalfStarRating value={rating} onRate={setRating} disabled={isSubmitting} />
           </div>
 
           <div className="space-y-2">
@@ -341,21 +280,24 @@ export default function TestimonialForm() {
             </label>
             <Textarea
               id="comments"
-              placeholder="Tell us about your experience..."
+              placeholder="Share your experience..."
               value={comments}
               onChange={(e) => setComments(e.target.value)}
-              disabled={isSubmitting || !user}
+              disabled={isSubmitting}
               className="min-h-[120px] resize-none"
             />
           </div>
 
-          <Button
-            type="submit"
-            disabled={isSubmitting || !user || !rating}
-            className="w-full"
-          >
-            {isSubmitting ? "Submitting..." : "Submit Review"}
-          </Button>
+          <div className="flex gap-3">
+            <Button type="submit" disabled={isSubmitting || rating < 0.5} className="flex-1">
+              {isSubmitting ? "Saving..." : review ? "Update Review" : "Submit Review"}
+            </Button>
+            {review && (
+              <Button type="button" variant="outline" onClick={() => setIsEditing(false)} disabled={isSubmitting}>
+                Cancel
+              </Button>
+            )}
+          </div>
 
           {error && <p className="text-sm text-red-600 text-center">{error}</p>}
         </form>

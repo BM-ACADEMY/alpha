@@ -1,164 +1,65 @@
 const mongoose = require("mongoose");
 const Testimonial = require("../model/testimonialModel");
 
-// CREATE
+// Validate rating: must be 0.5 to 5.0 in 0.5 increments
+const validateRating = (rating) => {
+  return (
+    typeof rating === "number" &&
+    rating >= 0.5 &&
+    rating <= 5 &&
+    Math.abs((rating * 10) % 5) < 0.01 // Ensures it's a multiple of 0.5
+  );
+};
+
+// CREATE - User submits a testimonial (pending approval)
 exports.createTestimonial = async (req, res) => {
   try {
-    const { user_id, rating, comments } = req.body;
+    const { rating, comments } = req.body;
+    const user_id = req.user?.id;
 
-    // 1. Validate user_id format
-    if (!user_id || !mongoose.Types.ObjectId.isValid(user_id)) {
-      return res.status(400).json({ message: "Invalid user ID" });
+    if (!user_id) return res.status(401).json({ message: "Unauthorized" });
+
+    if (!validateRating(rating)) {
+      return res.status(400).json({
+        message: "Rating must be between 0.5 and 5.0 in 0.5 increments",
+      });
     }
 
-    // 2. Validate rating
-    if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: "Rating must be between 1 and 5" });
-    }
-
-    // 3. Check if user already submitted a review
     const existing = await Testimonial.findOne({ user_id });
     if (existing) {
       return res.status(400).json({ message: "You have already submitted a review" });
     }
 
-    // 4. Optional: Verify user exists
-    const User = mongoose.model("User");
-    const user = await User.findById(user_id).select("name email");
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const newTestimonial = new Testimonial({
+    const testimonial = new Testimonial({
       user_id,
       rating,
-      comments: comments?.trim(),
+      comments: comments?.trim() || null,
+      verified_by_admin: null, // Pending by default
     });
 
-    await newTestimonial.save();
-
-    // Populate user info in response
-    await newTestimonial.populate("user_id", "name email");
+    await testimonial.save();
+    await testimonial.populate("user_id", "name email");
 
     res.status(201).json({
-      message: "Testimonial created successfully",
-      testimonial: newTestimonial,
+      message: "Review submitted successfully! Awaiting admin approval.",
+      testimonial,
     });
   } catch (error) {
-    // Handle specific errors
-    if (error.name === "CastError") {
-      return res.status(400).json({ message: "Invalid ID format" });
-    }
-    if (error.name === "ValidationError") {
-      const messages = Object.values(error.errors).map((err) => err.message);
-      return res.status(400).json({ message: messages.join(", ") });
-    }
-
     console.error("Create Testimonial Error:", error);
-    res.status(500).json({
-      message: "Server error while creating testimonial",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// READ ALL
-exports.getAllTestimonials = async (req, res) => {
+// GET MY REVIEW
+exports.getMyReview = async (req, res) => {
   try {
-    const testimonials = await Testimonial.find()
-      .populate("user_id", "name email")
-      .sort({ created_at: -1 });
+    const user_id = req.user?.id;
+    if (!user_id) return res.status(401).json({ message: "Unauthorized" });
 
-    res.json(testimonials);
-  } catch (error) {
-    console.error("Get All Testimonials Error:", error);
-    res.status(500).json({ message: "Error fetching testimonials", error: error.message });
-  }
-};
-
-// READ ONE
-exports.getTestimonialById = async (req, res) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid testimonial ID" });
-    }
-
-    const testimonial = await Testimonial.findById(req.params.id).populate(
+    const testimonial = await Testimonial.findOne({ user_id }).populate(
       "user_id",
       "name email"
     );
-
-    if (!testimonial) {
-      return res.status(404).json({ message: "Testimonial not found" });
-    }
-
-    res.json(testimonial);
-  } catch (error) {
-    console.error("Get Testimonial Error:", error);
-    res.status(500).json({ message: "Error fetching testimonial", error: error.message });
-  }
-};
-
-// UPDATE
-exports.updateTestimonial = async (req, res) => {
-  try {
-    const { rating, comments } = req.body;
-
-    if (rating && (rating < 1 || rating > 5)) {
-      return res.status(400).json({ message: "Rating must be between 1 and 5" });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid testimonial ID" });
-    }
-
-    const testimonial = await Testimonial.findByIdAndUpdate(
-      req.params.id,
-      { rating, comments: comments?.trim() },
-      { new: true, runValidators: true }
-    ).populate("user_id", "name email");
-
-    if (!testimonial) {
-      return res.status(404).json({ message: "Testimonial not found" });
-    }
-
-    res.json({ message: "Testimonial updated", testimonial });
-  } catch (error) {
-    console.error("Update Testimonial Error:", error);
-    res.status(500).json({ message: "Error updating testimonial", error: error.message });
-  }
-};
-
-// DELETE
-exports.deleteTestimonial = async (req, res) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid testimonial ID" });
-    }
-
-    const testimonial = await Testimonial.findByIdAndDelete(req.params.id);
-    if (!testimonial) {
-      return res.status(404).json({ message: "Testimonial not found" });
-    }
-
-    res.json({ message: "Testimonial deleted successfully" });
-  } catch (error) {
-    console.error("Delete Testimonial Error:", error);
-    res.status(500).json({ message: "Error deleting testimonial", error: error.message });
-  }
-};
-
-// controller/testimonialController.js
-exports.getMyReview = async (req, res) => {
-  try {
-    // Assuming you have auth middleware that sets req.user
-    if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const testimonial = await Testimonial.findOne({ user_id: req.user?.id })
-      .populate("user_id", "name email")
-      .sort({ created_at: -1 });
 
     if (!testimonial) {
       return res.status(404).json({ message: "No review found" });
@@ -171,3 +72,163 @@ exports.getMyReview = async (req, res) => {
   }
 };
 
+// UPDATE OWN REVIEW (only before approval or if rejected)
+exports.updateTestimonial = async (req, res) => {
+  try {
+    const { rating, comments } = req.body;
+    const user_id = req.user?.id;
+    const testimonialId = req.params.id;
+
+    if (!user_id) return res.status(401).json({ message: "Unauthorized" });
+    if (!mongoose.Types.ObjectId.isValid(testimonialId)) {
+      return res.status(400).json({ message: "Invalid testimonial ID" });
+    }
+
+    if (rating !== undefined && !validateRating(rating)) {
+      return res.status(400).json({
+        message: "Rating must be between 0.5 and 5.0 in 0.5 steps",
+      });
+    }
+
+    const updateData = {
+      ...(rating !== undefined && { rating }),
+      ...(comments !== undefined && { comments: comments?.trim() || null }),
+      updated_at: Date.now(),
+    };
+
+    const testimonial = await Testimonial.findOneAndUpdate(
+      { _id: testimonialId, user_id },
+      updateData,
+      { new: true, runValidators: true }
+    ).populate("user_id", "name email");
+
+    if (!testimonial) {
+      return res.status(404).json({ message: "Review not found or not yours" });
+    }
+
+    res.json({ message: "Review updated successfully", testimonial });
+  } catch (error) {
+    console.error("Update Testimonial Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// DELETE OWN REVIEW
+exports.deleteTestimonial = async (req, res) => {
+  try {
+    const user_id = req.user?.id;
+    const testimonialId = req.params.id;
+
+    if (!user_id) return res.status(401).json({ message: "Unauthorized" });
+    if (!mongoose.Types.ObjectId.isValid(testimonialId)) {
+      return res.status(400).json({ message: "Invalid ID" });
+    }
+
+    const testimonial = await Testimonial.findOneAndDelete({
+      _id: testimonialId,
+      user_id,
+    });
+
+    if (!testimonial) {
+      return res.status(404).json({ message: "Review not found or not yours" });
+    }
+
+    res.json({ message: "Review deleted successfully" });
+  } catch (error) {
+    console.error("Delete Testimonial Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// PUBLIC: Get only APPROVED testimonials
+exports.getApprovedTestimonials = async (req, res) => {
+  try {
+    const testimonials = await Testimonial.find({
+      verified_by_admin: true,
+    })
+      .populate("user_id", "name email")
+      .sort({ created_at: -1 });
+
+    res.json(testimonials);
+  } catch (error) {
+    console.error("Error fetching approved testimonials:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ADMIN: Get ALL testimonials (including pending/rejected)
+exports.getAllTestimonialsAdmin = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const testimonials = await Testimonial.find({})
+      .populate("user_id", "name email")
+      .sort({ created_at: -1 });
+
+    res.json(testimonials);
+  } catch (error) {
+    console.error("Error fetching all testimonials:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ADMIN: Get only PENDING testimonials
+exports.getPendingTestimonials = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const testimonials = await Testimonial.find({
+      verified_by_admin: null,
+    })
+      .populate("user_id", "name email")
+      .sort({ created_at: -1 });
+
+    res.json(testimonials);
+  } catch (error) {
+    console.error("Error fetching pending testimonials:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ADMIN: Approve or Reject a testimonial
+exports.updateTestimonialStatus = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden: Admin access required" });
+    }
+
+    const { id } = req.params;
+    const { verified_by_admin } = req.body;
+
+    if (typeof verified_by_admin !== "boolean") {
+      return res.status(400).json({
+        message: "verified_by_admin must be true (approve) or false (reject)",
+      });
+    }
+
+    const testimonial = await Testimonial.findByIdAndUpdate(
+      id,
+      {
+        verified_by_admin,
+        updated_at: Date.now(),
+      },
+      { new: true, runValidators: true }
+    ).populate("user_id", "name email");
+
+    if (!testimonial) {
+      return res.status(404).json({ message: "Testimonial not found" });
+    }
+
+    res.json({
+      message: `Testimonial ${verified_by_admin ? "approved" : "rejected"} successfully`,
+      testimonial,
+    });
+  } catch (error) {
+    console.error("Update Status Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

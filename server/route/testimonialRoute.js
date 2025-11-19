@@ -1,30 +1,29 @@
 const express = require("express");
 const router = express.Router();
-const testimonialController = require("../controller/testimonialController");
-const authMiddleware = require("../middleware/authMiddleware"); // Adjust path if needed
-// POST /api/testimonials
-router.post("/", testimonialController.createTestimonial);
+const {
+  createTestimonial,
+  getMyReview,
+  updateTestimonial,
+  deleteTestimonial,
+  getApprovedTestimonials,
+  getAllTestimonialsAdmin,
+  getPendingTestimonials,
+  updateTestimonialStatus,
+} = require("../controller/testimonialController");
+const authMiddleware = require("../middleware/authMiddleware");
 
-// GET /api/testimonials
-router.get("/", testimonialController.getAllTestimonials);
+// PUBLIC: Only approved testimonials (visible to everyone)
+router.get("/", getApprovedTestimonials);
 
-// GET /api/testimonials/:id
-router.get("/:id", testimonialController.getTestimonialById);
+// AUTHENTICATED USER ROUTES
+router.post("/", authMiddleware, createTestimonial);
+router.get("/my-review", authMiddleware, getMyReview);
+router.put("/:id", authMiddleware, updateTestimonial);
+router.delete("/:id", authMiddleware, deleteTestimonial);
 
-// PUT /api/testimonials/:id
-router.put("/:id", testimonialController.updateTestimonial);
+// ADMIN ROUTES
+router.get("/all", authMiddleware, getAllTestimonialsAdmin);           // Admin sees everything
+router.get("/pending", authMiddleware, getPendingTestimonials);        // Only pending
+router.patch("/:id/status", authMiddleware, updateTestimonialStatus);   // Approve/Reject
 
-// DELETE /api/testimonials/:id
-router.delete("/:id", testimonialController.deleteTestimonial);
-
-// routes/testimonialRoutes.js
-router.get("/my-review", testimonialController.getMyReview);
-
-// GET /testimonials/my-review
-router.get("/my-reviews", authMiddleware, async (req, res) => {
-  const review = await Testimonial.findOne({ user_id: req.user.id })
-    .populate("user_id", "name email");
-  if (!review) return res.status(404).json({ message: "No review" });
-  res.json(review);
-});
 module.exports = router;
