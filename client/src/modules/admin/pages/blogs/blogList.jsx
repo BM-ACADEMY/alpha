@@ -1,57 +1,61 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit2, Trash2, X } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect } from "react";
+import { Search, Plus, Edit2, Trash2, X } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog';
-import AddBlogModal from './addBlog';
-import { getImageUrl } from '@/utils/ImageHelper'; // Import here
+} from "@/components/ui/dialog";
+import AddBlogModal from "./addBlog";
+import { getImageUrl } from "@/utils/ImageHelper"; // Import here
 
 export default function BlogList() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [blogs, setBlogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBlog, setEditingBlog] = useState(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxImage, setLightboxImage] = useState('');
+  const [lightboxImage, setLightboxImage] = useState("");
   const [expanded, setExpanded] = useState({}); // { blogId: true }
 
   // ---------- Helpers ----------
   const getImageUrl = (path) => {
-    if (!path) return '/api/placeholder/600/400';
-    const base = (import.meta.env.VITE_BASE_URL || 'http://localhost:5000/api').replace('/api', '');
-    return `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+    if (!path) return "/api/placeholder/600/400";
+    const base = (
+      import.meta.env.VITE_BASE_URL || "http://localhost:5000/api"
+    ).replace("/api", "");
+    return `${base}${path.startsWith("/") ? "" : "/"}${path}`;
   };
 
   // ---------- Fetch ----------
-  const fetchBlogs = async (query = '') => {
+  const fetchBlogs = async (query = "") => {
     setLoading(true);
     try {
       const url = query
         ? `/api/blogs/fetch-all-blog?search=${encodeURIComponent(query)}`
-        : '/api/blogs/fetch-all-blog';
+        : "/api/blogs/fetch-all-blog";
       const res = await fetch(url);
-      if (!res.ok) throw new Error('Failed to fetch');
+      if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setBlogs(data);
     } catch (err) {
       console.error(err);
-      alert('Could not load blogs');
+      alert("Could not load blogs");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchBlogs(); }, []);
+  useEffect(() => {
+    fetchBlogs();
+  }, []);
 
   // Debounced search
   useEffect(() => {
@@ -80,14 +84,14 @@ export default function BlogList() {
 
   // ---------- Delete ----------
   const deleteBlog = async (id) => {
-    if (!confirm('Delete this blog?')) return;
+    if (!confirm("Delete this blog?")) return;
     try {
-      const res = await fetch(`/api/blogs/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed');
+      const res = await fetch(`/api/blogs/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
       setBlogs((prev) => prev.filter((b) => b._id !== id));
     } catch (err) {
       console.error(err);
-      alert('Could not delete');
+      alert("Could not delete");
     }
   };
 
@@ -162,7 +166,7 @@ export default function BlogList() {
                 <CardContent className="p-0">
                   <div
                     className={`flex flex-col md:flex-row ${
-                      imageOnLeft ? '' : 'md:flex-row-reverse'
+                      imageOnLeft ? "" : "md:flex-row-reverse"
                     }`}
                   >
                     {/* Thumbnails – Square */}
@@ -192,15 +196,34 @@ export default function BlogList() {
 
                     {/* Text Content */}
                     <div className="md:w-1/2 p-6 flex flex-col justify-center">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2 flex items-center gap-3">
                         {blog.title}
+                        <span
+                          className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                            blog.status === "website"
+                              ? "bg-green-100 text-green-800"
+                              : blog.status === "user"
+                              ? "bg-purple-100 text-purple-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {blog.status === "website"
+                            ? "Website"
+                            : blog.status === "user"
+                            ? "Users Only"
+                            : "Both"}
+                        </span>
+                        {!blog.publish && (
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+                            Draft
+                          </span>
+                        )}
                       </h3>
-
                       {/* Description – 2 lines + Read more */}
                       <div className="text-gray-600">
                         <p
                           className={`${
-                            isExpanded ? '' : 'line-clamp-2'
+                            isExpanded ? "" : "line-clamp-2"
                           } transition-all duration-300`}
                         >
                           {blog.description}
@@ -212,7 +235,7 @@ export default function BlogList() {
                             onClick={() => toggleExpand(blog._id)}
                             className="mt-1 text-sm font-medium text-blue-600 hover:text-blue-800"
                           >
-                            {isExpanded ? 'Show less' : 'Read more'}
+                            {isExpanded ? "Show less" : "Read more"}
                           </button>
                         )}
                       </div>
@@ -225,7 +248,7 @@ export default function BlogList() {
         ) : (
           <div className="text-center py-12">
             <p className="text-gray-500">
-              {searchQuery ? 'No blogs match your search.' : 'No blogs yet.'}
+              {searchQuery ? "No blogs match your search." : "No blogs yet."}
             </p>
           </div>
         )}
