@@ -64,22 +64,26 @@ function HalfStarRating({ value, onRate, disabled }) {
         const half = displayValue >= star - 0.5 && displayValue < star;
 
         return (
-          <div key={star} className="relative">
+          <div key={star} className="relative cursor-pointer">
+            {/* Left half (x.5) */}
             <button
               type="button"
               disabled={disabled}
               onClick={() => onRate(star - 0.5)}
               onMouseEnter={() => setHover(star - 0.5)}
               onMouseLeave={() => setHover(0)}
-              className="absolute left-0 top-0 w-1/2 h-full z-10"
+              className="absolute left-0 top-0 w-1/2 h-full z-10 opacity-0"
+              aria-label={`${star - 0.5} stars`}
             />
+            {/* Right half (whole star) */}
             <button
               type="button"
               disabled={disabled}
               onClick={() => onRate(star)}
               onMouseEnter={() => setHover(star)}
               onMouseLeave={() => setHover(0)}
-              className="absolute right-0 top-0 w-1/2 h-full z-10"
+              className="absolute right-0 top-0 w-1/2 h-full z-10 opacity-0"
+              aria-label={`${star} stars`}
             />
             <Star
               size={36}
@@ -87,7 +91,7 @@ function HalfStarRating({ value, onRate, disabled }) {
                 filled
                   ? "fill-yellow-400 text-yellow-400"
                   : half
-                  ? "fill-yellow-300 text-yellow-300"
+                  ? "half-filled-star fill-yellow-300 text-yellow-300"
                   : "fill-none text-gray-300"
               }`}
             />
@@ -112,6 +116,7 @@ export default function TestimonialForm() {
   const [rating, setRating] = useState(0);
   const [comments, setComments] = useState("");
 
+  // Fetch user's review on mount or when user changes
   useEffect(() => {
     if (!user) {
       setIsLoading(false);
@@ -121,7 +126,8 @@ export default function TestimonialForm() {
     const fetchReview = async () => {
       try {
         setIsLoading(true);
-        const res = await axiosInstance.get("/testimonials/my-reviews");
+        setError("");
+        const res = await axiosInstance.get("/testimonials/my-review"); // Fixed endpoint
         setReview(res.data);
         setRating(res.data.rating);
         setComments(res.data.comments || "");
@@ -130,7 +136,10 @@ export default function TestimonialForm() {
           console.error("Error fetching review:", err);
           setError("Failed to load your review.");
         }
-        setREVIEW(null);
+        // No review exists → clear state and show form
+        setReview(null);
+        setRating(0);
+        setComments("");
       } finally {
         setIsLoading(false);
       }
@@ -141,8 +150,12 @@ export default function TestimonialForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!user || rating < 0.5) {
-      setError("Please select a rating.");
+    if (!user) {
+      setError("You must be logged in.");
+      return;
+    }
+    if (rating < 0.5) {
+      setError("Please select a rating of at least 0.5 stars.");
       return;
     }
 
@@ -150,7 +163,10 @@ export default function TestimonialForm() {
     setError("");
 
     try {
-      const payload = { rating, comments: comments.trim() || null };
+      const payload = {
+        rating,
+        comments: comments.trim() || null,
+      };
 
       let response;
       if (review) {
@@ -159,18 +175,20 @@ export default function TestimonialForm() {
         response = await axiosInstance.post("/testimonials", payload);
       }
 
-      const updated = response.data.testimonial || response.data;
-      setReview(updated);
+      const updatedReview = response.data.testimonial || response.data;
+      setReview(updatedReview);
+      setRating(updatedReview.rating);
+      setComments(updatedReview.comments || "");
       setIsEditing(false);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to save review.");
+      setError(err.response?.data?.message || "Failed to save your review.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete your review permanently?")) return;
+    if (!window.confirm("Are you sure you want to delete your review permanently?")) return;
 
     setIsDeleting(true);
     try {
@@ -178,23 +196,33 @@ export default function TestimonialForm() {
       setReview(null);
       setRating(0);
       setComments("");
+      setIsEditing(false);
     } catch (err) {
-      alert("Failed to delete review.");
+      alert(err.response?.data?.message || "Failed to delete review.");
     } finally {
       setIsDeleting(false);
     }
   };
 
+  const startEditing = () => {
+    setRating(review.rating);
+    setComments(review.comments || "");
+    setError("");
+    setIsEditing(true);
+  };
+
+  // Loading state
   if (isLoading) {
     return (
       <Card className="max-w-2xl mx-auto mt-10">
-        <CardContent className="py-12 text-center text-gray-500">
+        <CardContent className="py-16 text-center text-gray-500">
           Loading your review...
         </CardContent>
       </Card>
     );
   }
 
+  // Not logged in
   if (!user) {
     return (
       <Card className="max-w-md mx-auto mt-10">
@@ -205,7 +233,7 @@ export default function TestimonialForm() {
     );
   }
 
-  // SHOW EXISTING REVIEW
+  // User has a review and not editing → Show review
   if (review && !isEditing) {
     return (
       <Card className="max-w-2xl mx-auto mt-10 shadow-lg">
@@ -218,15 +246,7 @@ export default function TestimonialForm() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setRating(review.rating);
-                  setComments(review.comments || "");
-                  setIsEditing(true);
-                }}
-              >
+              <Button size="sm" variant="outline" onClick={startEditing}>
                 <Edit2 className="w-4 h-4 mr-1" /> Edit
               </Button>
               <Button
@@ -237,11 +257,12 @@ export default function TestimonialForm() {
                 disabled={isDeleting}
               >
                 <Trash2 className="w-4 h-4" />
+                {isDeleting && "..."}
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-6">
           <ReadOnlyHalfStarRating value={review.rating} />
           {review.comments && (
             <p className="text-gray-700 whitespace-pre-wrap text-base leading-relaxed">
@@ -249,57 +270,85 @@ export default function TestimonialForm() {
             </p>
           )}
           <div className="text-sm text-gray-500">
-            Submitted on {new Date(review.created_at).toLocaleDateString()}
+            Submitted on {new Date(review.created_at).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+            {review.updated_at && new Date(review.updated_at) > new Date(review.created_at) && (
+              <span className="ml-2 text-xs">(edited)</span>
+            )}
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  // EDIT OR CREATE FORM
+  // Show form: either creating new or editing existing
   return (
-    <Card className="max-w-md mx-auto mt-10 shadow-lg">
+    <Card className="max-w-2xl mx-auto mt-10 shadow-lg">
       <CardHeader>
         <CardTitle>{review ? "Edit Your Review" : "Leave a Review"}</CardTitle>
         <CardDescription>
-          Hi {user.name || user.email}, your feedback matters!
+          Hi {user.name || user.email.split("@")[0]}, your feedback helps us improve!
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="space-y-3">
+            <label className="text-sm font-medium flex items-center gap-1">
               Rating <span className="text-red-500">*</span>
             </label>
             <HalfStarRating value={rating} onRate={setRating} disabled={isSubmitting} />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <label htmlFor="comments" className="text-sm font-medium">
-              Your Review (optional)
+              Your Experience (optional)
             </label>
             <Textarea
               id="comments"
-              placeholder="Share your experience..."
+              placeholder="Share your thoughts, suggestions, or what you loved..."
               value={comments}
               onChange={(e) => setComments(e.target.value)}
               disabled={isSubmitting}
-              className="min-h-[120px] resize-none"
+              className="min-h-32 resize-none"
+              maxLength={1000}
             />
+            <p className="text-xs text-gray-500 text-right">
+              {comments.length}/1000 characters
+            </p>
           </div>
 
-          <div className="flex gap-3">
-            <Button type="submit" disabled={isSubmitting || rating < 0.5} className="flex-1">
-              {isSubmitting ? "Saving..." : review ? "Update Review" : "Submit Review"}
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="submit"
+              disabled={isSubmitting || rating < 0.5}
+              className="flex-1"
+            >
+              {isSubmitting
+                ? "Saving..."
+                : review
+                ? "Update Review"
+                : "Submit Review"}
             </Button>
             {review && (
-              <Button type="button" variant="outline" onClick={() => setIsEditing(false)} disabled={isSubmitting}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditing(false)}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
             )}
           </div>
 
-          {error && <p className="text-sm text-red-600 text-center">{error}</p>}
+          {error && (
+            <p className="text-sm text-red-600 text-center bg-red-50 py-2 px-4 rounded">
+              {error}
+            </p>
+          )}
         </form>
       </CardContent>
     </Card>

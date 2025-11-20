@@ -63,7 +63,7 @@ const Plans = () => {
     return <div className="text-center py-8 text-red-400">Error: {error}</div>;
   }
 
-  const renderTable = (plans, title) => (
+  const renderTable = (plans, title, currency) => (
     <div className="mb-12">
       <h2 className="text-2xl md:text-3xl font-bold mb-6 text-white text-center">
         {title}
@@ -77,7 +77,7 @@ const Plans = () => {
               <tr>
                 {[
                   "Plan Name",
-                  "Investment Range",
+                  `Investment Range (${currency})`,
                   "Capital Lock-in (Days)",
                   "Daily Return %",
                   "Daily Return (Example)",
@@ -104,7 +104,16 @@ const Plans = () => {
                     {plan.plan_name || "N/A"}
                   </td>
                   <td className="px-6 py-4 text-xs md:text-sm text-gray-200">
+                    {currency === "INR" ? "₹" : "$"}
                     {formatDecimal128(plan.min_investment)}
+                    {plan.max_investment &&
+                      plan.max_investment.$numberDecimal && (
+                        <>
+                          {" - "}
+                          {currency === "INR" ? "₹" : "$"}
+                          {formatDecimal128(plan.max_investment)}
+                        </>
+                      )}
                   </td>
                   <td className="px-6 py-4 text-xs md:text-sm text-gray-200">
                     {plan.capital_lockin || "N/A"}
@@ -113,10 +122,11 @@ const Plans = () => {
                     {calculateDailyReturnPercentage(plan)}
                   </td>
                   <td className="px-6 py-4 text-xs md:text-sm text-gray-200">
-                    ₹ {formatDecimal128(plan.profit_percentage_day_week_month)}%{" "}
-                    (on ₹{formatDecimal128(plan.min_investment)})
+                    {formatDecimal128(plan.profit_percentage_day_week_month)}%{" "}
+                    (on {currency === "INR" ? "₹" : "$"}
+                    {formatDecimal128(plan.min_investment)})
                   </td>
-                  <td className="px-6 py-4 text-xs md:text-sm text-gray-300  whitespace-normal break-words min-w-[200px]">
+                  <td className="px-6 py-4 text-xs md:text-sm text-gray-300 whitespace-normal break-words min-w-[200px]">
                     {plan.notes || "N/A"}
                   </td>
                 </tr>
@@ -140,8 +150,9 @@ const Plans = () => {
         >
           Investment Plans
         </motion.h2>
-        {renderTable(inrPlans, "INR Plans")}
-        {renderTable(usdtPlans, "USDT Plans")}
+
+        {renderTable(inrPlans, "INR Plans", "INR")}
+        {renderTable(usdtPlans, "USDT Plans", "USDT")}
       </div>
 
       {/* Bottom Center Button */}
