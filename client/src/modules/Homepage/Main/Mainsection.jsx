@@ -6,6 +6,7 @@ import WhatWeOffer from '../Whatweoffer'
 import WhyAlphaR from '../Whyalpha'
 import Footer from '../Footer'
 import Plans from '../Plans'
+import Testimonial from '../Testimonial'
 
 const Mainsection = () => {
   return (
@@ -15,6 +16,7 @@ const Mainsection = () => {
         <Plans/>
         <About/>
         <WhatWeOffer/>
+        <Testimonial />
         <WhyAlphaR/>
         <Footer/>
     </div>
