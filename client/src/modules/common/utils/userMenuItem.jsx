@@ -14,7 +14,8 @@ import {
   FilePen,
   BadgeDollarSign,
   History,
-  Link
+  Link,
+  UserRoundSearchIcon
 } from 'lucide-react';
 
 export const userMenuItems = {
@@ -78,7 +79,7 @@ export const userMenuItems = {
      {
       title: 'Testimonial',
       url: '/user-dashboard/testimonials',
-      icon: IconBlocks,
+      icon: UserRoundSearchIcon,
     },
   ],
   navSecondary: [

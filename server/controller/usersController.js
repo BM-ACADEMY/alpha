@@ -768,3 +768,54 @@ exports.getAllReferredUsers = async (req, res) => {
     });
   }
 };
+
+const fs = require('fs');
+const path = require('path');
+
+exports.deleteUserImage = async (req, res) => {
+  try {
+    const { field, filename } = req.body;
+    const userId = req.user.id; // from authMiddleware
+
+    const validFields = ['profile_image', 'pan_image', 'aadhar_image', 'qrcode'];
+    if (!validFields.includes(field)) {
+      return res.status(400).json({ message: "Invalid image field" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const imagePath = user[field];
+    if (!imagePath) {
+      return res.status(400).json({ message: "No image to delete" });
+    }
+
+    // Verify filename matches
+    if (imagePath.split('/').pop() !== filename) {
+      return res.status(400).json({ message: "Filename mismatch" });
+    }
+
+    // Construct full server path (adjust based on where you save uploads)
+    const fullPath = path.join(__dirname, '..', 'uploads', filename);
+
+    // Delete file from disk (if exists)
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+
+    // Remove from database
+    user[field] = null;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `${field.replace('_', ' ')} deleted successfully`,
+      field,
+    });
+  } catch (error) {
+    console.error("Delete image error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

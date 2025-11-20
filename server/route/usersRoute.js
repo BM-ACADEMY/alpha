@@ -14,7 +14,8 @@ router.post("/verify-otp", userController.verifyOtp);
 router.post('/reset-password', userController.resetPassword);
 router.post('/logout', userController.logout);
 router.put('/update-user/:id', userController.updateUser);
-
+// Add this route
+router.delete("/profile-image/delete-image", authMiddleware, userController.deleteUserImage);
 // PROTECTED ROUTES - SPECIFIC FIRST
 router.get("/user-info", authMiddleware, userController.getUserInfo);
 router.get("/fetch-all-users-details-referral", authMiddleware, userController.getReferralUsers);

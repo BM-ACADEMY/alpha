@@ -78,7 +78,6 @@ const BasicInfo = ({
         setLoadingSubscription(false);
         return;
       }
-
       try {
         const response = await axiosInstance.get("/user-subscription-plan/purchased-plans", {
           params: {
@@ -88,7 +87,6 @@ const BasicInfo = ({
           },
           withCredentials: true,
         });
-
         const subscriptions = response.data.subscriptions;
         if (subscriptions.length > 0 && subscriptions[0].status === "verified") {
           setSubscriptionStatus("Active");
@@ -103,7 +101,6 @@ const BasicInfo = ({
         setLoadingSubscription(false);
       }
     };
-
     fetchSubscriptionStatus();
   }, [user]);
 
@@ -150,7 +147,8 @@ const BasicInfo = ({
       );
       const fileUrl = response.data.fileUrl;
       setProfileData({ ...profileData, [imageType]: fileUrl });
-      setImagePreviews({ ...imagePreviews, [imageType]: await getImageUrl(fileUrl, imageType === 'qrcode' ? 'qr_code' : 'user') });
+      const newPreviewUrl = await getImageUrl(fileUrl, imageType === 'qrcode' ? 'qr_code' : 'user');
+      setImagePreviews({ ...imagePreviews, [imageType]: `${newPreviewUrl}?t=${Date.now()}` });
       showToast('success', `${imageType.replace('_', ' ')} uploaded successfully`);
       return fileUrl;
     } catch (error) {
@@ -175,6 +173,7 @@ const BasicInfo = ({
           entity_type: entityType,
           user_id: user.id,
           filename: profileData[imageType].split('/').pop(),
+          field: imageType
         },
         withCredentials: true,
       });
@@ -196,7 +195,6 @@ const BasicInfo = ({
     }
     const formData = new FormData();
     const imageFields = ['profile_image', 'pan_image', 'aadhar_image', 'qrcode'];
-
     for (const imageType of imageFields) {
       if (editData[imageType] instanceof File) {
         const fileUrl = await handleImageUpload(imageType, editData[imageType]);
@@ -207,13 +205,11 @@ const BasicInfo = ({
         formData.append(imageType, profileData[imageType]);
       }
     }
-
     for (const key in editData) {
       if (!imageFields.includes(key) && editData[key] !== undefined && editData[key] !== '') {
         formData.append(key, editData[key]);
       }
     }
-
     try {
       const response = await axiosInstance.patch(`/users/${user.id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -364,7 +360,7 @@ const BasicInfo = ({
                       className="col-span-3"
                     />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
+                  {/* <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="qrcode" className="text-right">
                       QR Code Image
                     </Label>
@@ -375,7 +371,7 @@ const BasicInfo = ({
                       onChange={(e) => handleFileChange(e, 'qrcode')}
                       className="col-span-3"
                     />
-                  </div>
+                  </div> */}
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={isImageUploading?.profile_image || isImageUploading?.pan_image || isImageUploading?.aadhar_image || isImageUploading?.qrcode}>
@@ -387,10 +383,10 @@ const BasicInfo = ({
           </Dialog>
         </div>
       </div>
-      <div className="grid grid-cols-1 w-full sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+      <div className="flex flex-wrap justify-center gap-4 mt-4">
         {['profile_image', 'pan_image', 'aadhar_image', 'qrcode'].map((imageType) => (
           imagePreviews[imageType] && (
-            <div key={imageType} className="relative w-[200px] h-[200px] mx-auto">
+            <div key={imageType} className="relative w-[300px] h-[300px]">
               <Zoom>
                 <img
                   src={imagePreviews[imageType]}
@@ -402,7 +398,7 @@ const BasicInfo = ({
                   }}
                 />
               </Zoom>
-              <Button
+              {/* <Button
                 variant="ghost"
                 size="icon"
                 className="absolute top-1 right-1 bg-red-500 hover:bg-red-600"
@@ -410,7 +406,7 @@ const BasicInfo = ({
                 disabled={isImageUploading[imageType]}
               >
                 <Trash2 className="h-4 w-4 text-white" />
-              </Button>
+              </Button> */}
             </div>
           )
         ))}
@@ -471,7 +467,6 @@ const BasicInfo = ({
             </dl>
           </CardContent>
         </Card>
-
         {/* Verification */}
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
@@ -513,7 +508,6 @@ const BasicInfo = ({
             </dl>
           </CardContent>
         </Card>
-
         {/* KYC Documents */}
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
@@ -546,7 +540,6 @@ const BasicInfo = ({
             </dl>
           </CardContent>
         </Card>
-
         {/* Referral */}
         <ReferralCard profileData={profileData} />
       </div>
