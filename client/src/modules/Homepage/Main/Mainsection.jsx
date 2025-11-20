@@ -7,6 +7,7 @@ import WhyAlphaR from '../Whyalpha'
 import Footer from '../Footer'
 import Plans from '../Plans'
 import Testimonial from '../Testimonial'
+import Blog from '../Blog'
 
 const Mainsection = () => {
   return (
@@ -18,6 +19,7 @@ const Mainsection = () => {
         <WhatWeOffer/>
         <Testimonial />
         <WhyAlphaR/>
+        <Blog />
         <Footer/>
     </div>
   )

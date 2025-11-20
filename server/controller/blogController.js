@@ -149,3 +149,36 @@ export const deleteBlog = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Add this new function to your blogController.js
+
+// GET only published blogs for website (status: 'website' or 'both')
+export const getWebsiteBlogs = async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    const searchQuery = search
+      ? {
+          $or: [
+            { title: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } },
+          ],
+        }
+      : {};
+
+    const finalQuery = {
+      ...searchQuery,
+      publish: true,
+      status: { $in: ['website', 'both'] },
+    };
+
+    const blogs = await Blog.find(finalQuery)
+      .select('title description images status createdAt')
+      .sort({ createdAt: -1 });
+
+    res.json(blogs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
