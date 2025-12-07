@@ -70,7 +70,7 @@ export const createBlog = async (req, res) => {
 
     const blog = new Blog({
       title: title.trim(),
-      description: description.trim(),
+      description: description.replace(/\r\n/g, '\n'),
       images,
       publish: publish === 'true' || publish === true,
       status: ['website', 'user', 'both'].includes(status) ? status : 'website',
@@ -104,7 +104,7 @@ export const updateBlog = async (req, res) => {
       id,
       {
         title: title.trim(),
-        description: description.trim(),
+       description: description.replace(/\r\n/g, '\n'),
         images,
         publish: publish === 'true' || publish === true,
         status: ['website', 'user', 'both'].includes(status) ? status : 'website',
