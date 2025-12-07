@@ -1,7 +1,7 @@
-// src/components/TestimonialCarousel.jsx  (or wherever you keep it)
+// src/components/TestimonialCarousel.jsx
 import React, { useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
-import { Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star, ChevronLeft, ChevronRight, User } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,15 +17,14 @@ export default function TestimonialCarousel() {
   const [loading, setLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // Simple, bulletproof autoplay (no extra package!)
+  // Autoplay
   useEffect(() => {
     if (!emblaApi) return;
 
     const autoplay = setInterval(() => {
       emblaApi.scrollNext();
-    }, 5000); // Change slide every 5 seconds
+    }, 5000);
 
-    // Pause autoplay on user interaction
     const pauseOnInteraction = () => clearInterval(autoplay);
     emblaApi.on("pointerDown", pauseOnInteraction);
 
@@ -51,7 +50,7 @@ export default function TestimonialCarousel() {
 
   const fetchTestimonials = async () => {
     try {
-      const res = await axios.get("/api/testimonials"); // your approved endpoint
+      const res = await axios.get("/api/testimonials");
       setTestimonials(res.data);
     } catch (err) {
       console.error("Failed to load testimonials", err);
@@ -77,11 +76,42 @@ export default function TestimonialCarousel() {
               ? "fill-yellow-400 text-yellow-400"
               : half
               ? "fill-yellow-400/50 text-yellow-400"
-              : "text-gray-500"
+              : "text-gray-400"
           }`}
         />
       );
     });
+  };
+
+  // Avatar with initials fallback
+  const UserAvatar = ({ user, size = "lg" }) => {
+    const username = user?.username || "Anonymous";
+    const initials = username
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+
+    const hasImage = user?.profile_image;
+
+    return (
+      <div
+        className={`relative flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold shadow-lg ring-4 ring-white/20 ${
+          size === "lg" ? "w-16 h-16 text-xl" : "w-12 h-12 text-lg"
+        }`}
+      >
+        {hasImage ? (
+          <img
+            src={user.profile_image}
+            alt={username}
+            className="w-full h-full rounded-full object-cover"
+          />
+        ) : (
+          <span>{initials || <User className="w-6 h-6" />}</span>
+        )}
+      </div>
+    );
   };
 
   if (loading) {
@@ -104,11 +134,10 @@ export default function TestimonialCarousel() {
     <section className="w-full bg-gradient-to-b from-[#0e1946] to-[#1a2a6c] py-16 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4">
         <h2 className="text-4xl md:text-5xl font-bold text-white text-center mb-12">
-          What Our Customers Say
+          What Our Investors Say
         </h2>
 
         <div className="relative">
-          {/* Carousel viewport */}
           <div className="overflow-hidden rounded-2xl" ref={emblaRef}>
             <div className="flex">
               {testimonials.map((t) => (
@@ -118,19 +147,27 @@ export default function TestimonialCarousel() {
                 >
                   <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-2xl max-w-3xl mx-auto">
                     <CardContent className="p-10 text-center">
+                      {/* Stars */}
                       <div className="flex justify-center gap-1 mb-6">
                         {renderStars(t.rating)}
                       </div>
 
-                      <p className="text-xl md:text-2xl font-medium text-white italic leading-relaxed mb-8">
-                        "{t.comments || "Amazing service! Highly recommended."}"
+                      {/* Testimonial Text */}
+                      <p className="text-xl md:text-2xl font-medium text-white italic leading-relaxed mb-10">
+                        "{t.comments || "Amazing experience! Highly recommended."}"
                       </p>
 
-                      <div>
-                        <p className="text-lg font-semibold text-white">
-                          {t.user_id.name}
-                        </p>
-                        <p className="text-sm text-white/70">Verified Customer</p>
+                      {/* User Info */}
+                      <div className="flex flex-col items-center gap-4">
+                        <UserAvatar user={t.user_id} size="lg" />
+                        <div>
+                          <p className="text-xl font-bold text-white">
+                            {t.user_id?.username || "Anonymous Investor"}
+                          </p>
+                          <p className="text-sm text-white/70">
+                            Verified Investor
+                          </p>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -139,7 +176,7 @@ export default function TestimonialCarousel() {
             </div>
           </div>
 
-          {/* Navigation arrows */}
+          {/* Navigation Arrows */}
           {testimonials.length > 1 && (
             <>
               <Button
@@ -161,7 +198,7 @@ export default function TestimonialCarousel() {
             </>
           )}
 
-          {/* Dots */}
+          {/* Dots Indicator */}
           {testimonials.length > 1 && (
             <div className="flex justify-center gap-3 mt-10">
               {testimonials.map((_, idx) => (
@@ -173,7 +210,7 @@ export default function TestimonialCarousel() {
                       ? "w-10 h-3 bg-white"
                       : "w-3 h-3 bg-white/40 hover:bg-white/70"
                   }`}
-                  aria-label={`Slide ${idx + 1}`}
+                  aria-label={`Go to slide ${idx + 1}`}
                 />
               ))}
             </div>

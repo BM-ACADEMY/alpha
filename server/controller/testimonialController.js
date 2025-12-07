@@ -141,12 +141,31 @@ exports.deleteTestimonial = async (req, res) => {
 };
 
 // PUBLIC: Get only APPROVED testimonials
+// exports.getApprovedTestimonials = async (req, res) => {
+//   try {
+//     const testimonials = await Testimonial.find({
+//       verified_by_admin: true,
+//     })
+//       .populate("user_id", "name email")
+//       .sort({ created_at: -1 });
+
+//     res.json(testimonials);
+//   } catch (error) {
+//     console.error("Error fetching approved testimonials:", error);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
+
+// In testimonialController.js → getApprovedTestimonials
 exports.getApprovedTestimonials = async (req, res) => {
   try {
     const testimonials = await Testimonial.find({
       verified_by_admin: true,
     })
-      .populate("user_id", "name email")
+      .populate({
+        path: "user_id",
+        select: "username profile_image", // Changed to username
+      })
       .sort({ created_at: -1 });
 
     res.json(testimonials);
