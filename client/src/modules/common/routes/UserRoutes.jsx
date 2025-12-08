@@ -9,6 +9,8 @@ import Subscription from '@/modules/user/pages/Subscription/Subscription';
 import HistoryPage from '@/modules/user/pages/History/History';
 import ReferralPage from '@/modules/user/pages/Referral/Referral';
 import Socialmedia from '@/modules/user/pages/Socialmedia/Socialmedia';
+import Blogs from '@/modules/user/pages/Blogs/Bloglist'
+import Testimonials  from '@/modules/user/pages/testimonial/testimonials';
 
 
 export const userRoutes = [
@@ -81,6 +83,22 @@ export const userRoutes = [
     element: (
       <PrivateRoute allowedRole="user">
         <Socialmedia />
+      </PrivateRoute>
+    ),
+  },
+   {
+    path: '/user-dashboard/Blogs',
+    element: (
+      <PrivateRoute allowedRole="user">
+        <Blogs />
+      </PrivateRoute>
+    ),
+  },
+   {
+    path: '/user-dashboard/testimonials',
+    element: (
+      <PrivateRoute allowedRole="user">
+        <Testimonials />
       </PrivateRoute>
     ),
   },

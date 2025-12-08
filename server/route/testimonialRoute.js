@@ -1,20 +1,29 @@
 const express = require("express");
 const router = express.Router();
-const testimonialController = require("../controller/testimonialController");
+const {
+  createTestimonial,
+  getMyReview,
+  updateTestimonial,
+  deleteTestimonial,
+  getApprovedTestimonials,
+  getAllTestimonialsAdmin,
+  getPendingTestimonials,
+  updateTestimonialStatus,
+} = require("../controller/testimonialController");
+const authMiddleware = require("../middleware/authMiddleware");
 
-// POST /api/testimonials
-router.post("/", testimonialController.createTestimonial);
+// PUBLIC: Only approved testimonials (visible to everyone)
+router.get("/", getApprovedTestimonials);
 
-// GET /api/testimonials
-router.get("/", testimonialController.getAllTestimonials);
+// AUTHENTICATED USER ROUTES
+router.post("/", authMiddleware, createTestimonial);
+router.get("/my-review", authMiddleware, getMyReview);
+router.put("/:id", authMiddleware, updateTestimonial);
+router.delete("/:id", authMiddleware, deleteTestimonial);
 
-// GET /api/testimonials/:id
-router.get("/:id", testimonialController.getTestimonialById);
-
-// PUT /api/testimonials/:id
-router.put("/:id", testimonialController.updateTestimonial);
-
-// DELETE /api/testimonials/:id
-router.delete("/:id", testimonialController.deleteTestimonial);
+// ADMIN ROUTES
+router.get("/all", authMiddleware, getAllTestimonialsAdmin);           // Admin sees everything
+router.get("/pending", authMiddleware, getPendingTestimonials);        // Only pending
+router.patch("/:id/status", authMiddleware, updateTestimonialStatus);   // Approve/Reject
 
 module.exports = router;

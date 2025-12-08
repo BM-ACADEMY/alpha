@@ -22,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Search, Users } from "lucide-react";
 
-const API_URL = `${import.meta.env.VITE_BASE_URL}/users/referred-users`;
+const API_URL = `${import.meta.env.VITE_BASE_URL}/users/all-referred-users`;
 
 export default function Referral() {
   const [users, setUsers] = useState([]);

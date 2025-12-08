@@ -13,11 +13,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { getImageUrl } from '@/utils/ImageHelper';
 
 export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [publish, setPublish] = useState(false);
+  const [status, setStatus] = useState('website');
   const [imageFiles, setImageFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
@@ -26,12 +35,13 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
   const resetForm = () => {
     setTitle('');
     setDescription('');
+    setPublish(false);
+    setStatus('website');
     setImageFiles([]);
     setPreviews([]);
     setExistingImages([]);
   };
 
-  // FIXED: Populate form when modal opens with initialBlog
   useEffect(() => {
     if (!open) {
       resetForm();
@@ -41,6 +51,8 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
     if (initialBlog) {
       setTitle(initialBlog.title || '');
       setDescription(initialBlog.description || '');
+      setPublish(!!initialBlog.publish);
+      setStatus(initialBlog.status || 'website');
       setExistingImages(initialBlog.images ? [...initialBlog.images] : []);
       setPreviews(
         initialBlog.images ? initialBlog.images.map(getImageUrl) : []
@@ -111,6 +123,8 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
     const form = new FormData();
     form.append('title', title.trim());
     form.append('description', description.trim());
+    form.append('publish', publish);
+    form.append('status', status);
 
     existingImages.forEach((path) => form.append('existingImages', path));
     imageFiles.forEach((file) => form.append('images', file));
@@ -176,6 +190,35 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
             />
           </div>
 
+          {/* Publish Toggle */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="publish"
+              checked={publish}
+              onChange={(e) => setPublish(e.target.checked)}
+              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+            />
+            <Label htmlFor="publish" className="cursor-pointer select-none">
+              Publish this blog
+            </Label>
+          </div>
+
+          {/* Visibility Status */}
+          <div>
+            <Label htmlFor="status">Visibility</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select visibility" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="website">Website Only (Public)</SelectItem>
+                <SelectItem value="user">Users Only (Logged-in)</SelectItem>
+                <SelectItem value="both">Both (Public + Users)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Existing Images */}
           {existingImages.length > 0 && (
             <div>
@@ -201,10 +244,10 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
             </div>
           )}
 
-          {/* New Images Upload */}
+          {/* Upload New Images */}
           <div>
             <Label>
-              Add Images (up to {5 - existingImages.length - imageFiles.length})
+              Add Images (up to {5 - totalImages})
             </Label>
             <div className="mt-2">
               <Input

@@ -6,6 +6,8 @@ import WhatWeOffer from '../Whatweoffer'
 import WhyAlphaR from '../Whyalpha'
 import Footer from '../Footer'
 import Plans from '../Plans'
+import Testimonial from '../Testimonial'
+import Blog from '../Blog'
 
 const Mainsection = () => {
   return (
@@ -15,7 +17,9 @@ const Mainsection = () => {
         <Plans/>
         <About/>
         <WhatWeOffer/>
+        <Testimonial />
         <WhyAlphaR/>
+        <Blog />
         <Footer/>
     </div>
   )

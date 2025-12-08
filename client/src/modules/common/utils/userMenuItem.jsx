@@ -1,3 +1,4 @@
+import { IconBlocks } from '@tabler/icons-react';
 import {
   LayoutDashboard,
   BarChart,
@@ -13,7 +14,8 @@ import {
   FilePen,
   BadgeDollarSign,
   History,
-  Link
+  Link,
+  UserRoundSearchIcon
 } from 'lucide-react';
 
 export const userMenuItems = {
@@ -68,6 +70,16 @@ export const userMenuItems = {
       title: 'Social Media',
       url: '/user-dashboard/social',
       icon: Link,
+    },
+    {
+      title: 'Blogs',
+      url: '/user-dashboard/blogs',
+      icon: IconBlocks,
+    },
+     {
+      title: 'Testimonial',
+      url: '/user-dashboard/testimonials',
+      icon: UserRoundSearchIcon,
     },
   ],
   navSecondary: [

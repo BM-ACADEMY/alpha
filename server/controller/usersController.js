@@ -708,21 +708,25 @@ exports.getUserreferralDashboard = async (req, res) => {
 // ---------------------------------------------------------------
 //  GET /api/users/referred-users   (admin referral dashboard)
 // ---------------------------------------------------------------
+// controller/usersController.js
 exports.getAllReferredUsers = async (req, res) => {
   try {
     const { page = 1, limit = 15, search } = req.query;
     const skip = (page - 1) * limit;
 
-    // 1. Only normal users (role = "user")
-    const userRole = await Role.findOne({ role_name: "user" }).select("_id");
-    if (!userRole) throw new Error("User role not found");
+    // Safely get the "user" role
+    const userRole = await Role.findOne({ role_name: "user" });
+    if (!userRole) {
+      return res.status(500).json({
+        message: "User role not configured. Please contact developer.",
+      });
+    }
 
     const filter = {
       referred_by: { $ne: null },
       role_id: userRole._id,
     };
 
-    // 2. Search (username, email, phone, customerId, own referral_code)
     if (search?.trim()) {
       const regex = { $regex: search.trim(), $options: "i" };
       filter.$or = [
@@ -740,7 +744,7 @@ exports.getAllReferredUsers = async (req, res) => {
       .select("-password -email_otp")
       .populate({
         path: "referred_by",
-        select: "username customerId",   // <-- needed for the badge
+        select: "username customerId",
       })
       .sort({ created_at: -1 })
       .skip(skip)
@@ -758,6 +762,60 @@ exports.getAllReferredUsers = async (req, res) => {
     });
   } catch (err) {
     console.error("getAllReferredUsers error:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      message: "Server error",
+      error: err.message,
+    });
+  }
+};
+
+const fs = require('fs');
+const path = require('path');
+
+exports.deleteUserImage = async (req, res) => {
+  try {
+    const { field, filename } = req.body;
+    const userId = req.user.id; // from authMiddleware
+
+    const validFields = ['profile_image', 'pan_image', 'aadhar_image', 'qrcode'];
+    if (!validFields.includes(field)) {
+      return res.status(400).json({ message: "Invalid image field" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const imagePath = user[field];
+    if (!imagePath) {
+      return res.status(400).json({ message: "No image to delete" });
+    }
+
+    // Verify filename matches
+    if (imagePath.split('/').pop() !== filename) {
+      return res.status(400).json({ message: "Filename mismatch" });
+    }
+
+    // Construct full server path (adjust based on where you save uploads)
+    const fullPath = path.join(__dirname, '..', 'uploads', filename);
+
+    // Delete file from disk (if exists)
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+
+    // Remove from database
+    user[field] = null;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `${field.replace('_', ' ')} deleted successfully`,
+      field,
+    });
+  } catch (error) {
+    console.error("Delete image error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };

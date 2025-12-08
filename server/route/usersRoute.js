@@ -10,22 +10,30 @@ router.get('/admin-info', userController.getAdminInfo);
 router.post('/verify-email', userController.verifyEmail);
 router.post('/login', userController.loginUser);
 router.post('/forgot-password', userController.forgotPassword);
-router.post("/verify-otp", userController.verifyOtp); // New endpoint
+router.post("/verify-otp", userController.verifyOtp);
 router.post('/reset-password', userController.resetPassword);
 router.post('/logout', userController.logout);
 router.put('/update-user/:id', userController.updateUser);
-// Protected routes (auth required)
+// Add this route
+router.delete("/profile-image/delete-image", authMiddleware, userController.deleteUserImage);
+// PROTECTED ROUTES - SPECIFIC FIRST
+router.get("/user-info", authMiddleware, userController.getUserInfo);
 router.get("/fetch-all-users-details-referral", authMiddleware, userController.getReferralUsers);
 router.get("/fetch-all-users-details", authMiddleware, userController.getUsers);
 router.get("/fetch-all-users-details-filter", authMiddleware, userController.getUsersFilter);
-
-router.get("/user-info", authMiddleware, userController.getUserInfo);
-router.post("/", authMiddleware, userController.createUser);
-router.patch("/:id", authMiddleware, upload.fields([{ name: 'pan_image', maxCount: 1 }, { name: 'aadhar_image', maxCount: 1 }]), userController.updateUser);router.delete("/:id", authMiddleware, userController.deleteUser);
-router.get("/:id", authMiddleware, userController.getUserById);
 router.get("/fetch-full-details/:id", authMiddleware, userController.getUserDetails);
-
 router.get("/user-dashboards/:id", authMiddleware, userController.getUserreferralDashboard);
-// route/usersRoute.js
-router.get("/referred-users", authMiddleware, userController.getAllReferredUsers);
+
+// THIS MUST COME BEFORE ANY /:id ROUTE
+router.get("/all-referred-users", authMiddleware, userController.getAllReferredUsers);
+
+// DYNAMIC PARAM ROUTES - MUST BE LAST
+router.post("/", authMiddleware, userController.createUser);
+router.patch("/:id", authMiddleware, upload.fields([
+  { name: 'pan_image', maxCount: 1 },
+  { name: 'aadhar_image', maxCount: 1 }
+]), userController.updateUser);
+router.delete("/:id", authMiddleware, userController.deleteUser);
+router.get("/:id", authMiddleware, userController.getUserById); // ← LAST
+
 module.exports = router;

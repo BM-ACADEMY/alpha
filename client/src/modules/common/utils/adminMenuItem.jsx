@@ -13,7 +13,8 @@ import {
   Link,
   FileText, 
   MessageCircleCodeIcon,
-  UserMinus2
+  UserMinus2,
+  MessageCircleHeart
 } from 'lucide-react';
 
 export const adminMenuItems = {
@@ -87,6 +88,11 @@ export const adminMenuItems = {
       title: 'Referral',
       url: '/admin-dashboard/referral',
       icon: UserMinus2,
+    },
+    {
+      title: 'Testimonials',
+      url: '/admin-dashboard/testimonials',
+      icon: MessageCircleHeart,
     },
   ],
   navSecondary: [
