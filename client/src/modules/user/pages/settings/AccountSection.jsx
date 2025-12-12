@@ -258,14 +258,14 @@ const AccountSection = ({ user, accounts, setAccounts, imagePreviews, setImagePr
           withCredentials: true,
         });
         console.log(response);
-        
+
         showToast('success', 'Account added successfully');
       }
       const accountsResponse = await axiosInstance.get(`/accounts/user/${user.id}`, {
         withCredentials: true,
       });
       const updatedAccounts = await Promise.all(
-        accountsResponse.data.map(async (account) => ({
+        accountsResponse.data?.map(async (account) => ({
           ...account,
           qrcodeUrl: account.qrcode ? await getImageUrl(account.qrcode, user.id, 'qr_code') : null,
         }))
@@ -554,7 +554,7 @@ const AccountSection = ({ user, accounts, setAccounts, imagePreviews, setImagePr
           </Card>
         ) : (
           <>
-            {accounts.map((account) => (
+            {accounts?.map((account) => (
               <Card key={account._id} className="shadow-sm relative">
                 <CardContent className="p-4">
                   <div className="absolute top-2 right-2">
@@ -805,7 +805,7 @@ const AccountSection = ({ user, accounts, setAccounts, imagePreviews, setImagePr
                         : [
                             { label: 'USDT Account Number', value: account.usdt_account_number, icon: CreditCard },
                           ]
-                      ).map((item, index) => (
+                      )?.map((item, index) => (
                         <div
                           key={index}
                           className="flex items-center bg-gray-100 px-4 py-3 text-sm"

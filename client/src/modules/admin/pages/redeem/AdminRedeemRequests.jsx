@@ -52,7 +52,7 @@ const AdminRedeemRequests = () => {
   const [accountDetails, setAccountDetails] = useState(null);
   const [accountLoading, setAccountLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
+
   // New state for filters and search
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -88,7 +88,7 @@ const AdminRedeemRequests = () => {
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
       setRedeemRequests((prev) =>
-        prev.map((request) =>
+        prev?.map((request) =>
           request._id === id
             ? { ...request, status, amount_send: status === 'approved' }
             : request
@@ -123,8 +123,8 @@ const AdminRedeemRequests = () => {
   // Filtering logic
   const filteredRequests = redeemRequests.filter(request => {
     // Filter by user search term (username or email)
-    const matchesSearch = searchTerm === '' || 
-      (request.user_id?.username?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchesSearch = searchTerm === '' ||
+      (request.user_id?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
        request.user_id?.email?.toLowerCase().includes(searchTerm.toLowerCase()));
 
     // Filter by status
@@ -135,7 +135,7 @@ const AdminRedeemRequests = () => {
 
     // Filter by date
     const matchesDate = filterDate === '' || new Date(request.created_at).toISOString().slice(0, 10) === filterDate;
-    
+
     return matchesSearch && matchesStatus && matchesAmount && matchesDate;
   });
 
@@ -161,7 +161,7 @@ const AdminRedeemRequests = () => {
         <CheckCircle className="h-6 w-6 mr-2 text-blue-600" />
         Redeem Requests
       </h2>
-      
+
       {/* Filter and Search section */}
       <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-6 items-center">
         {/* User Search */}
@@ -176,7 +176,7 @@ const AdminRedeemRequests = () => {
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
           />
         </div>
-        
+
         {/* Status Filter */}
         <div className="w-full sm:w-1/4">
           <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700">Filter by Status</label>
@@ -205,7 +205,7 @@ const AdminRedeemRequests = () => {
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
           />
         </div>
-        
+
         {/* Date Filter */}
         <div className="w-full sm:w-1/4">
           <label htmlFor="date-filter" className="block text-sm font-medium text-gray-700">Filter by Date</label>
@@ -247,7 +247,7 @@ const AdminRedeemRequests = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRequests.map((request) => (
+            {filteredRequest?.map((request) => (
               <TableRow key={request._id}>
                 <TableCell>
                   {request.user_id?.username || 'N/A'} ({request.user_id?.email || 'N/A'})
@@ -330,7 +330,7 @@ const AdminRedeemRequests = () => {
             </div>
           ) : accountDetails ? (
             <div className="space-y-6">
-              {accountDetails.map((account) => (
+              {accountDetails?.map((account) => (
                 <div key={account._id} className="border p-4 rounded-md">
                   <h3 className="font-semibold mb-2">{account.account_type} Account</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -343,7 +343,7 @@ const AdminRedeemRequests = () => {
                       { label: 'UPI ID', value: account.upi_id },
                       { label: 'UPI Number', value: account.upi_number },
                       { label: 'USDT Account Number', value: account.usdt_account_number },
-                    ].map(
+                    ]?.map(
                       (field) =>
                         field.value && (
                           <div key={field.label} className="flex items-center justify-between border-b py-1">

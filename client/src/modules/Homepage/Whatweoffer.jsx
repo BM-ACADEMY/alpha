@@ -59,7 +59,7 @@ export default function WhatWeOffer() {
       </motion.h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {offers.map((offer, idx) => (
+        {offers?.map((offer, idx) => (
           <motion.div
             key={idx}
             initial={{ opacity: 0, filter: "blur(20px)", y: 30 }}

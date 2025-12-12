@@ -202,7 +202,7 @@ const Dashboard = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {isLoading ? (
-          [...Array(8)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
+          [...Array(8)]?.map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
         ) : (
           <>
             <Card>
@@ -377,7 +377,7 @@ const Dashboard = () => {
                     dataKey="value"
                     label
                   >
-                    {filteredCurrencyData.map((_, index) => (
+                    {filteredCurrencyData?.map((_, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={index === 0 ? "#0088FE" : "#00C49F"}
@@ -411,7 +411,7 @@ const Dashboard = () => {
               </TableHeader>
               <TableBody>
                 {data?.referredUsersList?.length > 0 ? (
-                  data.referredUsersList.map((user) => (
+                  data.referredUsersList?.map((user) => (
                     <TableRow key={user.user_id}>
                       <TableCell>{user.username || 'N/A'}</TableCell>
                       <TableCell>{user.email || 'N/A'}</TableCell>
@@ -449,7 +449,7 @@ const Dashboard = () => {
               </TableHeader>
               <TableBody>
                 {data?.referralEarningsByUser?.length > 0 ? (
-                  data.referralEarningsByUser.map((user) => (
+                  data.referralEarningsByUser?.map((user) => (
                     <TableRow key={user.user_id}>
                       <TableCell>{user.username || 'N/A'}</TableCell>
                       <TableCell>{formatReferralAmount(user.referral_amount)}</TableCell>

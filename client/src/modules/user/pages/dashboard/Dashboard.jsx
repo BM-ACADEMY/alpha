@@ -111,7 +111,7 @@ const Dashboard = () => {
       {/* Profile, Wallet, Referral */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? (
-          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
+          [...Array(3)]?.map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
         ) : (
           <>
             {/* Profile */}
@@ -178,7 +178,7 @@ const Dashboard = () => {
           {isLoading ? <Skeleton className="h-64 w-full" /> : (
             data?.activePlans?.length ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {data.activePlans.map((plan, i) => (
+                {data.activePlans?.map((plan, i) => (
                   <div key={i} className="border p-4 rounded-md bg-gray-50">
                     <p><strong>Plan:</strong> {plan.planName}</p>
                     <p><strong>Amount:</strong> {plan.amountType} {plan.amount.toLocaleString()}</p>
@@ -205,7 +205,7 @@ const Dashboard = () => {
           {isLoading ? <Skeleton className="h-64 w-full" /> : (
             redeemRequests.length ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {redeemRequests.map(req => (
+                {redeemRequests?.map(req => (
                   <div key={req._id} className="border p-4 rounded-md bg-gray-50">
                     <p><strong>Amount:</strong> {req.redeem_amount.toLocaleString()} {req.account_type}</p>
                     <p><strong>Status:</strong> {req.status.charAt(0).toUpperCase() + req.status.slice(1)}</p>

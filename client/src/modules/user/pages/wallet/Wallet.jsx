@@ -174,7 +174,7 @@ const WalletPage = () => {
         Wallet Information
       </h2>
 
-      {wallets.map((wallet, index) => (
+      {wallets?.map((wallet, index) => (
         <div key={wallet._id} className="mb-8 p-6 border rounded-lg bg-gray-50">
           <h3 className="text-xl font-semibold mb-4">Plan: {wallet.plan_name}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">

@@ -89,7 +89,7 @@ const Socialmedia = () => {
             Connect With Us
           </h2>
           <div className="grid md:grid-cols-3 sm:grid-cols-2 grid-cols-1 gap-6">
-            {[...Array(3)].map((_, i) => (
+            {[...Array(3)]?.map((_, i) => (
               <div
                 key={i}
                 className="h-48 bg-gray-200 rounded-2xl animate-pulse"
@@ -125,9 +125,9 @@ const Socialmedia = () => {
           Connect With Us
         </h2>
 
-        {socialLinks.length > 0 ? (
+        {socialLinks?.length > 0 ? (
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {socialLinks.map((item) => (
+            {socialLinks?.map((item) => (
               <a
                 key={item.platform}
                 href={item.link}

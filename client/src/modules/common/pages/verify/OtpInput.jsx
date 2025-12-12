@@ -43,7 +43,7 @@ const OtpInput = ({ value, onChange }) => {
 
   return (
     <div className="flex gap-2">
-      {otp.map((digit, index) => (
+      {otp?.map((digit, index) => (
         <input
           key={index}
           ref={(el) => (inputsRef.current[index] = el)}

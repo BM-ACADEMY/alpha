@@ -216,7 +216,7 @@ const ComplaintsTable = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {complaints.map((c) => (
+          {complaints?.map((c) => (
             <TableRow key={c._id} className="hover:bg-muted/40">
               <TableCell className="flex items-center gap-3">
                 <Avatar>
@@ -367,7 +367,7 @@ const ComplaintsTable = () => {
                     <TableRow>
                       <TableCell><strong>Replies</strong></TableCell>
                       <TableCell>
-                        {selectedComplaint.replies.map((reply, index) => (
+                        {selectedComplaint.replies?.map((reply, index) => (
                           <div key={index} className="border p-2 mb-2 rounded">
                             <p className="text-sm text-gray-500">
                               {new Date(reply.created_at).toLocaleString()}
@@ -389,7 +389,7 @@ const ComplaintsTable = () => {
                     plugins={[lgThumbnail, lgZoom]}
                     elementClassNames="mt-2 flex flex-wrap gap-2"
                   >
-                    {selectedComplaint.image_urls.map((url, idx) => (
+                    {selectedComplaint.image_urls?.map((url, idx) => (
                       <a key={idx} href={imageUrls[url] || '/fallback-image.png'}>
                         <img
                           alt={`complaint-${idx}`}
@@ -421,8 +421,8 @@ const ComplaintsTable = () => {
                 placeholder="Reply message"
                 rows={5}
               />
-              <Button 
-                onClick={handleSendReply} 
+              <Button
+                onClick={handleSendReply}
                 disabled={isSendingReply}
                 className="bg-[#0f1c3f] hover:bg-[#0f1c3fc7] text-white flex items-center justify-center transition-all duration-300"
               >
@@ -460,7 +460,7 @@ const ComplaintsTable = () => {
               }}
             />
           </PaginationItem>
-          {[...Array(totalPages)].map((_, i) => (
+          {[...Array(totalPages)]?.map((_, i) => (
             <PaginationItem key={i}>
               <PaginationLink
                 href="#"

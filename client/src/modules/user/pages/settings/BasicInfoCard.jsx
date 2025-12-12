@@ -50,7 +50,7 @@ const BasicInfoCard = ({ profileData }) => {
                 ),
                 icon: Users,
               },
-            ].map((item, index) => (
+            ]?.map((item, index) => (
               <div
                 key={index}
                 className="flex items-center bg-gray-100 px-4 py-3 text-sm"
@@ -125,7 +125,7 @@ const BasicInfoCard = ({ profileData }) => {
                 value: profileData.aadhar_number || "Not provided",
                 icon: FileText,
               },
-            ].map((item, index) => (
+            ]?.map((item, index) => (
               <div
                 key={index}
                 className="flex items-center bg-gray-100 px-4 py-3 text-sm"

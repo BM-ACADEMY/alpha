@@ -21,7 +21,7 @@ export function NavMain({ items }) {
 
         {/* Menu items */}
         <SidebarMenu>
-          {items.map((item) => (
+          {items?.map((item) => (
             <SidebarMenuItem key={item.title}>
               <NavLink to={item.url} end={item.url === "/admin-dashboard"}>
                 {({ isActive }) => (

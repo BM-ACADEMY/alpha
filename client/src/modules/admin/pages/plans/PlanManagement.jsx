@@ -506,7 +506,7 @@ const PlanManagement = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {plans.map((plan) => {
+              {plans?.map((plan) => {
                 const features = [
                   `Amount Type: ${plan.amount_type}`,
                   `Min Investment: ${plan.min_investment?.$numberDecimal || "N/A"} ${plan.amount_type}`,
@@ -527,7 +527,7 @@ const PlanManagement = () => {
                         {plan.min_investment?.$numberDecimal || "N/A"} {plan.amount_type}
                       </p>
                       <ul className="mb-4 space-y-2 list-none">
-                        {features.map((feature, index) => (
+                        {features?.map((feature, index) => (
                           <li key={index} className="flex items-center text-gray-700">
                             <span className="mr-2 text-blue-600">✓</span>
                             {feature}

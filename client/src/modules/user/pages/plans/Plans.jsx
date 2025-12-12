@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Layers, 
-  DollarSign, 
-  Lock, 
-  RefreshCcw, 
-  Percent, 
-  TrendingUp, 
-  FileText 
+import {
+  Layers,
+  DollarSign,
+  Lock,
+  RefreshCcw,
+  Percent,
+  TrendingUp,
+  FileText
 } from "lucide-react";
 import PlanPurchase from './PlanPurchase';
 
@@ -65,7 +65,7 @@ const Plans = () => {
           </div>
           Available Plans
         </h1>
-        <Button 
+        <Button
           className="px-4 py-2 text-sm font-medium rounded-lg"
           style={{ backgroundColor: iconColor, color: '#fff' }}
           onClick={() => setShowPurchase(!showPurchase)}
@@ -80,9 +80,9 @@ const Plans = () => {
         <p className="text-gray-500 text-lg">No plans available.</p>
       ) : (
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {plans.map((plan) => (
-            <Card 
-              key={plan._id} 
+          {plans?.map((plan) => (
+            <Card
+              key={plan._id}
               className="border border-gray-100 shadow-lg rounded-2xl hover:shadow-2xl hover:-translate-y-1 transition-transform bg-white/80 backdrop-blur-sm"
             >
               <CardHeader className="pb-3">
@@ -91,8 +91,8 @@ const Plans = () => {
                     <Layers className="w-6 h-6" style={{ color: iconColor }} />
                     {plan.plan_name}
                   </span>
-                  <Badge 
-                    className="px-3 py-1 text-sm border rounded-lg font-medium" 
+                  <Badge
+                    className="px-3 py-1 text-sm border rounded-lg font-medium"
                     style={{ borderColor: iconColor, color: iconColor }}
                   >
                     {plan.amount_type}

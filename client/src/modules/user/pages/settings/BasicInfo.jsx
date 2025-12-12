@@ -384,7 +384,7 @@ const BasicInfo = ({
         </div>
       </div>
       <div className="flex flex-wrap justify-center gap-4 mt-4">
-        {['profile_image', 'pan_image', 'aadhar_image', 'qrcode'].map((imageType) => (
+        {['profile_image', 'pan_image', 'aadhar_image', 'qrcode']?.map((imageType) => (
           imagePreviews[imageType] && (
             <div key={imageType} className="relative w-[300px] h-[300px]">
               <Zoom>
@@ -454,7 +454,7 @@ const BasicInfo = ({
                   ),
                   icon: Tag,
                 },
-              ].map((item, index) => (
+              ]?.map((item, index) => (
                 <div
                   key={index}
                   className="flex items-center bg-gray-100 px-4 py-3 text-sm"
@@ -527,7 +527,7 @@ const BasicInfo = ({
                   value: profileData.aadhar_number || "Not provided",
                   icon: FileText,
                 },
-              ].map((item, index) => (
+              ]?.map((item, index) => (
                 <div
                   key={index}
                   className="flex items-center bg-gray-100 px-4 py-3 text-sm"

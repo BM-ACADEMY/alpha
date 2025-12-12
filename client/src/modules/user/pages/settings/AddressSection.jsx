@@ -80,7 +80,7 @@ const AddressSection = ({ user, addresses, setAddresses }) => {
           user_id: user.id,
           ...addressFormData,
         }, { withCredentials: true });
-        setAddresses(addresses.map((addr) => (addr._id === selectedAddress._id ? response.data : addr)));
+        setAddresses(addresses?.map((addr) => (addr._id === selectedAddress._id ? response.data : addr)));
         showToast('success', 'Address updated successfully');
       } else {
         // Create new address
@@ -262,7 +262,7 @@ const AddressSection = ({ user, addresses, setAddresses }) => {
             </CardContent>
           </Card>
         ) : (
-          addresses.map((address) => (
+          addresses?.map((address) => (
             <Card key={address._id} className="shadow-sm relative w-full">
               <CardContent className="p-4">
                 <div className="absolute top-2 right-2">
@@ -385,7 +385,7 @@ const AddressSection = ({ user, addresses, setAddresses }) => {
                     { label: 'State', value: address.state, icon: MapPin },
                     { label: 'Country', value: address.country, icon: Globe },
                     { label: 'Pincode', value: address.pincode, icon: Pin },
-                  ].map((item, index) => (
+                  ]?.map((item, index) => (
                     <div
                       key={index}
                       className="flex items-center bg-gray-100 px-4 py-3 text-sm"

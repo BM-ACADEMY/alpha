@@ -506,7 +506,7 @@ const AdminPurchasePlan = () => {
       console.log("Points added:", res.data);
       setStatusMessage(res.data.message);
       setPurchasedPlans((prev) =>
-        prev.map((sub) =>
+        prev?.map((sub) =>
           sub._id === selectedSubscriptionForPoints._id
             ? { ...sub, pointsAdded: true }
             : sub
@@ -649,7 +649,7 @@ const AdminPurchasePlan = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {plans.map((plan) => (
+              {plans?.map((plan) => (
                 <TableRow key={plan?._id}>
                   <TableCell>{plan?.plan_name}</TableCell>
                   <TableCell>
@@ -903,7 +903,7 @@ const AdminPurchasePlan = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {purchasedPlans.map((sub) => {
+              {purchasedPlans?.map((sub) => {
                 const minInvestment = sub.amount;
                 const profitPercentage = parseFloat(
                   sub.profit_percentage?.$numberDecimal || 0
@@ -1235,7 +1235,7 @@ const AdminPurchasePlan = () => {
                   disabled={currentPage === 1}
                 />
               </PaginationItem>
-              {[...Array(totalPages)].map((_, i) => (
+              {[...Array(totalPages)]?.map((_, i) => (
                 <PaginationItem key={i}>
                   <PaginationLink
                     href="#"

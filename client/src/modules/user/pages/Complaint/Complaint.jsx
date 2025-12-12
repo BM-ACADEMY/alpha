@@ -252,7 +252,7 @@ const Complaint = () => {
                       <div className="mt-2">
                         <p>Selected files:</p>
                         <div className="flex flex-wrap gap-2">
-                          {selectedFiles.map((file, index) => (
+                          {selectedFiles?.map((file, index) => (
                             <Zoom key={index}>
                               <img
                                 src={URL.createObjectURL(file)}
@@ -330,7 +330,7 @@ const Complaint = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {complaints.map((complaint) => (
+                    {complaints?.map((complaint) => (
                       <TableRow key={complaint._id}>
                         <TableCell className="font-medium">
                           {complaint.complaint_type}
@@ -434,7 +434,7 @@ const Complaint = () => {
           <div className="p-4">
             {selectedImages.length > 0 ? (
               <div className="flex flex-wrap gap-4">
-                {selectedImages.map((url, index) => (
+                {selectedImages?.map((url, index) => (
                   <Zoom key={index}>
                     <img
                       src={url}
@@ -467,7 +467,7 @@ const Complaint = () => {
           </DialogHeader>
           <div className="space-y-4">
             {selectedComplaint?.replies?.length > 0 ? (
-              selectedComplaint.replies.map((reply, index) => (
+              selectedComplaint.replies?.map((reply, index) => (
                 <div key={index} className="border p-4 rounded">
                   <p className="text-sm text-gray-500">
                     {new Date(reply.created_at).toLocaleString()}

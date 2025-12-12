@@ -99,7 +99,7 @@ const ComplaintForm = ({ userId }) => {
         onChange={handleImageChange}
       />
       <div className="grid grid-cols-3 gap-4">
-        {imageUrls.map((url, idx) => (
+        {imageUrls?.map((url, idx) => (
           <div key={idx} className="relative">
             <img src={url} alt="preview" className="w-full h-32 object-cover rounded" />
             <Button

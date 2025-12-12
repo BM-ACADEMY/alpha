@@ -18,7 +18,7 @@ const ReadOnlyHalfStarRating = ({ value }) => {
 
   return (
     <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((star) => {
+      {[1, 2, 3, 4, 5]?.map((star) => {
         const filled = rating >= star;
         const half = rating >= star - 0.5 && rating < star;
 
@@ -96,7 +96,7 @@ export default function AdminTestimonials() {
       });
 
       setTestimonials((prev) =>
-        prev.map((t) =>
+        prev?.map((t) =>
           t._id === id ? { ...t, verified_by_admin: approved } : t
         )
       );
@@ -144,7 +144,7 @@ export default function AdminTestimonials() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {testimonials
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-            .map((t) => {
+            ?.map((t) => {
               const isApproved = t.verified_by_admin === true;
               const isRejected = t.verified_by_admin === false;
 
