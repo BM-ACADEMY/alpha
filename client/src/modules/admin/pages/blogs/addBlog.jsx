@@ -131,7 +131,7 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
 
     try {
       const isEdit = !!initialBlog;
-      const url = isEdit ? `/api/blogs/${initialBlog._id}` : '/api/blogs/create-blog';
+      const url = isEdit ? `${import.meta.env.VITE_BASE_URL}/blogs/${initialBlog._id}` : `${import.meta.env.VITE_BASE_URL}/blogs/create-blog`;
       const method = isEdit ? 'PUT' : 'POST';
 
       const res = await fetch(url, {

@@ -64,8 +64,8 @@ export default function BlogList() {
     setLoading(true);
     try {
       const url = query
-        ? `/api/blogs/fetch-all-blog?search=${encodeURIComponent(query)}`
-        : "/api/blogs/fetch-all-blog";
+        ? `/blogs/fetch-all-blog?search=${encodeURIComponent(query)}`
+        : "/blogs/fetch-all-blog";
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
@@ -109,7 +109,7 @@ export default function BlogList() {
     if (!confirm("Are you sure you want to delete this blog?")) return;
 
     try {
-      const res = await fetch(`/api/blogs/${id}`, { method: "DELETE" });
+      const res = await fetch(`${import.meta.env.VITE_BASE_URL}/blogs/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
       setBlogs((prev) => prev.filter((b) => b._id !== id));
     } catch (err) {

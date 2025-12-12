@@ -15,7 +15,7 @@ function BlogList() {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await axios.get('/api/blogs/fetch-published-blog');
+      const { data } = await axios.get(`${import.meta.env.VITE_BASE_URL}/blogs/fetch-published-blog`);
       setBlogs(data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load blogs');

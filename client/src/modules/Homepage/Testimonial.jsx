@@ -50,7 +50,7 @@ export default function TestimonialCarousel() {
 
   const fetchTestimonials = async () => {
     try {
-      const res = await axios.get("/api/testimonials");
+      const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/testimonials`);
       setTestimonials(res.data);
     } catch (err) {
       console.error("Failed to load testimonials", err);
