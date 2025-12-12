@@ -37,7 +37,7 @@ function BlogList() {
     return (
       <div className="max-w-5xl mx-auto p-6">
         <div className="space-y-8">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3]?.map((i) => (
             <div key={i} className="bg-white rounded-2xl shadow-lg p-8 animate-pulse">
               <div className="h-8 bg-gray-200 rounded w-3/4 mb-4"></div>
               <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
@@ -78,7 +78,7 @@ function BlogList() {
         </div>
       ) : (
         <div className="space-y-10">
-          {blogs.map((blog) => {
+          {blogs?.map((blog) => {
             const isExpanded = expandedId === blog._id;
 
             return (
@@ -102,7 +102,7 @@ function BlogList() {
                     {/* Preview Images */}
                     {blog.images?.length > 0 && (
                       <div className="grid grid-cols-4 gap-3 mb-6">
-                        {blog.images.slice(0, 4).map((src, i) => (
+                        {blog.images.slice(0, 4)?.map((src, i) => (
                           <img
                             key={i}
                             src={getImageUrl(src)}
@@ -147,7 +147,7 @@ function BlogList() {
                     {blog.images?.length > 0 && (
                       <div className="px-8 pb-6 bg-gray-50">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {blog.images.map((src, i) => (
+                          {blog.images?.map((src, i) => (
                             <Zoom key={i} zoomMargin={40}>
                               <img
                                 src={getImageUrl(src)}

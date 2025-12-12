@@ -27,7 +27,7 @@ export const Navbar = ({ children, className }) => {
       ref={ref}
       className={cn("fixed inset-x-0 top-0 z-50 w-full", className)}
     >
-      {React.Children.map(children, (child) =>
+      {React.Children?.map(children, (child) =>
         React.isValidElement(child) ? React.cloneElement(child, { visible }) : child
       )}
     </motion.div>
@@ -69,7 +69,7 @@ export const NavItems = ({ items, className, onItemClick }) => {
         className
       )}
     >
-      {items.map((item, idx) => (
+      {items?.map((item, idx) => (
         <a
   key={`link-${idx}`}
   href={item.link}
@@ -176,7 +176,7 @@ export const NavbarButton = ({
     "px-4 py-2 rounded-full text-sm font-bold relative cursor-pointer hover:-translate-y-0.5 transition duration-200 inline-block text-center";
 
   const variantStyles = {
-    primary: "bg-[#d29e45] text-white", // 
+    primary: "bg-[#d29e45] text-white", //
     secondary: "bg-transparent text-white shadow-none",
     gradient: "bg-gradient-to-b from-blue-500 to-blue-700 text-white",
   };

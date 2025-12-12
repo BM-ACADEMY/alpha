@@ -25,7 +25,7 @@ function ReadOnlyHalfStarRating({ value }) {
 
   return (
     <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((star) => {
+      {[1, 2, 3, 4, 5]?.map((star) => {
         const filled = rating >= star;
         const half = rating >= star - 0.5 && rating < star;
         return (
@@ -59,7 +59,7 @@ function HalfStarRating({ value, onRate, disabled }) {
 
   return (
     <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((star) => {
+      {[1, 2, 3, 4, 5]?.map((star) => {
         const filled = displayValue >= star;
         const half = displayValue >= star - 0.5 && displayValue < star;
 

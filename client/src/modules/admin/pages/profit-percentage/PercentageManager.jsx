@@ -349,7 +349,7 @@ const PercentageManager = () => {
                         </FormControl>
 
                         <SelectContent>
-                          {filteredPlans.map((plan) => {
+                          {filteredPlans?.map((plan) => {
                             const label = `${plan.amount_type} - ${plan.plan_name}`;
                             return (
                               <SelectItem key={plan._id} value={plan.plan_name}>
@@ -494,7 +494,7 @@ const PercentageManager = () => {
                 </TableHeader>
 
                 <TableBody>
-                  {percentages.map((percentage) => (
+                  {percentages?.map((percentage) => (
                     <TableRow
                       key={percentage._id}
                       className="hover:bg-gray-100 transition-colors duration-200"

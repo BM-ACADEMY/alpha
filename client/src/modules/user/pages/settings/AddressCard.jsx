@@ -78,7 +78,7 @@ const AddressCard = ({ addresses, setAddresses, user }) => {
         user_id: user.id,
         ...addressFormData,
       }, { withCredentials: true });
-      setAddresses(addresses.map((addr) => (addr._id === selectedAddress._id ? response.data : addr)));
+      setAddresses(addresses?.map((addr) => (addr._id === selectedAddress._id ? response.data : addr)));
       setAddressOpen(false);
       showToast('success', 'Address updated successfully');
       setAddressFormData({
@@ -116,11 +116,11 @@ const AddressCard = ({ addresses, setAddresses, user }) => {
         <MapPin className="mr-2 h-5 w-5" />
         Addresses
       </h3>
-      {addresses.length === 0 ? (
+      {addresses?.length === 0 ? (
         <p className="text-sm text-muted-foreground">No addresses added yet.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-          {addresses.map((address) => (
+          {addresses?.map((address) => (
             <Card key={address._id} className="shadow-sm relative w-full">
               <CardContent className="p-4">
                 <div className="absolute top-2 right-2">
@@ -243,7 +243,7 @@ const AddressCard = ({ addresses, setAddresses, user }) => {
                     { label: "State", value: address.state, icon: MapPin },
                     { label: "Country", value: address.country, icon: Globe },
                     { label: "Pincode", value: address.pincode, icon: Pin },
-                  ].map((item, index) => (
+                  ]?.map((item, index) => (
                     <div
                       key={index}
                       className="flex items-center bg-gray-100 px-4 py-3 text-sm"

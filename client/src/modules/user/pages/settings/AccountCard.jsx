@@ -155,7 +155,7 @@ const AccountCard = ({ accounts, setAccounts, user, imagePreviews, setImagePrevi
         withCredentials: true,
       });
       const updatedAccounts = await Promise.all(
-        accountsResponse.data.map(async (account) => ({
+        accountsResponse.data?.map(async (account) => ({
           ...account,
           qrcodeUrl: account.qrcode ? await getImageUrl(account.qrcode, 'qr_code') : null,
         })
@@ -369,7 +369,7 @@ const AccountCard = ({ accounts, setAccounts, user, imagePreviews, setImagePrevi
             </CardContent>
           </Card>
         ) : (
-          accounts.map((account) => (
+          accounts?.map((account) => (
             <Card key={account._id} className="shadow-sm relative">
               <CardContent className="p-4">
                 <div className="absolute top-2 right-2">
@@ -523,7 +523,7 @@ const AccountCard = ({ accounts, setAccounts, user, imagePreviews, setImagePrevi
                       { label: "Linked Phone", value: account.linked_phone_number, icon: Phone },
                       { label: "UPI ID", value: account.upi_id, icon: Code },
                       { label: "UPI Number", value: account.upi_number, icon: Phone },
-                    ].map((item, index) => (
+                    ]?.map((item, index) => (
                       <div
                         key={index}
                         className="flex items-center bg-gray-100 px-4 py-3 text-sm"

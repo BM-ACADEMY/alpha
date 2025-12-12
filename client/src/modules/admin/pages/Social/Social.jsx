@@ -76,7 +76,7 @@
         setLoading(true);
         const response = await axiosInstance.get('/socialmedia');
         const data = response.data.data || [];
-        
+
         // Create platform-specific objects with only relevant data
         const organizedSocials = {};
         data.forEach(social => {
@@ -102,7 +102,7 @@
             };
           }
         });
-        
+
         setSocials(organizedSocials);
       } catch (error) {
         console.error('Error fetching social media:', error);
@@ -120,7 +120,7 @@
     const handleChange = (e) => {
       const value = e.target.value;
       const config = platformConfig[selectedPlatform];
-      
+
       // WhatsApp validation - only numbers
       if (config.validation && value !== "" && !config.validation.test(value)) {
         return;
@@ -148,7 +148,7 @@
       setSaving(true);
       try {
         const payload = { [selectedPlatform]: formValue.trim() };
-        
+
         let response;
         if (isEditMode && currentId) {
           // Update existing record
@@ -159,7 +159,7 @@
           response = await axiosInstance.post('/socialmedia', payload);
           showToast('success', `${platformConfig[selectedPlatform].label} added successfully`);
         }
-        
+
         setOpen(false);
         await fetchSocialMedia(); // Refresh data
         resetForm();
@@ -206,7 +206,7 @@
         handleEdit(socials[platform]);
         return;
       }
-      
+
       resetForm();
       setSelectedPlatform(platform);
       setOpen(true);
@@ -229,7 +229,7 @@
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900">Social Media Links</h2>
           <div className="flex gap-2">
-            {Object.entries(platformConfig).map(([key]) => (
+            {Object.entries(platformConfig)?.map(([key]) => (
               <Button
                 key={key}
                 variant={socials[key] ? "outline" : "default"}
@@ -246,7 +246,7 @@
 
         {/* Platform Cards */}
         <div className="grid md:grid-cols-3 gap-6">
-          {Object.entries(platformConfig).map(([platformKey, config]) => {
+          {Object.entries(platformConfig)?.map(([platformKey, config]) => {
             const socialData = socials[platformKey];
             const hasLink = socialData && socialData.value && socialData.value.trim();
 
@@ -265,7 +265,7 @@
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-1">
                       {hasLink ? (
                         <>
@@ -302,7 +302,7 @@
                     </div>
                   </div>
                 </CardHeader>
-                
+
                 <CardContent>
                   {hasLink ? (
                     <div className="space-y-2">
@@ -338,13 +338,13 @@
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>
-                {isEditMode 
-                  ? `Edit ${platformConfig[selectedPlatform].label}` 
+                {isEditMode
+                  ? `Edit ${platformConfig[selectedPlatform].label}`
                   : `Add ${platformConfig[selectedPlatform].label}`
                 }
               </DialogTitle>
             </DialogHeader>
-            
+
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="value">{platformConfig[selectedPlatform].label} Link</Label>
@@ -362,8 +362,8 @@
                   {platformConfig[selectedPlatform].icon}
                 </div>
                 <p className="text-xs text-gray-500">
-                  {selectedPlatform === 'whatsapp' 
-                    ? 'Enter phone number without country code or + sign' 
+                  {selectedPlatform === 'whatsapp'
+                    ? 'Enter phone number without country code or + sign'
                     : 'Enter username without @ symbol'
                   }
                 </p>
@@ -371,9 +371,9 @@
             </div>
 
             <DialogFooter>
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => {
                   setOpen(false);
                   resetForm();
@@ -382,8 +382,8 @@
               >
                 Cancel
               </Button>
-              <Button 
-                onClick={handleSubmit} 
+              <Button
+                onClick={handleSubmit}
                 disabled={!formValue.trim() || saving}
                 className="min-w-[80px]"
               >

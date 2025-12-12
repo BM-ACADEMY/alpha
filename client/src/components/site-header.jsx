@@ -44,7 +44,7 @@ export function SiteHeader() {
         <div className="flex w-full items-center gap-1 p-4 px-4 lg:gap-2 lg:px-6">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
-          
+
           {/* Breadcrumb Component */}
           <Breadcrumb>
             <BreadcrumbList>
@@ -75,7 +75,7 @@ export function SiteHeader() {
               <Search className="w-4 h-4 text-gray-400" />
             </Button>
 
-           
+
           </div>
         </div>
       </header>
@@ -87,7 +87,7 @@ export function SiteHeader() {
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup heading="Navigation">
-              {adminMenuItems.navMain.map((item) => (
+              {adminMenuItems.navMain?.map((item) => (
                 <CommandItem
                   key={item.url}
                   onSelect={() => {

@@ -82,7 +82,7 @@ const Plans = () => {
                   "Daily Return %",
                   "Daily Return (Example)",
                   "Notes",
-                ].map((heading) => (
+                ]?.map((heading) => (
                   <th
                     key={heading}
                     className="px-6 py-4 text-left text-xs md:text-sm font-semibold text-gray-100 uppercase tracking-wide"
@@ -93,7 +93,7 @@ const Plans = () => {
               </tr>
             </thead>
             <tbody>
-              {plans.map((plan, idx) => (
+              {plans?.map((plan, idx) => (
                 <tr
                   key={plan._id}
                   className={`${

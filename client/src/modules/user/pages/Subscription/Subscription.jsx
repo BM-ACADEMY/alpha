@@ -148,7 +148,7 @@ const Subscription = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {activePlans.map((activePlan) => {
+            {activePlans?.map((activePlan) => {
               const plan = activePlan.plan_id;
               const amount = Number(activePlan.amount) || 0;
               const profitPercentage = Number(activePlan.profit_percentage?.$numberDecimal || 0);
@@ -209,9 +209,9 @@ const Subscription = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          {activePlans.length > 0 && (
+          {activePlans?.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 animate-fade-in">
-              {activePlans.map((activePlan) => (
+              {activePlans?.map((activePlan) => (
                 <div key={activePlan._id} className="flex items-center p-4 bg-white rounded-lg shadow-sm">
                   <div>
                     <div className="flex items-center mb-2">

@@ -348,7 +348,7 @@ const BasicInfo = ({
         </div>
       </div>
       <div className="grid grid-cols-1 w-full sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-        {['profile_image', 'pan_image', 'aadhar_image', 'qrcode'].map((imageType) => (
+        {['profile_image', 'pan_image', 'aadhar_image', 'qrcode']?.map((imageType) => (
           imagePreviews[imageType] && (
             <div key={imageType} className="relative w-[200px] h-[200px] mx-auto">
               <Zoom>
@@ -404,7 +404,7 @@ const BasicInfo = ({
                   ),
                   icon: Users,
                 },
-              ].map((item, index) => (
+              ]?.map((item, index) => (
                 <div
                   key={index}
                   className="flex items-center bg-gray-100 px-4 py-3 text-sm"
@@ -479,7 +479,7 @@ const BasicInfo = ({
                   value: profileData.aadhar_number || "Not provided",
                   icon: FileText,
                 },
-              ].map((item, index) => (
+              ]?.map((item, index) => (
                 <div
                   key={index}
                   className="flex items-center bg-gray-100 px-4 py-3 text-sm"

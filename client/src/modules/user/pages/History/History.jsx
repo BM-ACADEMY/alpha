@@ -147,7 +147,7 @@ const HistoryPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactions.map((transaction, index) => (
+                {transactions?.map((transaction, index) => (
                   <TableRow key={`${transaction.type}-${transaction.date}-${index}`}>
                     <TableCell>
                       {transaction.date ? new Date(transaction.date).toLocaleString() : 'Invalid Date'}

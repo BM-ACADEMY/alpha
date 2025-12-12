@@ -90,7 +90,7 @@ const ReferralCard = ({ profileData }) => {
       </CardHeader>
       <CardContent>
         <dl className="divide-y divide-gray-200 rounded-lg border border-gray-200">
-          {referralItems.map((item, index) => (
+          {referralItems?.map((item, index) => (
             <div
               key={index}
               className={`flex items-center px-4 py-3 text-sm ${

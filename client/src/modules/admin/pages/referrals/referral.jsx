@@ -163,9 +163,9 @@ export default function Referral() {
           <TableBody>
             {loading ? (
               // Loading Skeleton
-              Array.from({ length: 5 }).map((_, i) => (
+              Array.from({ length: 5 })?.map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((_, j) => (
+                  {Array.from({ length: 8 })?.map((_, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
@@ -188,7 +188,7 @@ export default function Referral() {
               </TableRow>
             ) : (
               // Data Rows
-              users.map((user, index) => {
+              users?.map((user, index) => {
                 const serialNumber =
                   (pagination.page - 1) * pagination.limit + index + 1;
 

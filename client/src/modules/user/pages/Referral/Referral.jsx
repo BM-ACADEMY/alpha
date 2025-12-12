@@ -189,7 +189,7 @@ const ReferralPage = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
-          [...Array(4)].map((_, i) => (
+          [...Array(4)]?.map((_, i) => (
             <Skeleton key={i} className="h-40 w-full rounded-lg" />
           ))
         ) : (
@@ -292,7 +292,7 @@ const ReferralPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {referredUsers.map((referredUser) => (
+                  {referredUsers?.map((referredUser) => (
                     <tr
                       key={referredUser._id}
                       className="border-b hover:bg-gray-50 transition-colors duration-150"

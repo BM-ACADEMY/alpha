@@ -94,7 +94,7 @@ export default function BlogList() {
 
   const handleEditBlog = (updatedBlog) => {
     setBlogs((prev) =>
-      prev.map((b) => (b._id === updatedBlog._id ? updatedBlog : b))
+      prev?.map((b) => (b._id === updatedBlog._id ? updatedBlog : b))
     );
     setEditingBlog(null);
     setModalOpen(false);
@@ -155,12 +155,12 @@ export default function BlogList() {
       <div className="max-w-7xl mx-auto space-y-12">
         {loading ? (
           <div className="text-center py-20 text-gray-500 text-lg">Loading blogs...</div>
-        ) : blogs.length === 0 ? (
+        ) : blogs?.length === 0 ? (
           <div className="text-center py-20 text-gray-500 text-lg">
             {searchQuery ? "No blogs found." : "No blogs yet. Create your first one!"}
           </div>
         ) : (
-          blogs.map((blog) => {
+          blogs?.map((blog) => {
             const isExpanded = expandedIds.has(blog._id);
             const paragraphs = blog.description.split("\n");
             const previewLines = paragraphs.slice(0, 3);
@@ -190,7 +190,7 @@ export default function BlogList() {
                       <div className="p-8 bg-gradient-to-b from-gray-100 to-white">
                         {blog.images?.length > 0 ? (
                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                            {blog.images.map((img, i) => (
+                            {blog.images?.map((img, i) => (
                               <div
                                 key={i}
                                 onClick={() => openLightbox(img)}
@@ -235,7 +235,7 @@ export default function BlogList() {
                         </div>
 
                         <div className="text-gray-700 text-lg leading-relaxed space-y-6">
-                          {paragraphs.map((para, i) => {
+                          {paragraphs?.map((para, i) => {
                             if (!para.trim()) return <div key={i} className="h-5" />;
                             return <p key={i}>{para}</p>;
                           })}
@@ -255,7 +255,7 @@ export default function BlogList() {
                       <div className="lg:w-1/2 p-8 bg-gray-50">
                         {blog.images?.length > 0 ? (
                           <div className="grid grid-cols-3 gap-4">
-                            {blog.images.slice(0, 9).map((img, i) => (
+                            {blog.images.slice(0, 9)?.map((img, i) => (
                               <div
                                 key={i}
                                 onClick={() => openLightbox(img)}
@@ -300,7 +300,7 @@ export default function BlogList() {
                         </div>
 
                         <div className="text-gray-700 leading-relaxed text-base space-y-4">
-                          {previewLines.map((para, i) => {
+                          {previewLines?.map((para, i) => {
                             if (!para.trim()) return <div key={i} className="h-3" />;
                             return (
                               <p key={i} className={i === 2 ? "line-clamp-3" : ""}>

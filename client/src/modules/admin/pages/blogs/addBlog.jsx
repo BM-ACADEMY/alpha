@@ -55,7 +55,7 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
       setStatus(initialBlog.status || 'website');
       setExistingImages(initialBlog.images ? [...initialBlog.images] : []);
       setPreviews(
-        initialBlog.images ? initialBlog.images.map(getImageUrl) : []
+        initialBlog.images ? initialBlog.images?.map(getImageUrl) : []
       );
       setImageFiles([]);
     } else {
@@ -83,7 +83,7 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
       return;
     }
 
-    const newPreviews = files.map((file) => URL.createObjectURL(file));
+    const newPreviews = files?.map((file) => URL.createObjectURL(file));
     setPreviews((prev) => [...prev, ...newPreviews]);
     setImageFiles((prev) => [...prev, ...files]);
   };
@@ -224,7 +224,7 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
             <div>
               <Label>Current Images ({existingImages.length})</Label>
               <div className="mt-2 grid grid-cols-3 gap-2">
-                {existingImages.map((path, i) => (
+                {existingImages?.map((path, i) => (
                   <div key={i} className="relative group">
                     <img
                       src={getImageUrl(path)}
@@ -279,7 +279,7 @@ export default function AddBlogModal({ open, onOpenChange, onAdd, initialBlog })
             {/* New Image Previews */}
             {imageFiles.length > 0 && (
               <div className="mt-4 grid grid-cols-3 gap-2">
-                {imageFiles.map((_, i) => {
+                {imageFiles?.map((_, i) => {
                   const previewIndex = existingImages.length + i;
                   return (
                     <div key={previewIndex} className="relative group">

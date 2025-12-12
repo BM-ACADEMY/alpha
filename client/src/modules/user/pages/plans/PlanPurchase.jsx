@@ -643,7 +643,7 @@ const PlanPurchase = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {plans.map((plan) => (
+              {plans?.map((plan) => (
                 <TableRow key={plan?._id}>
                   <TableCell>{plan?.plan_name}</TableCell>
                   <TableCell>
@@ -780,7 +780,7 @@ const PlanPurchase = () => {
                                               acc.account_type ===
                                               selectedPlan?.amount_type
                                           )
-                                          .map((acc) =>
+                                          ?.map((acc) =>
                                             renderAccountDetails(acc)
                                           )}
                                         {adminInfo.accounts.filter(

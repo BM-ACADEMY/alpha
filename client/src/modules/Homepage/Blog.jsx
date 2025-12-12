@@ -39,7 +39,7 @@ function Blog() {
       <div className="min-h-screen bg-[#121e52] px-4 py-12">
         <div className="container mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3, 4, 5, 6].map(i => (
+            {[1, 2, 3, 4, 5, 6]?.map(i => (
               <Skeleton key={i} className="h-96 w-full rounded-2xl bg-white/10" />
             ))}
           </div>
@@ -70,7 +70,7 @@ function Blog() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {blogs.map(blog => {
+            {blogs?.map(blog => {
               const isExpanded = expandedCards[blog._id];
               const hasImages = blog.images && blog.images.length > 0;
               const imageCount = blog.images?.length || 0;
@@ -161,7 +161,7 @@ function Blog() {
                           {/* Image Gallery */}
                           {hasImages && (
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8 -mx-6 px-6">
-                              {blog.images.map((img, i) => (
+                              {blog.images?.map((img, i) => (
                                 <div
                                   key={i}
                                   className="relative group overflow-hidden rounded-xl bg-black/30 shadow-2xl aspect-square cursor-zoom-in"

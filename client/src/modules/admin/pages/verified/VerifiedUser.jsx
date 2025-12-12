@@ -168,7 +168,7 @@ export default function UserVerificationTabs() {
               </TableHeader>
               <TableBody>
                 {notVerifiedUsers.length > 0 ? (
-                  notVerifiedUsers.map((user, index) => (
+                  notVerifiedUsers?.map((user, index) => (
                     <TableRow key={user._id}>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>{user.username}</TableCell>
@@ -224,7 +224,7 @@ export default function UserVerificationTabs() {
               </TableHeader>
               <TableBody>
                 {verifiedUsers.length > 0 ? (
-                  verifiedUsers.map((user, index) => (
+                  verifiedUsers?.map((user, index) => (
                     <TableRow key={user._id}>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>{user.username}</TableCell>

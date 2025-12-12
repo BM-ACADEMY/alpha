@@ -88,7 +88,7 @@ export default function TestimonialCarousel() {
     const username = user?.username || "Anonymous";
     const initials = username
       .split(" ")
-      .map((n) => n[0])
+      ?.map((n) => n[0])
       .join("")
       .toUpperCase()
       .slice(0, 2);
@@ -140,7 +140,7 @@ export default function TestimonialCarousel() {
         <div className="relative">
           <div className="overflow-hidden rounded-2xl" ref={emblaRef}>
             <div className="flex">
-              {testimonials.map((t) => (
+              {testimonials?.map((t) => (
                 <div
                   key={t._id}
                   className="flex-none w-full px-4 md:px-12 lg:px-20"
@@ -201,7 +201,7 @@ export default function TestimonialCarousel() {
           {/* Dots Indicator */}
           {testimonials.length > 1 && (
             <div className="flex justify-center gap-3 mt-10">
-              {testimonials.map((_, idx) => (
+              {testimonials?.map((_, idx) => (
                 <button
                   key={idx}
                   onClick={() => scrollTo(idx)}

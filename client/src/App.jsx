@@ -36,10 +36,10 @@ function App() {
 
         {/* User and Admin Routes */}
         <Route element={<Page />}>
-          {userRoutes.map((route) => (
+          {userRoutes?.map((route) => (
             <Route key={route.path} path={route.path} element={route.element} />
           ))}
-          {adminRoutes.map((route) => (
+          {adminRoutes?.map((route) => (
             <Route key={route.path} path={route.path} element={route.element} />
           ))}
         </Route>

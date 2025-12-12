@@ -101,7 +101,7 @@ const Profile = () => {
         setProfileData(profile);
 
         const imageFields = ['profile_image', 'pan_image', 'aadhar_image'];
-        const imagePromises = imageFields.map(async (field) => ({
+        const imagePromises = imageFields?.map(async (field) => ({
           field,
           url: profile[field] ? await getImageUrl(profile[field], user.id, 'user') : null,
         }));
@@ -133,7 +133,7 @@ const Profile = () => {
         });
         const accountsData = response.data;
         const updatedAccounts = await Promise.all(
-          accountsData.map(async (account) => ({
+          accountsData?.map(async (account) => ({
             ...account,
             qrcodeUrl: account.qrcode ? await getImageUrl(account.qrcode, user.id, 'qr_code') : null,
           }))

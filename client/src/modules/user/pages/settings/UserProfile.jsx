@@ -129,7 +129,7 @@ const Profile = () => {
         setProfileData(profile);
 
         const imageFields = ['profile_image', 'pan_image', 'aadhar_image', 'qrcode'];
-        const imagePromises = imageFields.map(async (field) => ({
+        const imagePromises = imageFields?.map(async (field) => ({
           field,
           url: profile[field] ? await getImageUrl(profile[field], field === 'qrcode' ? 'qr_code' : 'user') : null,
         }));
@@ -161,7 +161,7 @@ const Profile = () => {
       });
       const accountsData = response.data;
       const updatedAccounts = await Promise.all(
-        accountsData.map(async (account) => ({
+        accountsData?.map(async (account) => ({
           ...account,
           qrcodeUrl: account.qrcode ? await getImageUrl(account.qrcode, 'qr_code') : null,
         }))
@@ -490,7 +490,7 @@ return (
           </div>
         </div>
         <div className="grid grid-cols-1 w-full sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-          {['profile_image', 'pan_image', 'aadhar_image', 'qrcode'].map((imageType) => (
+          {['profile_image', 'pan_image', 'aadhar_image', 'qrcode']?.map((imageType) => (
             imagePreviews[imageType] && (
               <div key={imageType} className="relative w-[200px] h-[200px] mx-auto">
                 <img

@@ -416,7 +416,7 @@ const AdminUserManagement = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Months</SelectItem>
-                {months.map((m, i) => (
+                {months?.map((m, i) => (
                   <SelectItem key={i} value={String(i + 1).padStart(2, "0")}>
                     {m}
                   </SelectItem>
@@ -434,7 +434,7 @@ const AdminUserManagement = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Years</SelectItem>
-                {years.map((y) => (
+                {years?.map((y) => (
                   <SelectItem key={y} value={String(y)}>{y}</SelectItem>
                 ))}
               </SelectContent>
@@ -535,7 +535,7 @@ const AdminUserManagement = () => {
                     required
                   />
                   <div className="mt-2 space-y-1 text-sm">
-                    {Object.entries(passwordValidations).map(([key, valid]) => (
+                    {Object.entries(passwordValidations)?.map(([key, valid]) => (
                       <div key={key} className="flex items-center">
                         {valid ? (
                           <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
@@ -608,7 +608,7 @@ const AdminUserManagement = () => {
         <CardContent className="p-0">
           {isLoading && users.length === 0 ? (
             <div className="p-6 space-y-3">
-              {[...Array(8)].map((_, i) => (
+              {[...Array(8)]?.map((_, i) => (
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
@@ -627,7 +627,7 @@ const AdminUserManagement = () => {
               </TableHeader>
               <TableBody>
                 {users.length > 0 ? (
-                  users.map((user) => (
+                  users?.map((user) => (
                     <TableRow key={user._id}>
                       <TableCell className="font-medium">{user.username}</TableCell>
                       <TableCell>{user.email}</TableCell>

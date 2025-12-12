@@ -94,7 +94,7 @@ const WalletManagement = () => {
       console.log('Points added:', res.data);
       setStatusMessage(res.data.message);
       setSubscriptions((prev) =>
-        prev.map((sub) =>
+        prev?.map((sub) =>
           sub._id === selectedSubscription._id ? { ...sub, pointsAdded: true } : sub
         )
       );
@@ -198,7 +198,7 @@ const WalletManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {subscriptions.map((sub) => (
+                {subscriptions?.map((sub) => (
                   <TableRow key={sub._id}>
                     <TableCell>{sub.plan_id?.plan_name || 'N/A'}</TableCell>
                     <TableCell>{sub.amount || 'N/A'}</TableCell>
@@ -337,7 +337,7 @@ const WalletManagement = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {wallets.map((wallet) => (
+              {wallets?.map((wallet) => (
                 <TableRow key={wallet._id}>
                   <TableCell>
                     {wallet?.user_id?.username || 'N/A'} ({wallet?.user_id?.email || 'N/A'})
@@ -361,7 +361,7 @@ const WalletManagement = () => {
                   disabled={currentPage === 1}
                 />
               </PaginationItem>
-              {[...Array(totalPages)].map((_, i) => (
+              {[...Array(totalPages)]?.map((_, i) => (
                 <PaginationItem key={i}>
                   <PaginationLink
                     href="#"

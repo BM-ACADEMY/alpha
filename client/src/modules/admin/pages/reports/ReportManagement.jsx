@@ -20,15 +20,15 @@ const PaginatedTable = ({ data, columns, pageSize = 5 }) => {
       <Table>
         <TableHeader>
           <TableRow>
-            {columns.map((col) => (
+            {columns?.map((col) => (
               <TableHead key={col.header}>{col.header}</TableHead>
             ))}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {currentData.map((row, idx) => (
+          {currentData?.map((row, idx) => (
             <TableRow key={idx}>
-              {columns.map((col) => (
+              {columns?.map((col) => (
                 <TableCell key={col.header}>{col.accessor(row)}</TableCell>
               ))}
             </TableRow>
@@ -44,7 +44,7 @@ const PaginatedTable = ({ data, columns, pageSize = 5 }) => {
                 className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
               />
             </PaginationItem>
-            {[...Array(totalPages)].map((_, i) => (
+            {[...Array(totalPages)]?.map((_, i) => (
               <PaginationItem key={i}>
                 <PaginationLink
                   onClick={() => handlePageChange(i + 1)}
@@ -131,7 +131,7 @@ const ReportManagement = () => {
   ];
 
   // Prepare data for the plan distribution table
-  const planDistributionData = plans.map((plan) => ({
+  const planDistributionData = plans?.map((plan) => ({
     plan_name: plan.plan_name,
     count: overall.planWiseCounts?.[plan.plan_name] || 0,
   }));
@@ -144,7 +144,7 @@ const ReportManagement = () => {
   return (
     <div className="container mx-auto py-12 bg-gradient-to-b from-gray-50 to-white">
       <h1 className="text-4xl font-bold text-indigo-800 mb-8 text-center">Admin Reports & Analysis</h1>
-      
+
       <Tabs defaultValue="overall" className="space-y-8">
         <TabsList className="justify-center mb-8 bg-transparent rounded-full p-1 border border-indigo-200 shadow-sm">
           <TabsTrigger value="overall" className="px-6 py-3 text-lg font-medium rounded-full data-[state=active]:bg-indigo-600 data-[state=active]:text-white hover:bg-indigo-100">Overall Stats</TabsTrigger>
@@ -240,7 +240,7 @@ const ReportManagement = () => {
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2">
-                  {plans.map((plan) => (
+                  {plans?.map((plan) => (
                     <li key={plan._id}>
                       {plan.plan_name}: {overall.planWiseCounts?.[plan.plan_name] || 0}
                     </li>
@@ -254,19 +254,19 @@ const ReportManagement = () => {
                 <CardTitle>Plan Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                {planDistributionData.length > 0 ? (
+                {planDistributionData?.length > 0 ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        {planDistributionColumns.map((col) => (
+                        {planDistributionColumns?.map((col) => (
                           <TableHead key={col.header}>{col.header}</TableHead>
                         ))}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {planDistributionData.map((row, idx) => (
+                      {planDistributionData?.map((row, idx) => (
                         <TableRow key={idx}>
-                          {planDistributionColumns.map((col) => (
+                          {planDistributionColumns?.map((col) => (
                             <TableCell key={col.header}>{col.accessor(row)}</TableCell>
                           ))}
                         </TableRow>
