@@ -247,7 +247,7 @@ const AdminRedeemRequests = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRequest?.map((request) => (
+            {filteredRequests?.map((request) => (
               <TableRow key={request._id}>
                 <TableCell>
                   {request.user_id?.username || 'N/A'} ({request.user_id?.email || 'N/A'})
