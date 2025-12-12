@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import AddBlogModal from "./addBlog";
 import { createPortal } from "react-dom";
 
-// Lightbox Component using createPortal (fixes the destroy error)
+// Lightbox Component
 function Lightbox({ isOpen, imageUrl, onClose }) {
   if (!isOpen) return null;
 
@@ -28,7 +28,7 @@ function Lightbox({ isOpen, imageUrl, onClose }) {
         src={imageUrl}
         alt="Enlarged view"
         className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-        onClick={(e) => e.stopPropagation()} // Don't close when clicking the image
+        onClick={(e) => e.stopPropagation()}
       />
     </div>,
     document.body
@@ -54,36 +54,57 @@ export default function BlogList() {
     });
   };
 
-  const getImageUrl = (path) => {
-    if (!path) return "/api/placeholder/600/400";
-    const base = (import.meta.env.VITE_BASE_URL || "http://localhost:5000/api").replace("/api", "");
-    return `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+  // Get backend URL
+  const getBackendUrl = () => {
+    return import.meta.env.VITE_BASE_URL || "http://localhost:5000/api";
   };
 
+  // Build full image URL
+  const getImageUrl = (path) => {
+    if (!path) return "/api/placeholder/600/400";
+    const base = getBackendUrl().replace(/\/api$/, "");
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    return `${base}${cleanPath}`;
+  };
+
+  // Fetch blogs from backend
   const fetchBlogs = async (query = "") => {
     setLoading(true);
     try {
-      const url = query
-        ? `/blogs/fetch-all-blog?search=${encodeURIComponent(query)}`
-        : "/blogs/fetch-all-blog";
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch");
+      const baseUrl = getBackendUrl();
+      const searchParam = query ? `?search=${encodeURIComponent(query)}` : "";
+      const url = `${baseUrl}/blogs/fetch-all-blog${searchParam}`;
+
+      const res = await fetch(url, {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Failed to fetch blogs:", res.status, text.slice(0, 200));
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = await res.json();
-      setBlogs(data);
+      setBlogs(data || []);
     } catch (err) {
-      console.error(err);
-      alert("Could not load blogs");
+      console.error("Error loading blogs:", err);
+      alert("Failed to load blogs. Is your backend running?");
     } finally {
       setLoading(false);
     }
   };
 
+  // Load blogs on mount
   useEffect(() => {
     fetchBlogs();
   }, []);
 
+  // Search with debounce
   useEffect(() => {
-    const timer = setTimeout(() => fetchBlogs(searchQuery), 300);
+    const timer = setTimeout(() => {
+      fetchBlogs(searchQuery);
+    }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -94,7 +115,7 @@ export default function BlogList() {
 
   const handleEditBlog = (updatedBlog) => {
     setBlogs((prev) =>
-      prev?.map((b) => (b._id === updatedBlog._id ? updatedBlog : b))
+      prev.map((b) => (b._id === updatedBlog._id ? updatedBlog : b))
     );
     setEditingBlog(null);
     setModalOpen(false);
@@ -109,10 +130,16 @@ export default function BlogList() {
     if (!confirm("Are you sure you want to delete this blog?")) return;
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_BASE_URL}/blogs/${id}`, { method: "DELETE" });
+      const res = await fetch(`${getBackendUrl()}/blogs/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
       if (!res.ok) throw new Error("Delete failed");
+
       setBlogs((prev) => prev.filter((b) => b._id !== id));
     } catch (err) {
+      console.error(err);
       alert("Could not delete blog");
     }
   };
@@ -122,7 +149,7 @@ export default function BlogList() {
     setLightboxOpen(true);
   };
 
-  const needsReadMore = (desc) => {
+  const needsReadMore = (desc = "") => {
     const lines = desc.split("\n").filter((l) => l.trim());
     return lines.length > 3 || desc.length > 280;
   };
@@ -132,7 +159,7 @@ export default function BlogList() {
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h- h-5 w-5" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
           <Input
             placeholder="Search blogs..."
             value={searchQuery}
@@ -140,6 +167,7 @@ export default function BlogList() {
             className="pl-11 h-12 text-base"
           />
         </div>
+
         <Button
           onClick={() => {
             setEditingBlog(null);
@@ -147,7 +175,8 @@ export default function BlogList() {
           }}
           size="lg"
         >
-          <Plus className="h-5 w-5 mr-2" /> Add Blog
+          <Plus className="h-5 w-5 mr-2" />
+          Add Blog
         </Button>
       </div>
 
@@ -155,29 +184,34 @@ export default function BlogList() {
       <div className="max-w-7xl mx-auto space-y-12">
         {loading ? (
           <div className="text-center py-20 text-gray-500 text-lg">Loading blogs...</div>
-        ) : blogs?.length === 0 ? (
+        ) : blogs.length === 0 ? (
           <div className="text-center py-20 text-gray-500 text-lg">
             {searchQuery ? "No blogs found." : "No blogs yet. Create your first one!"}
           </div>
         ) : (
-          blogs?.map((blog) => {
+          blogs.map((blog) => {
             const isExpanded = expandedIds.has(blog._id);
-            const paragraphs = blog.description.split("\n");
+            const paragraphs = (blog.description || "").split("\n");
             const previewLines = paragraphs.slice(0, 3);
 
             return (
-              <Card key={blog._id} className="overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300">
+              <Card
+                key={blog._id}
+                className="overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300"
+              >
                 {/* Action Buttons */}
                 <div className="absolute top-4 right-4 z-20 flex gap-2 bg-white/95 backdrop-blur rounded-full shadow-xl p-2">
                   <button
                     onClick={() => openEditModal(blog)}
                     className="p-2.5 hover:bg-gray-100 rounded-full transition"
+                    title="Edit"
                   >
                     <Edit2 className="h-5 w-5 text-blue-600" />
                   </button>
                   <button
                     onClick={() => deleteBlog(blog._id)}
                     className="p-2.5 hover:bg-red-100 rounded-full transition"
+                    title="Delete"
                   >
                     <Trash2 className="h-5 w-5 text-red-600" />
                   </button>
@@ -185,12 +219,12 @@ export default function BlogList() {
 
                 <CardContent className="p-0">
                   {isExpanded ? (
-                    /* EXPANDED VIEW */
+                    /* Expanded View */
                     <div className="flex flex-col">
                       <div className="p-8 bg-gradient-to-b from-gray-100 to-white">
-                        {blog.images?.length > 0 ? (
+                        {blog.images && blog.images.length > 0 ? (
                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                            {blog.images?.map((img, i) => (
+                            {blog.images.map((img, i) => (
                               <div
                                 key={i}
                                 onClick={() => openLightbox(img)}
@@ -235,7 +269,7 @@ export default function BlogList() {
                         </div>
 
                         <div className="text-gray-700 text-lg leading-relaxed space-y-6">
-                          {paragraphs?.map((para, i) => {
+                          {paragraphs.map((para, i) => {
                             if (!para.trim()) return <div key={i} className="h-5" />;
                             return <p key={i}>{para}</p>;
                           })}
@@ -250,12 +284,12 @@ export default function BlogList() {
                       </div>
                     </div>
                   ) : (
-                    /* COLLAPSED VIEW */
+                    /* Collapsed View */
                     <div className="flex flex-col lg:flex-row">
                       <div className="lg:w-1/2 p-8 bg-gray-50">
-                        {blog.images?.length > 0 ? (
+                        {blog.images && blog.images.length > 0 ? (
                           <div className="grid grid-cols-3 gap-4">
-                            {blog.images.slice(0, 9)?.map((img, i) => (
+                            {blog.images.slice(0, 9).map((img, i) => (
                               <div
                                 key={i}
                                 onClick={() => openLightbox(img)}
@@ -268,6 +302,11 @@ export default function BlogList() {
                                 />
                               </div>
                             ))}
+                            {blog.images.length > 9 && (
+                              <div className="aspect-square rounded-xl bg-black/50 flex items-center justify-center text-white text-2xl font-bold">
+                                +{blog.images.length - 9}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="h-48 bg-gray-200 border-2 border-dashed rounded-xl flex items-center justify-center text-gray-500">
@@ -300,7 +339,7 @@ export default function BlogList() {
                         </div>
 
                         <div className="text-gray-700 leading-relaxed text-base space-y-4">
-                          {previewLines?.map((para, i) => {
+                          {previewLines.map((para, i) => {
                             if (!para.trim()) return <div key={i} className="h-3" />;
                             return (
                               <p key={i} className={i === 2 ? "line-clamp-3" : ""}>
@@ -328,7 +367,7 @@ export default function BlogList() {
         )}
       </div>
 
-      {/* Add/Edit Blog Modal */}
+      {/* Add/Edit Modal */}
       <AddBlogModal
         open={modalOpen}
         onOpenChange={(open) => {
@@ -339,7 +378,7 @@ export default function BlogList() {
         initialBlog={editingBlog}
       />
 
-      {/* Fixed Lightbox using Portal */}
+      {/* Lightbox */}
       <Lightbox
         isOpen={lightboxOpen}
         imageUrl={lightboxImage}
