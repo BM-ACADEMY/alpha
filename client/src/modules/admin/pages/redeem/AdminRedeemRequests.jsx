@@ -121,7 +121,7 @@ const AdminRedeemRequests = () => {
   };
 
   // Filtering logic
-  const filteredRequests = redeemRequests.filter(request => {
+  const filteredRequests = redeemRequests?.filter(request => {
     // Filter by user search term (username or email)
     const matchesSearch = searchTerm === '' ||
       (request.user_id?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -229,7 +229,7 @@ const AdminRedeemRequests = () => {
         </div>
       </div>
 
-      {filteredRequests.length === 0 ? (
+      {filteredRequests?.length === 0 ? (
         <div className="flex items-center justify-center p-6">
           <AlertCircle className="h-6 w-6 text-gray-500 mr-2" />
           <p>No redeem requests found matching the criteria.</p>
