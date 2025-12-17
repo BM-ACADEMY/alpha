@@ -27,7 +27,7 @@ if (!fs.existsSync(uploadsDir)) {
 
 // CORS Configuration
 const allowedOrigins = [
-  process.env.FRONTEND_URL || "http://localhost:3000",
+  process.env.FRONTEND_URL,
   process.env.PRODUCTION_URL,
 ].filter(Boolean); // Remove empty values
 

@@ -6,6 +6,7 @@ import bg from "@/assets/images/bg.jpg";
 import axiosInstance from "../../lib/axios";
 import { showToast } from "@/modules/common/toast/customToast";
 
+
 function ForgotPassword() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");

@@ -383,29 +383,58 @@ exports.verifyOtp = async (req, res) => {
 
 
 // Forgot Password
+// controller/usersController.js
+
+
+
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
 
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      return res.status(400).json({ message: "Email not found" });
+      // Security best practice: don't reveal if email exists
+      return res.status(200).json({ message: "If the email exists, an OTP has been sent" });
     }
 
     const otp = crypto.randomInt(100000, 999999).toString();
     user.email_otp = otp;
     await user.save();
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Password Reset OTP",
-      text: `Your OTP for password reset is: ${otp}`,
-    });
+    // Send email
+    try {
+      await transporter.sendMail({
+        from: `"Alpha R" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: "Password Reset OTP",
+        text: `Your OTP for password reset is: ${otp}\n\nThis OTP is valid for 10 minutes.`,
+        // html: `<p>Your OTP is <strong>${otp}</strong></p>`, // optional
+      });
+
+      console.log(`OTP sent successfully to ${email}: ${otp}`); // For debugging
+    } catch (mailError) {
+      console.error("Nodemailer Error Details:", mailError);
+      // Optional: rollback OTP if email failed
+      // user.email_otp = null;
+      // await user.save();
+      return res.status(500).json({
+        message: "Failed to send OTP email. Please try again later.",
+        // Remove error details in production
+        // error: mailError.message
+      });
+    }
 
     res.status(200).json({ message: "OTP sent to your email" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Forgot Password Error:", error);
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 

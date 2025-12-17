@@ -42,6 +42,7 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  KeyRound,
 } from "lucide-react";
 import axiosInstance from "@/modules/common/lib/axios";
 import { showToast } from "@/modules/common/toast/customToast";
@@ -118,8 +119,11 @@ const AdminUserManagement = () => {
       !phone_number ||
       !password ||
       !confirmPassword ||
-      password !== confirmPassword ||
-      !Object.values(passwordValidations).every(Boolean)
+      !passwordValidations.minLength ||
+      !passwordValidations.uppercase ||
+      !passwordValidations.number ||
+      !passwordValidations.specialChar ||
+      password !== confirmPassword
     );
   };
 
@@ -285,6 +289,28 @@ const AdminUserManagement = () => {
       confirmPassword: "",
     });
     setIsAddDialogOpen(true);
+  };
+
+  // --- NEW: Handle Send OTP ---
+  const handleSendOtp = async (user) => {
+    try {
+      setIsLoading(true);
+      // Re-using the forgot-password endpoint as it generates and sends an OTP
+      const response = await axiosInstance.post("users/forgot-password", {
+        email: user.email,
+      });
+      showToast(
+        "success",
+        response?.data?.message || "OTP sent successfully to email"
+      );
+    } catch (error) {
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to send OTP"
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -650,10 +676,21 @@ const AdminUserManagement = () => {
                         {format(new Date(user.created_at), "dd MMM yyyy")}
                       </TableCell>
                       <TableCell className="text-right space-x-2">
+                        {/* Send OTP Button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendOtp(user)}
+                          title="Send OTP"
+                          className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleEdit(user)}
+                          title="Edit User"
                         >
                           <Edit className="h-4 w-4 mr-1" /> Edit
                         </Button>
@@ -664,6 +701,7 @@ const AdminUserManagement = () => {
                             setDeleteUserId(user._id);
                             setIsDeleteDialogOpen(true);
                           }}
+                          title="Delete User"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
