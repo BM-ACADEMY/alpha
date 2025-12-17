@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { MessageCircle, Instagram, Send } from "lucide-react";
+import { MessageCircle, Instagram, Send, Users } from "lucide-react"; // Added Users icon
 import axiosInstance from "@/modules/common/lib/axios";
 import { showToast } from "@/modules/common/toast/customToast";
 
@@ -8,6 +8,7 @@ const Socialmedia = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Configuration for standard fixed platforms
   const platformConfig = {
     whatsapp: {
       name: "WhatsApp",
@@ -46,30 +47,48 @@ const Socialmedia = () => {
       const response = await axiosInstance.get("/socialmedia");
       const data = response.data.data || [];
 
-      const transformedLinks = [];
+      const collectedLinks = [];
+
+      // We iterate through the data (usually strictly one document, but handling array just in case)
       data.forEach((social) => {
+        
+        // 1. Process Standard Platforms (WhatsApp, Insta, Telegram)
         Object.keys(platformConfig).forEach((platform) => {
           if (social[platform] && social[platform].trim()) {
             const config = platformConfig[platform];
-            transformedLinks.push({
+            collectedLinks.push({
+              id: platform, // Use platform name as ID
               ...config,
               link: config.linkBuilder(social[platform]),
-              platform,
             });
           }
         });
+
+        // 2. Process Dynamic Communities
+        if (social.communities && Array.isArray(social.communities)) {
+          social.communities.forEach((community) => {
+            collectedLinks.push({
+              id: community._id, // Use DB ID as ID
+              name: community.name,
+              icon: <Users className="w-8 h-8 text-indigo-600" />, // Distinct Icon
+              description: "Join our Community",
+              link: community.link, // Direct link from DB
+              gradient: "from-indigo-100 via-indigo-50 to-white border-indigo-200", // Distinct Color
+            });
+          });
+        }
       });
 
-      const uniqueLinks = transformedLinks.filter(
+      // Filter duplicates if any (based on ID)
+      const uniqueLinks = collectedLinks.filter(
         (link, index, self) =>
-          index === self.findIndex((l) => l.platform === link.platform)
+          index === self.findIndex((l) => l.id === link.id)
       );
 
       setSocialLinks(uniqueLinks);
     } catch (err) {
       console.error("Error fetching social media:", err);
-      const msg =
-        err.response?.data?.message || "Failed to fetch social media links";
+      const msg = err.response?.data?.message || "Failed to fetch social media links";
       setError(msg);
       showToast?.("error", msg);
     } finally {
@@ -129,7 +148,7 @@ const Socialmedia = () => {
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {socialLinks?.map((item) => (
               <a
-                key={item.platform}
+                key={item.id}
                 href={item.link}
                 target="_blank"
                 rel="noopener noreferrer"

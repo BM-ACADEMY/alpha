@@ -1,11 +1,11 @@
 const SocialMedia = require("../model/Socialmedia");
 
-// 🟢 CREATE - Create or update single platform
+// 1. Create Social Media (Standard)
 exports.createSocialMedia = async (req, res) => {
   try {
     const { whatsapp, instagram, telegram } = req.body;
     
-    // Validate that only one field is provided
+    // Validate that only one standard platform is provided
     const fields = { whatsapp, instagram, telegram };
     const providedFields = Object.keys(fields).filter(key => fields[key] && fields[key].trim());
     
@@ -23,7 +23,6 @@ exports.createSocialMedia = async (req, res) => {
     let existing = await SocialMedia.findOne({ [platform]: { $exists: true, $ne: "" } });
     
     if (existing) {
-      // Update existing record
       existing[platform] = value;
       await existing.save();
       
@@ -33,7 +32,6 @@ exports.createSocialMedia = async (req, res) => {
         data: existing,
       });
     } else {
-      // Create new record
       const socialMedia = new SocialMedia({ [platform]: value });
       await socialMedia.save();
 
@@ -44,16 +42,12 @@ exports.createSocialMedia = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Create social media error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Server error", 
-      error: error.message 
-    });
+    console.error('Create error:', error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
 
-// 🔵 READ - Get all social media entries
+// 2. Get All
 exports.getAllSocialMedia = async (req, res) => {
   try {
     const socialMedia = await SocialMedia.find();
@@ -67,7 +61,7 @@ exports.getAllSocialMedia = async (req, res) => {
   }
 };
 
-// 🟣 READ - Get single social media entry by ID
+// 3. Get By ID
 exports.getSocialMediaById = async (req, res) => {
   try {
     const socialMedia = await SocialMedia.findById(req.params.id);
@@ -80,7 +74,7 @@ exports.getSocialMediaById = async (req, res) => {
   }
 };
 
-// 🟡 UPDATE - Update specific platform
+// 4. Update Standard Platform
 exports.updateSocialMedia = async (req, res) => {
   try {
     const { whatsapp, instagram, telegram } = req.body;
@@ -88,10 +82,7 @@ exports.updateSocialMedia = async (req, res) => {
     const providedFields = Object.keys(fields).filter(key => fields[key] !== undefined && fields[key] !== null);
     
     if (providedFields.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No data provided to update"
-      });
+      return res.status(400).json({ success: false, message: "No data provided to update" });
     }
 
     const socialMedia = await SocialMedia.findById(req.params.id);
@@ -99,7 +90,6 @@ exports.updateSocialMedia = async (req, res) => {
       return res.status(404).json({ message: "Social media entry not found" });
     }
 
-    // Update only provided fields
     providedFields.forEach(field => {
       socialMedia[field] = fields[field];
     });
@@ -112,12 +102,12 @@ exports.updateSocialMedia = async (req, res) => {
       data: socialMedia,
     });
   } catch (error) {
-    console.error('Update social media error:', error);
+    console.error('Update error:', error);
     res.status(500).json({ success: false, message: "Server error", error });
   }
 };
 
-// 🔴 DELETE social media entry
+// 5. Delete Standard Platform
 exports.deleteSocialMedia = async (req, res) => {
   try {
     const deleted = await SocialMedia.findByIdAndDelete(req.params.id);
@@ -131,5 +121,65 @@ exports.deleteSocialMedia = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error });
+  }
+};
+
+// 🟢 6. Add Community
+exports.addCommunity = async (req, res) => {
+  try {
+    const { name, link } = req.body;
+
+    if (!name || !link) {
+      return res.status(400).json({ success: false, message: "Name and Link are required" });
+    }
+
+    // Find first document or create new one
+    let socialMedia = await SocialMedia.findOne();
+    if (!socialMedia) {
+      socialMedia = new SocialMedia({ communities: [] });
+    }
+
+    // Initialize array if it doesn't exist
+    if (!socialMedia.communities) {
+      socialMedia.communities = [];
+    }
+
+    socialMedia.communities.push({ name, link });
+    await socialMedia.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Community added successfully",
+      data: socialMedia.communities,
+    });
+  } catch (error) {
+    console.error("Add community error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// 🔴 7. Delete Community
+exports.deleteCommunity = async (req, res) => {
+  try {
+    const { communityId } = req.params;
+
+    const result = await SocialMedia.findOneAndUpdate(
+      {}, // Match any document
+      { $pull: { communities: { _id: communityId } } },
+      { new: true }
+    );
+
+    if (!result) {
+      return res.status(404).json({ message: "Social media record not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Community deleted successfully",
+      data: result.communities,
+    });
+  } catch (error) {
+    console.error("Delete community error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
