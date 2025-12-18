@@ -155,13 +155,14 @@ const getAllWallets = async (req, res) => {
     limit = 10,
     search = '',
     planStatus = 'all',
-    amountType = 'all',          // <-- NEW
+    amountType = 'all',
+    transaction_id = '', // New filter parameter
   } = req.query;
 
   try {
     let matchQuery = {};
 
-    // ── Search by user fields ─────────────────────────────────────
+    // Search by user fields
     if (search) {
       const users = await User.find({
         $or: [
@@ -172,15 +173,21 @@ const getAllWallets = async (req, res) => {
       }).select('_id');
 
       const userIds = users.map(u => u._id);
-      matchQuery.user_id = { $in: userIds.length ? userIds : [null] };
+      if (userIds.length === 0) userIds.push(null); // Prevent empty $in
+      matchQuery.user_id = { $in: userIds };
     }
 
-    // ── Amount Type filter ────────────────────────────────────────
+    // Amount Type filter
     if (amountType !== 'all') {
-      matchQuery.amount_type = amountType;   // <-- NEW
+      matchQuery.amount_type = amountType;
     }
 
-    // ── Aggregation pipeline ───────────────────────────────────────
+    // Transaction ID filter (case-insensitive partial match)
+    if (transaction_id) {
+      matchQuery['subscription.transaction_id'] = { $regex: transaction_id, $options: 'i' };
+    }
+
+    // Aggregation pipeline
     const pipeline = [
       { $match: matchQuery },
       {
@@ -191,13 +198,22 @@ const getAllWallets = async (req, res) => {
           as: 'subscription',
         },
       },
-      {
-        $unwind: { path: '$subscription', preserveNullAndEmptyArrays: true },
-      },
-      // Plan-status filter (if not "all")
+      { $unwind: { path: '$subscription', preserveNullAndEmptyArrays: true } },
+
+      // Transaction ID filter inside aggregation (if needed for more control)
+      ...(transaction_id
+        ? [{
+            $match: {
+              'subscription.transaction_id': { $regex: transaction_id, $options: 'i' }
+            }
+          }]
+        : []),
+
+      // Plan status filter
       ...(planStatus !== 'all'
         ? [{ $match: { 'subscription.planStatus': planStatus } }]
         : []),
+
       {
         $lookup: {
           from: 'users',
@@ -207,6 +223,8 @@ const getAllWallets = async (req, res) => {
         },
       },
       { $unwind: { path: '$user_id', preserveNullAndEmptyArrays: true } },
+
+      // Project final fields including transaction_id
       {
         $project: {
           _id: 1,
@@ -224,6 +242,7 @@ const getAllWallets = async (req, res) => {
           referral_amount: 1,
           totalWalletPoint: 1,
           planStatus: '$subscription.planStatus',
+          transaction_id: '$subscription.transaction_id', // ← NEW: Include transaction_id
         },
       },
       { $skip: (page - 1) * Number(limit) },
@@ -232,23 +251,9 @@ const getAllWallets = async (req, res) => {
 
     const wallets = await Wallet.aggregate(pipeline);
 
-    // ── Count pipeline (same filters) ───────────────────────────────
-    const countPipeline = [
-      { $match: matchQuery },
-      {
-        $lookup: {
-          from: 'userplansubscriptions',
-          localField: 'subscription_id',
-          foreignField: '_id',
-          as: 'subscription',
-        },
-      },
-      { $unwind: { path: '$subscription', preserveNullAndEmptyArrays: true } },
-      ...(planStatus !== 'all'
-        ? [{ $match: { 'subscription.planStatus': planStatus } }]
-        : []),
-      { $count: 'total' },
-    ];
+    // Count pipeline (same filters)
+    const countPipeline = pipeline.slice(0, -2); // Remove $skip and $limit
+    countPipeline.push({ $count: 'total' });
 
     const countResult = await Wallet.aggregate(countPipeline);
     const total = countResult[0]?.total || 0;
