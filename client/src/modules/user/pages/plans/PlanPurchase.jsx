@@ -6,7 +6,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -30,7 +29,6 @@ import {
   ArrowRightCircle,
   Upload,
   Copy,
-  Image as ImageIcon,
 } from "lucide-react";
 import axiosInstance from "@/modules/common/lib/axios";
 import { AuthContext } from "@/modules/common/context/AuthContext";
@@ -39,7 +37,6 @@ import { useNavigate } from "react-router-dom";
 
 const PlanPurchase = () => {
   const { user } = useContext(AuthContext);
-  const role_id = user?.role_id?._id;
   const [plans, setPlans] = useState([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [profitCalculations, setProfitCalculations] = useState({});
@@ -50,27 +47,13 @@ const PlanPurchase = () => {
   const [file, setFile] = useState(null);
   const [transactionId, setTransactionId] = useState("");
   const [adminInfo, setAdminInfo] = useState(null);
-  const [qrCodeErrors, setQrCodeErrors] = useState({});
   const [profileData, setProfileData] = useState(null);
   const [userAccounts, setUserAccounts] = useState([]);
   const navigate = useNavigate();
 
-  const cacheBusterRef = useRef(Date.now());
-
+  // Fetch user profile and accounts
   useEffect(() => {
-    if (!role_id) {
-      console.error("Role ID is undefined");
-      setStatusMessage("User role is not defined");
-      showToast("error", "User role is not defined");
-    }
-  }, [role_id]);
-
-  useEffect(() => {
-    if (!user?.id) {
-      setStatusMessage("User not logged in");
-      showToast("error", "User not logged in");
-      return;
-    }
+    if (!user?.id) return;
 
     const fetchProfile = async () => {
       try {
@@ -80,16 +63,9 @@ const PlanPurchase = () => {
         setProfileData(response.data);
       } catch (error) {
         console.error("Failed to fetch profile:", error);
-        setStatusMessage("Failed to load profile data");
         showToast("error", "Failed to load profile data");
       }
     };
-
-    fetchProfile();
-  }, [user]);
-
-  useEffect(() => {
-    if (!user?.id) return;
 
     const fetchUserAccounts = async () => {
       try {
@@ -99,76 +75,67 @@ const PlanPurchase = () => {
         setUserAccounts(response.data);
       } catch (error) {
         console.error("Failed to fetch user accounts:", error);
-        setStatusMessage("Failed to load user account details");
-        showToast("error", "Failed to load user account details");
+        showToast("error", "Failed to load account details");
       }
     };
 
+    fetchProfile();
     fetchUserAccounts();
   }, [user]);
 
+  // Fetch all plans from database
   useEffect(() => {
-    let isMounted = true;
-    axiosInstance
-      .get("/user-subscription-plan/plans")
-      .then((res) => {
-        if (isMounted) {
-          setPlans(res.data);
-          const calculations = {};
-          res.data.forEach((plan) => {
-            const minInvestment = parseFloat(
-              plan.min_investment?.$numberDecimal || 0
-            );
-            const profitPercentage = parseFloat(
-              plan.profit_percentage?.$numberDecimal || 0
-            );
-            const capitalLockin = plan.capital_lockin || 30;
-            const profitWithdrawal = plan.profit_withdrawal || "daily";
+    const fetchPlans = async () => {
+      try {
+        const response = await axiosInstance.get("/plans"); // Your route: GET /plans
+        const fetchedPlans = response.data;
 
-            const totalProfit = (minInvestment * profitPercentage) / 100;
-            const dailyProfit = totalProfit / capitalLockin;
+        setPlans(fetchedPlans);
 
-            let profitAmount = 0;
-            if (profitWithdrawal === "daily") {
-              profitAmount = dailyProfit;
-            } else if (profitWithdrawal === "weekly") {
-              profitAmount = dailyProfit * 7;
-            } else if (profitWithdrawal === "monthly") {
-              const now = new Date();
-              const nextMonth = new Date(now);
-              nextMonth.setMonth(nextMonth.getMonth() + 1);
-              const diffTime = Math.abs(nextMonth - now);
-              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-              profitAmount = dailyProfit * diffDays;
-            }
+        // Calculate profit for display
+        const calculations = {};
+        fetchedPlans.forEach((plan) => {
+          const minInvestment = parseFloat(plan.min_investment?.$numberDecimal || plan.min_investment || 0);
+          const profitPercentage = parseFloat(plan.profit_percentage?.$numberDecimal || plan.profit_percentage || 0);
+          const capitalLockin = plan.capital_lockin || 30;
+          const profitWithdrawal = plan.profit_withdrawal || "daily";
 
-            const totalReturn = minInvestment + totalProfit;
+          const totalProfit = (minInvestment * profitPercentage) / 100;
+          const dailyProfit = totalProfit / capitalLockin;
 
-            calculations[plan._id] = {
-              profitAmount: profitAmount.toFixed(2),
-              totalReturn: totalReturn.toFixed(2),
-            };
-          });
-          setProfitCalculations(calculations);
-        }
-      })
-      .catch((error) => {
-        if (isMounted) {
-          console.error(
-            "Fetch plans error:",
-            error.message,
-            error.response?.data
-          );
-          setStatusMessage("Failed to fetch plans");
-          showToast("error", "Failed to fetch plans");
-        }
-      });
-    return () => {
-      isMounted = false;
+          let profitAmount = 0;
+          if (profitWithdrawal === "daily") {
+            profitAmount = dailyProfit;
+          } else if (profitWithdrawal === "weekly") {
+            profitAmount = dailyProfit * 7;
+          } else if (profitWithdrawal === "monthly") {
+            const now = new Date();
+            const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+            const diffDays = Math.ceil((nextMonth - now) / (1000 * 60 * 60 * 24));
+            profitAmount = dailyProfit * diffDays;
+          }
+
+          const totalReturn = minInvestment + totalProfit;
+
+          calculations[plan._id] = {
+            profitAmount: profitAmount.toFixed(2),
+            totalReturn: totalReturn.toFixed(2),
+          };
+        });
+
+        setProfitCalculations(calculations);
+      } catch (error) {
+        console.error("Failed to fetch plans:", error);
+        setStatusMessage("Failed to load plans");
+        showToast("error", "Failed to load available plans");
+      }
     };
+
+    fetchPlans();
   }, []);
 
   const handleOpenPurchaseDialog = (plan) => {
+    // KYC Check
     if (
       !profileData?.pan_number ||
       !profileData?.pan_image ||
@@ -176,29 +143,26 @@ const PlanPurchase = () => {
       !profileData?.aadhar_image
     ) {
       showToast("error", "Please complete your KYC verification first");
-      setTimeout(() => {
-        navigate("/user-dashboard/profile");
-      }, 2000);
+      setTimeout(() => navigate("/user-dashboard/profile"), 2000);
       return;
     }
 
+    // Admin Verification Check
     if (!profileData?.verified_by_admin) {
-      showToast("error", "Account must be verified by admin. Wait 24-48 hrs.");
+      showToast("error", "Your account is pending admin verification (24-48 hrs)");
       return;
     }
 
+    // Account Type Match Check
     const hasMatchingAccount = userAccounts.some(
-      (account) => account.account_type === plan.amount_type
+      (acc) => acc.account_type === plan.amount_type
     );
-
     if (!hasMatchingAccount) {
       showToast(
         "error",
-        `Please add ${plan.amount_type} account details to purchase this plan`
+        `Please add a ${plan.amount_type} account in your profile to purchase this plan`
       );
-      setTimeout(() => {
-        navigate("/user-dashboard/profile");
-      }, 2000);
+      setTimeout(() => navigate("/user-dashboard/profile"), 2000);
       return;
     }
 
@@ -208,17 +172,11 @@ const PlanPurchase = () => {
     setTransactionId("");
     setAdminInfo(null);
     setStatusMessage("");
-    setQrCodeErrors({});
     setShowPurchaseDialog(true);
   };
 
-  // This now ALWAYS proceeds without checking transactionId
   const handleProceedPayment = async () => {
-    if (!selectedPlan || !user) {
-      setStatusMessage("User or plan not selected");
-      showToast("error", "User or plan not selected");
-      return;
-    }
+    if (!selectedPlan || !user) return;
 
     try {
       const response = await axiosInstance.post(
@@ -227,77 +185,49 @@ const PlanPurchase = () => {
           user_id: user.id,
           plan_id: selectedPlan._id,
           username: user.username,
-          amount: parseFloat(selectedPlan.min_investment.$numberDecimal),
+          amount: parseFloat(selectedPlan.min_investment.$numberDecimal || selectedPlan.min_investment),
         },
         { withCredentials: true }
       );
 
       if (response.status === 201) {
         setSubscriptionId(response.data.subscription._id);
-        setStatusMessage(
-          "Subscription created successfully! Please upload your payment proof below."
-        );
+        setStatusMessage("Subscription created! Upload payment proof below.");
 
-        // Fetch admin info for payment details
+        // Fetch admin payment details
         try {
           const adminRes = await axiosInstance.get("/users/admin-info", {
             withCredentials: true,
           });
           setAdminInfo(adminRes.data);
         } catch (err) {
-          console.error("Failed to fetch admin info:", err);
-          setStatusMessage("Failed to load admin payment details");
-          showToast("error", "Failed to load admin payment details");
+          console.error("Failed to load admin info:", err);
+          showToast("error", "Could not load payment details");
         }
       }
     } catch (error) {
-      console.error("Create subscription error:", error);
-      const errorMessage =
-        error.response?.data?.message || "Failed to create subscription";
-      setStatusMessage(errorMessage);
-      showToast("error", errorMessage);
-    }
-  };
-
-  const handleRetryFetchAdminInfo = async () => {
-    setStatusMessage("");
-    try {
-      const adminRes = await axiosInstance.get("/users/admin-info", {
-        withCredentials: true,
-      });
-      setAdminInfo(adminRes.data);
-    } catch (err) {
-      setStatusMessage("Failed to fetch admin account details");
-      showToast("error", "Failed to fetch admin account details");
+      const msg = error.response?.data?.message || "Failed to create subscription";
+      setStatusMessage(msg);
+      showToast("error", msg);
     }
   };
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      const isImage = /\.(jpg|jpeg|png|gif|bmp|tiff)$/i.test(selectedFile.name);
-      if (!isImage) {
-        setStatusMessage("Only image files are allowed");
-        showToast("error", "Only image files are allowed");
-        setFile(null);
-        return;
-      }
-      setFile(selectedFile);
-      setStatusMessage("");
-    }
-  };
+    if (!selectedFile) return;
 
-  // Transaction ID validation ONLY happens here
-  const handleUploadScreenshot = async () => {
-    if (!file) {
-      setStatusMessage("Please select a payment screenshot");
-      showToast("error", "Please select a payment screenshot");
+    const isImage = /\.(jpg|jpeg|png|gif|bmp|tiff)$/i.test(selectedFile.name);
+    if (!isImage) {
+      showToast("error", "Only image files are allowed");
+      setFile(null);
       return;
     }
+    setFile(selectedFile);
+  };
 
-    if (!transactionId.trim()) {
-      setStatusMessage("Please enter Transaction ID / UTR / TxID");
-      showToast("error", "Please enter Transaction ID / UTR / TxID");
+  const handleUploadScreenshot = async () => {
+    if (!file || !subscriptionId || !selectedPlan || !transactionId.trim()) {
+      showToast("error", "Please fill all required fields");
       return;
     }
 
@@ -305,30 +235,18 @@ const PlanPurchase = () => {
     formData.append("payment_screenshot", file);
     formData.append("subscription_id", subscriptionId);
     formData.append("username", user.username);
-    formData.append(
-      "amount",
-      parseFloat(selectedPlan.min_investment.$numberDecimal)
-    );
+    formData.append("amount", parseFloat(selectedPlan.min_investment.$numberDecimal || selectedPlan.min_investment));
     formData.append("transaction_id", transactionId.trim());
 
     try {
       const response = await axiosInstance.post(
         "/user-subscription-plan/upload-screenshot",
         formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-          withCredentials: true,
-        }
+        { headers: { "Content-Type": "multipart/form-data" }, withCredentials: true }
       );
 
       if (response.status === 200) {
-        setStatusMessage(
-          "Payment proof uploaded successfully! Awaiting verification (24-48 hours)."
-        );
-        showToast(
-          "success",
-          "Payment proof uploaded successfully! Awaiting verification."
-        );
+        showToast("success", "Payment proof submitted! Awaiting verification.");
         setShowPurchaseDialog(false);
         setFile(null);
         setTransactionId("");
@@ -337,411 +255,210 @@ const PlanPurchase = () => {
         setAdminInfo(null);
       }
     } catch (error) {
-      console.error("Upload error:", error);
-      const msg = error.response?.data?.message || "Failed to upload proof";
-      setStatusMessage(msg);
+      const msg = error.response?.data?.message || "Upload failed";
       showToast("error", msg);
     }
   };
 
-  const handleCopy = (text) => {
-    navigator.clipboard.writeText(text);
-    showToast("success", "Copied to clipboard!");
-  };
-
-  const renderAccountDetails = useMemo(
-    () => (account) => {
-      const isINR = account.account_type === "INR";
-      const isUSDT = account.account_type === "USDT";
-      const hasQrCodeError = qrCodeErrors[account._id];
-
-      return (
-        <div className="space-y-2" key={account._id}>
-          <div className="flex items-center justify-between">
-            <span>
-              <strong>Type:</strong> {account.account_type}
-            </span>
-          </div>
-          {isINR && (
-            <>
-              {account.bank_name && (
-                <div className="flex items-center justify-between">
-                  <span>
-                    <strong>Bank Name:</strong> {account.bank_name}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopy(account.bank_name)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              {account.account_holder_name && (
-                <div className="flex items-center justify-between">
-                  <span>
-                    <strong>Account Holder:</strong> {account.account_holder_name}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopy(account.account_holder_name)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              {account.account_number && (
-                <div className="flex items-center justify-between">
-                  <span>
-                    <strong>Account Number:</strong> {account.account_number}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopy(account.account_number)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              {account.ifsc_code && (
-                <div className="flex items-center justify-between">
-                  <span>
-                    <strong>IFSC Code:</strong> {account.ifsc_code}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopy(account.ifsc_code)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              {account.upi_id && (
-                <div className="flex items-center justify-between">
-                  <span>
-                    <strong>UPI ID:</strong> {account.upi_id}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopy(account.upi_id)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              {account.upi_number && (
-                <div className="flex items-center justify-between">
-                  <span>
-                    <strong>UPI Number:</strong> {account.upi_number}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopy(account.upi_number)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              {account.linked_phone_number && (
-                <div className="flex items-center justify-between">
-                  <span>
-                    <strong>Linked Phone:</strong> {account.linked_phone_number}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopy(account.linked_phone_number)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-          {isUSDT && (
-            <>
-              {account.usdt_account_number && (
-                <div className="flex items-center justify-between">
-                  <span>
-                    <strong>USDT Address:</strong> {account.usdt_account_number}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopy(account.usdt_account_number)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-          {account.qrcode && (
-            <div className="mt-2">
-              <strong>QR Code:</strong>
-              <div className="mt-1">
-                {hasQrCodeError ? (
-                  <div className="flex flex-col items-center">
-                    <p className="text-red-600">
-                      Failed to load QR code
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                      onClick={() => {
-                        setQrCodeErrors((prev) => ({ ...prev, [account._id]: false }));
-                        cacheBusterRef.current = Date.now();
-                      }}
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                ) : (
-                  <img
-                    src={`${account.qrcode}?t=${cacheBusterRef.current}`}
-                    alt="QR Code"
-                    className="w-32 h-32 object-contain border rounded"
-                    onError={() => setQrCodeErrors((prev) => ({ ...prev, [account._id]: true }))}
-                    onLoad={() => setQrCodeErrors((prev) => ({ ...prev, [account._id]: false }))}
-                  />
-                )}
-              </div>
-            </div>
-          )}
+  const renderAccountDetails = (account) => (
+    <div className="space-y-2 text-sm" key={account._id}>
+      <p><strong>Type:</strong> {account.account_type}</p>
+      {account.account_type === "INR" && (
+        <>
+          {account.bank_name && <p><strong>Bank:</strong> {account.bank_name}</p>}
+          {account.account_holder_name && <p><strong>Holder:</strong> {account.account_holder_name}</p>}
+          {account.account_number && <p><strong>A/c No:</strong> {account.account_number}</p>}
+          {account.ifsc_code && <p><strong>IFSC:</strong> {account.ifsc_code}</p>}
+          {account.upi_id && <p><strong>UPI ID:</strong> {account.upi_id}</p>}
+        </>
+      )}
+      {account.account_type === "USDT" && account.usdt_account_number && (
+        <p><strong>USDT Address:</strong> {account.usdt_account_number}</p>
+      )}
+      {account.qrcode && (
+        <div className="mt-3">
+          <strong>QR Code:</strong>
+          <img src={account.qrcode} alt="QR" className="w-40 h-40 mt-2 border rounded" />
         </div>
-      );
-    },
-    [qrCodeErrors, handleCopy]
+      )}
+    </div>
   );
 
   return (
     <div className="p-6 space-y-8">
+      {/* Instructions Dialog */}
       <Dialog open={showInstructionsDialog} onOpenChange={setShowInstructionsDialog}>
-        <DialogContent className="sm:max-w-[700px] max-h-[60vh] overflow-y-auto p-6">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center">
-              Deposit Instructions
-            </DialogTitle>
+            <DialogTitle className="text-2xl text-center">Deposit Instructions</DialogTitle>
           </DialogHeader>
-          <div className="space-y-6 mt-4 text-sm text-gray-700">
-            <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
-              <h3 className="font-semibold text-lg text-indigo-600 mb-2">INR Deposits</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Method:</strong> Bank Transfer or UPI only.</li>
-                <li><strong>Upload Required:</strong> Payment screenshot and Reference Number/UTR.</li>
-                <li><strong>Limits:</strong> Minimum ₹5000 | Max No limit per transaction.</li>
-                <li><strong>Requirements:</strong> Only KYC-verified accounts can deposit.</li>
-                <li><strong>Important:</strong> Payments from third-party accounts will be rejected.</li>
+          <div className="space-y-4 text-sm">
+            <div className="p-4 bg-blue-50 rounded">
+              <h3 className="font-bold text-blue-800">INR Deposits</h3>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>Bank Transfer or UPI only</li>
+                <li>Required: Screenshot + UTR</li>
+                <li>Min ₹5000 • No max limit</li>
               </ul>
             </div>
-            <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
-              <h3 className="font-semibold text-lg text-green-600 mb-2">USDT Deposits</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Method:</strong> Transfer to Admin’s official crypto wallet.</li>
-                <li><strong>Upload Required:</strong> Transaction Hash (TxID). Screenshot optional.</li>
-                <li><strong>Limits:</strong> Min USDT 50| Max No limit per transaction.</li>
-                <li><strong>Network:</strong> TRC20 (default).</li>
-                <li><strong>Requirements:</strong> Only KYC-verified accounts can deposit.</li>
+            <div className="p-4 bg-green-50 rounded">
+              <h3 className="font-bold text-green-800">USDT Deposits</h3>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>Send to admin wallet (TRC20)</li>
+                <li>Required: TxID (screenshot optional)</li>
+                <li>Min 50 USDT • No max limit</li>
               </ul>
             </div>
-            <div className="p-4 border rounded-lg bg-gray-50 shadow-sm">
-              <h3 className="font-semibold text-lg text-red-600 mb-2">Verification</h3>
-              <p>All deposits will be verified by Admin within <strong>24–48 hours</strong>.</p>
-            </div>
+            <p className="text-center font-medium text-red-600">
+              Verification within 24–48 hours
+            </p>
           </div>
-          <DialogFooter className="mt-6">
-            <Button variant="default" className="w-full" onClick={() => setShowInstructionsDialog(false)}>
-              Got it
-            </Button>
-          </DialogFooter>
+          <Button className="w-full" onClick={() => setShowInstructionsDialog(false)}>
+            Got it
+          </Button>
         </DialogContent>
       </Dialog>
 
+      {/* Available Plans Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Available Plans</CardTitle>
+          <CardTitle>Available Investment Plans</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Min Investment</TableHead>
-                <TableHead>Profit %</TableHead>
-                <TableHead>Validity (Days)</TableHead>
-                <TableHead>Profit Amount</TableHead>
-                <TableHead>Total Return</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {plans?.map((plan) => (
-                <TableRow key={plan?._id}>
-                  <TableCell>{plan?.plan_name}</TableCell>
-                  <TableCell>
-                    {plan?.min_investment?.$numberDecimal} {plan?.amount_type}
-                  </TableCell>
-                  <TableCell>
-                    {plan?.profit_percentage?.$numberDecimal}%
-                  </TableCell>
-                  <TableCell>{plan?.capital_lockin || "N/A"}</TableCell>
-                  <TableCell>
-                    {profitCalculations[plan._id]?.profitAmount} {plan?.amount_type}
-                  </TableCell>
-                  <TableCell>
-                    {profitCalculations[plan._id]?.totalReturn} {plan?.amount_type}
-                  </TableCell>
-                  <TableCell>
-                    <Dialog
-                      open={showPurchaseDialog && selectedPlan?._id === plan._id}
-                      onOpenChange={setShowPurchaseDialog}
-                    >
-                      <DialogTrigger asChild>
-                        <Button
-                          onClick={() => handleOpenPurchaseDialog(plan)}
-                          variant="outline"
-                        >
-                          <CreditCard className="mr-2 h-4 w-4" /> Purchase
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[700px] max-h-[60vh] overflow-y-auto p-6">
-                        <DialogHeader>
-                          <DialogTitle>{plan?.plan_name} Details</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          {!subscriptionId ? (
-                            <>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="flex items-center">
-                                  <Tag className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Plan Name:</strong> {plan?.plan_name}</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <DollarSign className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Minimum Investment:</strong> {plan?.min_investment?.$numberDecimal} {plan?.amount_type}</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <Percent className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Profit Percentage:</strong> {plan?.profit_percentage?.$numberDecimal}%</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <Lock className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Capital Lock-in Period:</strong> {plan?.capital_lockin || "N/A"} days</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <Clock className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Profit Withdrawal:</strong> {plan?.profit_withdrawal || "daily"}</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <TrendingUp className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Estimated Profit:</strong> {profitCalculations[plan._id]?.profitAmount} {plan?.amount_type}</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <Wallet className="mr-2 h-4 w-4 text-gray-500" />
-                                  <span><strong>Total Return:</strong> {profitCalculations[plan._id]?.totalReturn} {plan?.amount_type}</span>
-                                </div>
-                                {plan?.notes && (
-                                  <div className="col-span-2 flex items-start">
-                                    <FileText className="mr-2 h-4 w-4 text-gray-500 mt-1" />
-                                    <span><strong>Notes:</strong> {plan?.notes}</span>
-                                  </div>
-                                )}
-                              </div>
-                              <Button onClick={handleProceedPayment} className="w-full">
-                                <ArrowRightCircle className="mr-2 h-4 w-4" />
-                                Proceed to Payment
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <div className="text-green-600 font-medium mb-4">
-                                Subscription created! Please complete payment proof below.
-                              </div>
-
-                              {adminInfo ? (
-                                <div className="p-4 border rounded bg-gray-50 text-sm">
-                                  <p><strong>Admin Name:</strong> {adminInfo.admin?.username || "N/A"}</p>
-                                  <p><strong>Email:</strong> {adminInfo.admin?.email || "N/A"}</p>
-                                  {adminInfo.accounts?.length > 0 && (
-                                    <div className="mt-3">
-                                      <strong>Payment Details ({selectedPlan?.amount_type}):</strong>
-                                      <div className="mt-2 space-y-3">
-                                        {adminInfo.accounts
-                                          .filter(acc => acc.account_type === selectedPlan?.amount_type)
-                                          .map(acc => renderAccountDetails(acc))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <p className="text-red-600">Loading payment details...</p>
-                              )}
-
-                              {statusMessage.includes("Failed to fetch admin") && (
-                                <Button onClick={handleRetryFetchAdminInfo} variant="outline" className="mt-3">
-                                  Retry Loading Payment Details
-                                </Button>
-                              )}
-
-                              <div className="mt-6 space-y-4">
-                                <div>
-                                  <label className="block text-sm font-medium mb-1">Payment Screenshot <span className="text-red-600">*</span></label>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleFileChange}
-                                    className="w-full border rounded p-2"
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium mb-1">
-                                    Transaction ID / UTR / TxID <span className="text-red-600">*</span>
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder="Enter UTR or TxID"
-                                    value={transactionId}
-                                    onChange={(e) => setTransactionId(e.target.value)}
-                                    className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    INR → UTR Number | USDT → Transaction Hash (TxID)
-                                  </p>
-                                </div>
-
-                                <Button
-                                  onClick={handleUploadScreenshot}
-                                  disabled={!file || !transactionId.trim()}
-                                  className="w-full"
-                                >
-                                  <Upload className="mr-2 h-4 w-4" />
-                                  Submit Payment Proof
-                                </Button>
-                              </div>
-                            </>
-                          )}
-
-                          {statusMessage && (
-                            <div className={`mt-4 text-center font-medium ${statusMessage.includes("success") || statusMessage.includes("created") ? "text-green-600" : "text-red-600"}`}>
-                              {statusMessage}
-                            </div>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
+          {plans.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">Loading plans...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Plan Name</TableHead>
+                  <TableHead>Min Investment</TableHead>
+                  <TableHead>Profit %</TableHead>
+                  <TableHead>Lock-in (Days)</TableHead>
+                  <TableHead>Profit Payout</TableHead>
+                  <TableHead>Est. Profit</TableHead>
+                  <TableHead>Total Return</TableHead>
+                  <TableHead>Action</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {plans.map((plan) => (
+                  <TableRow key={plan._id}>
+                    <TableCell className="font-medium">{plan.plan_name}</TableCell>
+                    <TableCell>
+                      {parseFloat(plan.min_investment?.$numberDecimal || plan.min_investment).toLocaleString()} {plan.amount_type}
+                    </TableCell>
+                    <TableCell>{parseFloat(plan.profit_percentage?.$numberDecimal || plan.profit_percentage)}%</TableCell>
+                    <TableCell>{plan.capital_lockin || "N/A"}</TableCell>
+                    <TableCell className="capitalize">{plan.profit_withdrawal || "daily"}</TableCell>
+                    <TableCell>
+                      {profitCalculations[plan._id]?.profitAmount || "0.00"} {plan.amount_type}
+                    </TableCell>
+                    <TableCell className="font-semibold">
+                      {profitCalculations[plan._id]?.totalReturn || "0.00"} {plan.amount_type}
+                    </TableCell>
+                    <TableCell>
+                      <Dialog
+                        open={showPurchaseDialog && selectedPlan?._id === plan._id}
+                        onOpenChange={setShowPurchaseDialog}
+                      >
+                        <DialogTrigger asChild>
+                          <Button
+                            onClick={() => handleOpenPurchaseDialog(plan)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <CreditCard className="mr-2 h-4 w-4" />
+                            Purchase
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle>{plan.plan_name} - Purchase Confirmation</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-6">
+                            {!subscriptionId ? (
+                              <>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div><strong>Plan:</strong> {plan.plan_name}</div>
+                                  <div><strong>Type:</strong> {plan.amount_type}</div>
+                                  <div><strong>Min Investment:</strong> {parseFloat(plan.min_investment.$numberDecimal || plan.min_investment).toLocaleString()} {plan.amount_type}</div>
+                                  <div><strong>Profit Rate:</strong> {parseFloat(plan.profit_percentage.$numberDecimal || plan.profit_percentage)}%</div>
+                                  <div><strong>Lock-in:</strong> {plan.capital_lockin} days</div>
+                                  <div><strong>Payout:</strong> {plan.profit_withdrawal}</div>
+                                  <div><strong>Est. Profit:</strong> {profitCalculations[plan._id]?.profitAmount} {plan.amount_type}</div>
+                                  <div><strong>Total Return:</strong> {profitCalculations[plan._id]?.totalReturn} {plan.amount_type}</div>
+                                </div>
+                                {plan.notes && <p className="text-sm italic">{plan.notes}</p>}
+                                <Button onClick={handleProceedPayment} className="w-full">
+                                  <ArrowRightCircle className="mr-2 h-4 w-4" />
+                                  Proceed to Payment
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-green-600 font-bold text-center">
+                                  Subscription Created Successfully!
+                                </p>
+
+                                {/* Admin Payment Details */}
+                                {adminInfo ? (
+                                  <div className="bg-gray-50 p-4 rounded-lg">
+                                    <h3 className="font-bold mb-3">Send Payment To:</h3>
+                                    {adminInfo.accounts
+                                      .filter(a => a.account_type === selectedPlan.amount_type)
+                                      .map(renderAccountDetails)}
+                                  </div>
+                                ) : (
+                                  <p className="text-red-600">Loading payment details...</p>
+                                )}
+
+                                {/* Upload Section */}
+                                <div className="space-y-4 mt-6">
+                                  <div>
+                                    <label className="block font-medium mb-1">
+                                      Payment Screenshot <span className="text-red-600">*</span>
+                                    </label>
+                                    <input type="file" accept="image/*" onChange={handleFileChange} className="w-full" />
+                                  </div>
+                                  <div>
+                                    <label className="block font-medium mb-1">
+                                      Transaction ID / UTR / TxID <span className="text-red-600">*</span>
+                                    </label>
+                                    <input
+                                      type="text"
+                                      placeholder="Enter UTR or TxID"
+                                      value={transactionId}
+                                      onChange={(e) => setTransactionId(e.target.value)}
+                                      className="w-full border rounded px-3 py-2"
+                                    />
+                                  </div>
+                                  <Button
+                                    onClick={handleUploadScreenshot}
+                                    disabled={!file || !transactionId.trim()}
+                                    className="w-full"
+                                  >
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Submit Payment Proof
+                                  </Button>
+                                </div>
+                              </>
+                            )}
+
+                            {statusMessage && (
+                              <p className={`text-center font-medium ${statusMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
+                                {statusMessage}
+                              </p>
+                            )}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

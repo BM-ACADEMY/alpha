@@ -127,67 +127,61 @@ const AdminPurchasePlan = () => {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isLoading]);
 
-  // Fetch plans and purchased plans
+  // Fetch plans from /plans endpoint
   useEffect(() => {
-    let isMounted = true;
-    axiosInstance
-      .get("/user-subscription-plan/plans")
-      .then((res) => {
-        if (isMounted) {
-          setPlans(res.data);
-          // Calculate profit for each plan
-          const calculations = {};
-          res.data.forEach((plan) => {
-            const minInvestment = parseFloat(
-              plan.min_investment?.$numberDecimal || 0
-            );
-            const profitPercentage = parseFloat(
-              plan.profit_percentage?.$numberDecimal || 0
-            );
-            const capitalLockin = plan?.capital_lockin || 30;
-            const profitWithdrawal = plan?.profit_withdrawal || "daily";
+    const fetchPlans = async () => {
+      try {
+        const res = await axiosInstance.get("/plans");
+        const fetchedPlans = res.data;
 
-            const totalProfit = (minInvestment * profitPercentage) / 100;
-            const dailyProfit = totalProfit / capitalLockin;
+        setPlans(fetchedPlans);
 
-            let profitAmount = 0;
-            if (profitWithdrawal === "daily") {
-              profitAmount = dailyProfit;
-            } else if (profitWithdrawal === "weekly") {
-              profitAmount = dailyProfit * 7;
-            } else if (profitWithdrawal === "monthly") {
-              const now = new Date();
-              const nextMonth = new Date(now);
-              nextMonth.setMonth(nextMonth.getMonth() + 1);
-              const diffTime = Math.abs(nextMonth - now);
-              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-              profitAmount = dailyProfit * diffDays;
-            }
+        const calculations = {};
+        fetchedPlans.forEach((plan) => {
+          const minInvestment = parseFloat(plan.min_investment?.$numberDecimal || plan.min_investment || 0);
+          const profitPercentage = parseFloat(plan.profit_percentage?.$numberDecimal || plan.profit_percentage || 0);
+          const capitalLockin = plan.capital_lockin || 30;
+          const profitWithdrawal = plan.profit_withdrawal || "daily";
 
-            const totalReturn = minInvestment + totalProfit;
+          const totalProfit = (minInvestment * profitPercentage) / 100;
+          const dailyProfit = totalProfit / capitalLockin;
 
-            calculations[plan._id] = {
-              profitAmount: profitAmount.toFixed(2),
-              totalReturn: totalReturn.toFixed(2),
-            };
-          });
-          setProfitCalculations(calculations);
-        }
-      })
-      .catch((error) => {
-        if (isMounted) {
-          console.error(
-            "Fetch plans error:",
-            error.message,
-            error.response?.data
-          );
-          setStatusMessage("Failed to fetch plans");
-        }
-      });
-    fetchPurchasedPlans(currentPage);
-    return () => {
-      isMounted = false;
+          let profitAmount = 0;
+          if (profitWithdrawal === "daily") {
+            profitAmount = dailyProfit;
+          } else if (profitWithdrawal === "weekly") {
+            profitAmount = dailyProfit * 7;
+          } else if (profitWithdrawal === "monthly") {
+            const now = new Date();
+            const nextMonth = new Date(now);
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+            const diffTime = Math.abs(nextMonth - now);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            profitAmount = dailyProfit * diffDays;
+          }
+
+          const totalReturn = minInvestment + totalProfit;
+
+          calculations[plan._id] = {
+            profitAmount: profitAmount.toFixed(2),
+            totalReturn: totalReturn.toFixed(2),
+          };
+        });
+
+        setProfitCalculations(calculations);
+      } catch (error) {
+        console.error("Failed to fetch plans:", error);
+        setStatusMessage("Failed to load available plans");
+        showToast("error", "Failed to load plans");
+      }
     };
+
+    fetchPlans();
+  }, []);
+
+  // Fetch purchased plans
+  useEffect(() => {
+    fetchPurchasedPlans(currentPage);
   }, [currentPage]);
 
   // Load image for selected subscription
@@ -318,7 +312,7 @@ const AdminPurchasePlan = () => {
       return;
     }
     setSelectedPlan(plan);
-    setAmount(plan?.min_investment?.$numberDecimal || "");
+    setAmount(parseFloat(plan.min_investment?.$numberDecimal || plan.min_investment || 0).toString());
     setShowProfitDialog(true);
   };
 
@@ -341,7 +335,6 @@ const AdminPurchasePlan = () => {
         setSubscriptionId(res.data.subscription._id);
         fetchAdminAccount();
         showToast("success", "Subscription initiated successfully");
-        setSelectedPlan(selectedPlan);
         setShowProfitDialog(false);
         setShowUploadDialog(true);
       })
@@ -646,114 +639,113 @@ const AdminPurchasePlan = () => {
           <CardTitle>Available Plans</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Min Investment</TableHead>
-                <TableHead>Profit %</TableHead>
-                <TableHead>Validity (Days)</TableHead>
-                <TableHead>Profit Amount</TableHead>
-                <TableHead>Total Return</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {plans?.map((plan) => (
-                <TableRow key={plan?._id}>
-                  <TableCell>{plan?.plan_name}</TableCell>
-                  <TableCell>
-                    {plan?.min_investment?.$numberDecimal} {plan?.amount_type}
-                  </TableCell>
-                  <TableCell>
-                    {plan?.profit_percentage?.$numberDecimal}%
-                  </TableCell>
-                  <TableCell>{plan?.capital_lockin || "N/A"}</TableCell>
-                  <TableCell>
-                    {profitCalculations[plan._id]?.profitAmount}{" "}
-                    {plan?.amount_type}
-                  </TableCell>
-                  <TableCell>
-                    {profitCalculations[plan._id]?.totalReturn}{" "}
-                    {plan?.amount_type}
-                  </TableCell>
-                  <TableCell>
-                    <Dialog
-                      open={showProfitDialog && selectedPlan?._id === plan._id}
-                      onOpenChange={setShowProfitDialog}
-                    >
-                      <DialogTrigger asChild>
-                        <Button
-                          onClick={() => handlePurchase(plan)}
-                          disabled={!selectedUser || isLoading}
-                          variant="outline"
-                        >
-                          <CreditCard className="mr-2 h-4 w-4" /> Purchase
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>
-                            Confirm Purchase: {selectedPlan?.plan_name} for{" "}
-                            {selectedUser?.username}
-                          </DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <p>
-                            <strong>Plan Name:</strong>{" "}
-                            {selectedPlan?.plan_name}
-                          </p>
-                          <p>
-                            <strong>Min Investment:</strong>{" "}
-                            {selectedPlan?.min_investment?.$numberDecimal}{" "}
-                            {selectedPlan?.amount_type}
-                          </p>
-                          <p>
-                            <strong>Profit Percentage:</strong>{" "}
-                            {selectedPlan?.profit_percentage?.$numberDecimal}%
-                          </p>
-                          <p>
-                            <strong>Validity:</strong>{" "}
-                            {selectedPlan?.capital_lockin} days
-                          </p>
-                          <p>
-                            <strong>
-                              Profit Amount ({selectedPlan?.profit_withdrawal}):
-                            </strong>{" "}
-                            {
-                              profitCalculations[selectedPlan?._id]
-                                ?.profitAmount
-                            }{" "}
-                            {selectedPlan?.amount_type}
-                          </p>
-                          <p>
-                            <strong>Total Return:</strong>{" "}
-                            {profitCalculations[selectedPlan?._id]?.totalReturn}{" "}
-                            {selectedPlan?.amount_type}
-                          </p>
-                          <Button onClick={handleProceed} disabled={isLoading}>
-                            Proceed to Payment
-                          </Button>
-                          {statusMessage && (
-                            <p
-                              className={
-                                statusMessage.includes("Failed") ||
-                                statusMessage.includes("active subscription")
-                                  ? "text-red-600"
-                                  : "text-green-600"
-                              }
-                            >
-                              {statusMessage}
-                            </p>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
+          {plans.length === 0 ? (
+            <p className="text-center py-8 text-gray-500">Loading plans...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Min Investment</TableHead>
+                  <TableHead>Profit %</TableHead>
+                  <TableHead>Validity (Days)</TableHead>
+                  <TableHead>Profit Amount</TableHead>
+                  <TableHead>Total Return</TableHead>
+                  <TableHead>Action</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {plans.map((plan) => (
+                  <TableRow key={plan._id}>
+                    <TableCell>{plan.plan_name}</TableCell>
+                    <TableCell>
+                      {parseFloat(plan.min_investment?.$numberDecimal || plan.min_investment || 0).toLocaleString()} {plan.amount_type}
+                    </TableCell>
+                    <TableCell>
+                      {parseFloat(plan.profit_percentage?.$numberDecimal || plan.profit_percentage || 0)}%
+                    </TableCell>
+                    <TableCell>{plan.capital_lockin || "N/A"}</TableCell>
+                    <TableCell>
+                      {profitCalculations[plan._id]?.profitAmount || "0.00"} {plan.amount_type}
+                    </TableCell>
+                    <TableCell>
+                      {profitCalculations[plan._id]?.totalReturn || "0.00"} {plan.amount_type}
+                    </TableCell>
+                    <TableCell>
+                      <Dialog
+                        open={showProfitDialog && selectedPlan?._id === plan._id}
+                        onOpenChange={setShowProfitDialog}
+                      >
+                        <DialogTrigger asChild>
+                          <Button
+                            onClick={() => handlePurchase(plan)}
+                            disabled={!selectedUser || isLoading}
+                            variant="outline"
+                          >
+                            <CreditCard className="mr-2 h-4 w-4" /> Purchase
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>
+                              Confirm Purchase: {selectedPlan?.plan_name} for{" "}
+                              {selectedUser?.username}
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <p>
+                              <strong>Plan Name:</strong>{" "}
+                              {selectedPlan?.plan_name}
+                            </p>
+                            <p>
+                              <strong>Min Investment:</strong>{" "}
+                              {selectedPlan?.min_investment?.$numberDecimal || selectedPlan?.min_investment}{" "}
+                              {selectedPlan?.amount_type}
+                            </p>
+                            <p>
+                              <strong>Profit Percentage:</strong>{" "}
+                              {selectedPlan?.profit_percentage?.$numberDecimal || selectedPlan?.profit_percentage}%
+                            </p>
+                            <p>
+                              <strong>Validity:</strong>{" "}
+                              {selectedPlan?.capital_lockin} days
+                            </p>
+                            <p>
+                              <strong>
+                                Profit Amount ({selectedPlan?.profit_withdrawal}):
+                              </strong>{" "}
+                              {profitCalculations[selectedPlan?._id]?.profitAmount}{" "}
+                              {selectedPlan?.amount_type}
+                            </p>
+                            <p>
+                              <strong>Total Return:</strong>{" "}
+                              {profitCalculations[selectedPlan?._id]?.totalReturn}{" "}
+                              {selectedPlan?.amount_type}
+                            </p>
+                            <Button onClick={handleProceed} disabled={isLoading}>
+                              Proceed to Payment
+                            </Button>
+                            {statusMessage && (
+                              <p
+                                className={
+                                  statusMessage.includes("Failed") ||
+                                  statusMessage.includes("active subscription")
+                                    ? "text-red-600"
+                                    : "text-green-600"
+                                }
+                              >
+                                {statusMessage}
+                              </p>
+                            )}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
           {/* Upload Payment Dialog */}
           <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
             <DialogContent>
