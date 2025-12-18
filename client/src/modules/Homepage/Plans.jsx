@@ -96,9 +96,8 @@ const Plans = () => {
               {plans?.map((plan, idx) => (
                 <tr
                   key={plan._id}
-                  className={`${
-                    idx % 2 === 0 ? "bg-white/5" : "bg-white/10"
-                  } hover:bg-white/20 transition`}
+                  className={`${idx % 2 === 0 ? "bg-white/5" : "bg-white/10"
+                    } hover:bg-white/20 transition`}
                 >
                   <td className="px-6 py-4 text-xs md:text-sm text-gray-100 font-medium">
                     {plan.plan_name || "N/A"}
@@ -122,9 +121,16 @@ const Plans = () => {
                     {calculateDailyReturnPercentage(plan)}
                   </td>
                   <td className="px-6 py-4 text-xs md:text-sm text-gray-200">
-                    {formatDecimal128(plan.profit_percentage_day_week_month)}%{" "}
-                    (on {currency === "INR" ? "₹" : "$"}
-                    {formatDecimal128(plan.min_investment)})
+                    {(() => {
+                      const symbol = currency === "INR" ? " ₹ " : " $ ";
+                      return (
+                        <>
+                          {formatDecimal128(plan.profit_percentage_day_week_month)}
+                          {symbol} (on {symbol}
+                          {formatDecimal128(plan.min_investment)})
+                        </>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 text-xs md:text-sm text-gray-300 whitespace-normal break-words min-w-[200px]">
                     {plan.notes || "N/A"}
