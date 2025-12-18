@@ -33,6 +33,11 @@ const UserPlanSubscriptionSchema = new mongoose.Schema({
   payment_screenshot: {
     type: String,
   },
+  transaction_id: {
+    type: String,
+   
+    trim: true,
+  },
   purchased_at: {
     type: Date,
     default: Date.now,
@@ -47,7 +52,7 @@ const UserPlanSubscriptionSchema = new mongoose.Schema({
   rejected_reason: {
     type: String,
   },
-    pointsAdded: {
+  pointsAdded: {
     type: Boolean,
     default: false,
   },

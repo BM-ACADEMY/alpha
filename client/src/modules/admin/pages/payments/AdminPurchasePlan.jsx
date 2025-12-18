@@ -103,6 +103,9 @@ const AdminPurchasePlan = () => {
   const [profitPercentage, setProfitPercentage] = useState("");
   const debounceTimer = useRef(null);
 
+  // NEW: Search state for Transaction ID in table
+  const [searchTransactionId, setSearchTransactionId] = useState("");
+
   // Validate role_id
   useEffect(() => {
     if (!role_id) {
@@ -598,6 +601,13 @@ const AdminPurchasePlan = () => {
     fetchPurchasedPlans(currentPage);
   };
 
+  // NEW: Filter purchased plans by transaction_id
+  const filteredPurchasedPlans = purchasedPlans.filter((sub) =>
+    !searchTransactionId
+      ? true
+      : sub.transaction_id?.toLowerCase().includes(searchTransactionId.toLowerCase())
+  );
+
   return (
     <div className="p-6 space-y-8">
       {/* Search User */}
@@ -882,10 +892,19 @@ const AdminPurchasePlan = () => {
         </CardContent>
       </Card>
 
-      {/* Purchased Plans Table */}
+      {/* Purchased Plans Table with Search Box */}
       <Card>
-        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded">
+        <CardHeader className="text-[#d09d42] font-bold bg-[#0f1c3f] p-1 rounded flex justify-between items-center flex-wrap gap-4">
           <CardTitle>Purchased Plans</CardTitle>
+          <div className="relative w-80">
+            <Input
+              placeholder="Search by Transaction ID / UTR / TxID"
+              value={searchTransactionId}
+              onChange={(e) => setSearchTransactionId(e.target.value)}
+              className="pl-10 pr-4 py-2 text-sm bg-white border-gray-300 rounded-lg"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -895,6 +914,7 @@ const AdminPurchasePlan = () => {
                 <TableHead>Plan</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Profit %</TableHead>
+                <TableHead>Transaction ID</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Plan Status</TableHead>
                 <TableHead>Purchased At</TableHead>
@@ -903,362 +923,396 @@ const AdminPurchasePlan = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {purchasedPlans?.map((sub) => {
-                const minInvestment = sub.amount;
-                const profitPercentage = parseFloat(
-                  sub.profit_percentage?.$numberDecimal || 0
-                );
-                const capitalLockin = sub.plan_id?.capital_lockin || 30;
-                const profitWithdrawal =
-                  sub.plan_id?.profit_withdrawal || "daily";
+              {filteredPurchasedPlans?.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                    {searchTransactionId
+                      ? "No transactions found matching this Transaction ID"
+                      : "No purchased plans yet"}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredPurchasedPlans?.map((sub) => {
+                  const minInvestment = sub.amount;
+                  const profitPercentage = parseFloat(
+                    sub.profit_percentage?.$numberDecimal || 0
+                  );
+                  const capitalLockin = sub.plan_id?.capital_lockin || 30;
+                  const profitWithdrawal =
+                    sub.plan_id?.profit_withdrawal || "daily";
 
-                const totalProfit = (minInvestment * profitPercentage) / 100;
-                const dailyProfit = totalProfit / capitalLockin;
+                  const totalProfit = (minInvestment * profitPercentage) / 100;
+                  const dailyProfit = totalProfit / capitalLockin;
 
-                let profitAmount = 0;
-                if (profitWithdrawal === "daily") {
-                  profitAmount = dailyProfit;
-                } else if (profitWithdrawal === "weekly") {
-                  profitAmount = dailyProfit * 7;
-                } else if (profitWithdrawal === "monthly") {
-                  const now = new Date();
-                  const nextMonth = new Date(now);
-                  nextMonth.setMonth(nextMonth.getMonth() + 1);
-                  const diffTime = Math.abs(nextMonth - now);
-                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                  profitAmount = dailyProfit * diffDays;
-                }
+                  let profitAmount = 0;
+                  if (profitWithdrawal === "daily") {
+                    profitAmount = dailyProfit;
+                  } else if (profitWithdrawal === "weekly") {
+                    profitAmount = dailyProfit * 7;
+                  } else if (profitWithdrawal === "monthly") {
+                    const now = new Date();
+                    const nextMonth = new Date(now);
+                    nextMonth.setMonth(nextMonth.getMonth() + 1);
+                    const diffTime = Math.abs(nextMonth - now);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    profitAmount = dailyProfit * diffDays;
+                  }
 
-                const totalReturn = minInvestment + totalProfit;
+                  const totalReturn = minInvestment + totalProfit;
 
-                return (
-                  <TableRow key={sub._id}>
-                    <TableCell>
-                      {sub.user_id.username} ({sub.user_id.email})
-                    </TableCell>
-                    <TableCell>{sub.plan_id?.plan_name}</TableCell>
-                    <TableCell>
-                      {sub.amount} {sub.plan_id?.amount_type}
-                    </TableCell>
-                    <TableCell>
-                      {sub.profit_percentage?.$numberDecimal}%
-                    </TableCell>
-                    <TableCell>
-                      {sub.status === "pending" && (
-                        <Clock className="inline h-4 w-4 text-yellow-500" />
-                      )}
-                      {sub.status === "verified" && (
-                        <CheckCircle className="inline h-4 w-4 text-green-500" />
-                      )}
-                      {sub.status === "rejected" && (
-                        <XCircle className="inline h-4 w-4 text-red-500" />
-                      )}{" "}
-                      {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
-                    </TableCell>
-                    <TableCell>{sub.planStatus}</TableCell>
-                    <TableCell>
-                      {new Date(sub.purchased_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      {sub.expires_at
-                        ? new Date(sub.expires_at).toLocaleDateString()
-                        : "N/A"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
+                  return (
+                    <TableRow key={sub._id}>
+                      <TableCell>
+                        {sub.user_id.username} ({sub.user_id.email})
+                      </TableCell>
+                      <TableCell>{sub.plan_id?.plan_name}</TableCell>
+                      <TableCell>
+                        {sub.amount} {sub.plan_id?.amount_type}
+                      </TableCell>
+                      <TableCell>
+                        {sub.profit_percentage?.$numberDecimal}%
+                      </TableCell>
+                      <TableCell>
+                        {sub.transaction_id ? (
+                          <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                            {sub.transaction_id}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500 italic text-sm">
+                            Not provided
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         {sub.status === "pending" && (
-                          <>
-                            <Button
-                              onClick={() => handleApprove(sub._id)}
-                              disabled={isLoading}
-                              variant="outline"
-                              size="sm"
-                            >
-                              <CheckCircle className="mr-2 h-4 w-4 text-green-500" />{" "}
-                              Approve
-                            </Button>
-                            <Dialog
-                              open={
-                                showAddPointsDialog &&
-                                selectedSubscriptionForPoints?._id === sub._id
-                              }
-                              onOpenChange={handlePointsDialogClose}
-                            >
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>
-                                    Add Points for {sub.user_id.username}'s Subscription
-                                  </DialogTitle>
-                                </DialogHeader>
+                          <Clock className="inline h-4 w-4 text-yellow-500" />
+                        )}
+                        {sub.status === "verified" && (
+                          <CheckCircle className="inline h-4 w-4 text-green-500" />
+                        )}
+                        {sub.status === "rejected" && (
+                          <XCircle className="inline h-4 w-4 text-red-500" />
+                        )}{" "}
+                        {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
+                      </TableCell>
+                      <TableCell>{sub.planStatus}</TableCell>
+                      <TableCell>
+                        {new Date(sub.purchased_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        {sub.expires_at
+                          ? new Date(sub.expires_at).toLocaleDateString()
+                          : "N/A"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          {sub.status === "pending" && (
+                            <>
+                              <Button
+                                onClick={() => handleApprove(sub._id)}
+                                disabled={isLoading}
+                                variant="outline"
+                                size="sm"
+                              >
+                                <CheckCircle className="mr-2 h-4 w-4 text-green-500" />{" "}
+                                Approve
+                              </Button>
+                              <Dialog
+                                open={
+                                  showAddPointsDialog &&
+                                  selectedSubscriptionForPoints?._id === sub._id
+                                }
+                                onOpenChange={handlePointsDialogClose}
+                              >
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>
+                                      Add Points for {sub.user_id.username}'s Subscription
+                                    </DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <p>
+                                      <strong>Plan Name:</strong>{" "}
+                                      {selectedSubscriptionForPoints?.plan_id?.plan_name}
+                                    </p>
+                                    <p>
+                                      <strong>Amount:</strong>{" "}
+                                      {selectedSubscriptionForPoints?.amount}{" "}
+                                      {selectedSubscriptionForPoints?.plan_id?.amount_type}
+                                    </p>
+                                    <p>
+                                      <strong>Profit Percentage:</strong>{" "}
+                                      {selectedSubscriptionForPoints?.profit_percentage?.$numberDecimal}%
+                                    </p>
+                                    <div>
+                                      <label>Capital Amount</label>
+                                      <Input
+                                        type="number"
+                                        value={pointsAmount}
+                                        readOnly
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Profit Percentage (%)</label>
+                                      <Input
+                                        type="number"
+                                        value={profitPercentage}
+                                        readOnly
+                                      />
+                                    </div>
+                                    <div className="flex space-x-2">
+                                      <Button
+                                        onClick={handleAddPoints}
+                                        disabled={isLoading || selectedSubscriptionForPoints?.pointsAdded}
+                                        className="bg-[#d09d42] text-white hover:bg-[#0f1c3f]"
+                                      >
+                                        <Wallet className="mr-2 h-4 w-4" />{" "}
+                                        {selectedSubscriptionForPoints?.pointsAdded
+                                          ? "Points Added"
+                                          : "Add Points"}
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        onClick={handlePointsDialogClose}
+                                        disabled={isLoading}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                    {statusMessage && (
+                                      <p
+                                        className={
+                                          statusMessage.includes("Failed")
+                                            ? "text-red-600"
+                                            : "text-green-600"
+                                        }
+                                      >
+                                        {statusMessage}
+                                      </p>
+                                    )}
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isLoading}
+                                  >
+                                    <XCircle className="mr-2 h-4 w-4 text-red-500" />{" "}
+                                    Reject
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Reject Subscription</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <Input
+                                      placeholder="Enter rejection reason"
+                                      value={rejectReason}
+                                      onChange={(e) =>
+                                        setRejectReason(e.target.value)
+                                      }
+                                    />
+                                    <Button
+                                      onClick={() => handleReject(sub._id)}
+                                      disabled={isLoading || !rejectReason}
+                                    >
+                                      Submit Rejection
+                                    </Button>
+                                    {statusMessage && (
+                                      <p
+                                        className={
+                                          statusMessage.includes("Failed")
+                                            ? "text-red-600"
+                                            : "text-green-600"
+                                        }
+                                      >
+                                        {statusMessage}
+                                      </p>
+                                    )}
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </>
+                          )}
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedSubscription(sub)}
+                              >
+                                <Eye className="mr-2 h-4 w-4" /> View Details
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="h-[500px] overflow-auto">
+                              <DialogHeader>
+                                <DialogTitle>Subscription Details</DialogTitle>
+                              </DialogHeader>
+                              {selectedSubscription && (
                                 <div className="space-y-4">
                                   <p>
-                                    <strong>Plan Name:</strong>{" "}
-                                    {selectedSubscriptionForPoints?.plan_id?.plan_name}
+                                    <strong>Subscription ID:</strong>{" "}
+                                    {selectedSubscription._id}
+                                  </p>
+                                  <p>
+                                    <strong>User:</strong>{" "}
+                                    {selectedSubscription.user_id.username} (
+                                    {selectedSubscription.user_id.email})
+                                  </p>
+                                  <p>
+                                    <strong>Phone Number:</strong>{" "}
+                                    {selectedSubscription.user_id.phone_number}
+                                  </p>
+                                  <p>
+                                    <strong>Plan:</strong>{" "}
+                                    {selectedSubscription.plan_id?.plan_name}
                                   </p>
                                   <p>
                                     <strong>Amount:</strong>{" "}
-                                    {selectedSubscriptionForPoints?.amount}{" "}
-                                    {selectedSubscriptionForPoints?.plan_id?.amount_type}
+                                    {selectedSubscription.amount}{" "}
+                                    {selectedSubscription.plan_id?.amount_type}
                                   </p>
                                   <p>
                                     <strong>Profit Percentage:</strong>{" "}
-                                    {selectedSubscriptionForPoints?.profit_percentage?.$numberDecimal}%
+                                    {selectedSubscription.profit_percentage?.$numberDecimal}%
                                   </p>
-                                  <div>
-                                    <label>Capital Amount</label>
-                                    <Input
-                                      type="number"
-                                      value={pointsAmount}
-                                      readOnly
-                                    />
-                                  </div>
-                                  <div>
-                                    <label>Profit Percentage (%)</label>
-                                    <Input
-                                      type="number"
-                                      value={profitPercentage}
-                                      readOnly
-                                    />
-                                  </div>
-                                  <div className="flex space-x-2">
-                                    <Button
-                                      onClick={handleAddPoints}
-                                      disabled={isLoading || selectedSubscriptionForPoints?.pointsAdded}
-                                      className="bg-[#d09d42] text-white hover:bg-[#0f1c3f]"
-                                    >
-                                      <Wallet className="mr-2 h-4 w-4" />{" "}
-                                      {selectedSubscriptionForPoints?.pointsAdded
-                                        ? "Points Added"
-                                        : "Add Points"}
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      onClick={handlePointsDialogClose}
-                                      disabled={isLoading}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                  {statusMessage && (
-                                    <p
-                                      className={
-                                        statusMessage.includes("Failed")
-                                          ? "text-red-600"
-                                          : "text-green-600"
-                                      }
-                                    >
-                                      {statusMessage}
-                                    </p>
-                                  )}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={isLoading}
-                                >
-                                  <XCircle className="mr-2 h-4 w-4 text-red-500" />{" "}
-                                  Reject
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Reject Subscription</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <Input
-                                    placeholder="Enter rejection reason"
-                                    value={rejectReason}
-                                    onChange={(e) =>
-                                      setRejectReason(e.target.value)
-                                    }
-                                  />
-                                  <Button
-                                    onClick={() => handleReject(sub._id)}
-                                    disabled={isLoading || !rejectReason}
-                                  >
-                                    Submit Rejection
-                                  </Button>
-                                  {statusMessage && (
-                                    <p
-                                      className={
-                                        statusMessage.includes("Failed")
-                                          ? "text-red-600"
-                                          : "text-green-600"
-                                      }
-                                    >
-                                      {statusMessage}
-                                    </p>
-                                  )}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          </>
-                        )}
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedSubscription(sub)}
-                            >
-                              <Eye className="mr-2 h-4 w-4" /> View Details
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="h-[500px] overflow-auto">
-                            <DialogHeader>
-                              <DialogTitle>Subscription Details</DialogTitle>
-                            </DialogHeader>
-                            {selectedSubscription && (
-                              <div className="space-y-4">
-                                <p>
-                                  <strong>Subscription ID:</strong>{" "}
-                                  {selectedSubscription._id}
-                                </p>
-                                <p>
-                                  <strong>User:</strong>{" "}
-                                  {selectedSubscription.user_id.username} (
-                                  {selectedSubscription.user_id.email})
-                                </p>
-                                <p>
-                                  <strong>Phone Number:</strong>{" "}
-                                  {selectedSubscription.user_id.phone_number}
-                                </p>
-                                <p>
-                                  <strong>Plan:</strong>{" "}
-                                  {selectedSubscription.plan_id?.plan_name}
-                                </p>
-                                <p>
-                                  <strong>Amount:</strong>{" "}
-                                  {selectedSubscription.amount}{" "}
-                                  {selectedSubscription.plan_id?.amount_type}
-                                </p>
-                                <p>
-                                  <strong>Profit Percentage:</strong>{" "}
-                                  {
-                                    selectedSubscription.profit_percentage
-                                      ?.$numberDecimal
-                                  }
-                                  %
-                                </p>
-                                <p>
-                                  <strong>
-                                    Profit Amount (
-                                    {
-                                      selectedSubscription.plan_id
-                                        ?.profit_withdrawal
-                                    }
-                                    ):
-                                  </strong>{" "}
-                                  {profitAmount.toFixed(2)}{" "}
-                                  {selectedSubscription.plan_id?.amount_type}
-                                </p>
-                                <p>
-                                  <strong>Total Return:</strong>{" "}
-                                  {totalReturn.toFixed(2)}{" "}
-                                  {selectedSubscription.plan_id?.amount_type}
-                                </p>
-                                <p>
-                                  <strong>Status:</strong>{" "}
-                                  {selectedSubscription.status
-                                    .charAt(0)
-                                    .toUpperCase() +
-                                    selectedSubscription.status.slice(1)}
-                                </p>
-                                <p>
-                                  <strong>Plan Status:</strong>{" "}
-                                  {selectedSubscription.planStatus}
-                                </p>
-                                <p>
-                                  <strong>Purchased At:</strong>{" "}
-                                  {new Date(
-                                    selectedSubscription.purchased_at
-                                  ).toLocaleString()}
-                                </p>
-                                <p>
-                                  <strong>Expires At:</strong>{" "}
-                                  {selectedSubscription.expires_at
-                                    ? new Date(
-                                        selectedSubscription.expires_at
-                                      ).toLocaleString()
-                                    : "N/A"}
-                                </p>
-                                {selectedSubscription.rejected_reason && (
                                   <p>
-                                    <strong>Rejection Reason:</strong>{" "}
-                                    {selectedSubscription.rejected_reason}
+                                    <strong>
+                                      Profit Amount (
+                                      {selectedSubscription.plan_id?.profit_withdrawal}
+                                      ):
+                                    </strong>{" "}
+                                    {profitAmount.toFixed(2)}{" "}
+                                    {selectedSubscription.plan_id?.amount_type}
                                   </p>
-                                )}
-                                {imageUrl && (
-                                  <div>
+                                  <p>
+                                    <strong>Total Return:</strong>{" "}
+                                    {totalReturn.toFixed(2)}{" "}
+                                    {selectedSubscription.plan_id?.amount_type}
+                                  </p>
+                                  <p>
+                                    <strong>Status:</strong>{" "}
+                                    {selectedSubscription.status
+                                      .charAt(0)
+                                      .toUpperCase() +
+                                      selectedSubscription.status.slice(1)}
+                                  </p>
+                                  <p>
+                                    <strong>Plan Status:</strong>{" "}
+                                    {selectedSubscription.planStatus}
+                                  </p>
+                                  <p>
+                                    <strong>Purchased At:</strong>{" "}
+                                    {new Date(
+                                      selectedSubscription.purchased_at
+                                    ).toLocaleString()}
+                                  </p>
+                                  <p>
+                                    <strong>Expires At:</strong>{" "}
+                                    {selectedSubscription.expires_at
+                                      ? new Date(
+                                          selectedSubscription.expires_at
+                                        ).toLocaleString()
+                                      : "N/A"}
+                                  </p>
+
+                                  {/* Transaction ID in View Details */}
+                                  {selectedSubscription.transaction_id ? (
                                     <p>
-                                      <strong>Payment Screenshot:</strong>
+                                      <strong>Transaction ID / UTR / TxID:</strong>{" "}
+                                      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
+                                        {selectedSubscription.transaction_id}
+                                      </span>
                                     </p>
-                                    <Zoom>
-                                      <img
-                                        src={imageUrl}
-                                        alt="Payment Screenshot"
-                                        className="w-full max-w-md rounded-lg border shadow cursor-pointer"
-                                        onError={(e) => {
-                                          console.error(
-                                            "Failed to load payment screenshot:",
-                                            e
-                                          );
-                                          e.target.src = "/fallback-image.png";
-                                        }}
-                                      />
-                                    </Zoom>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                                  ) : (
+                                    <p>
+                                      <strong>Transaction ID:</strong>{" "}
+                                      <span className="text-gray-500 italic">Not provided</span>
+                                    </p>
+                                  )}
+
+                                  {selectedSubscription.rejected_reason && (
+                                    <p>
+                                      <strong>Rejection Reason:</strong>{" "}
+                                      {selectedSubscription.rejected_reason}
+                                    </p>
+                                  )}
+                                  {imageUrl && (
+                                    <div>
+                                      <p>
+                                        <strong>Payment Screenshot:</strong>
+                                      </p>
+                                      <Zoom>
+                                        <img
+                                          src={imageUrl}
+                                          alt="Payment Screenshot"
+                                          className="w-full max-w-md rounded-lg border shadow cursor-pointer"
+                                          onError={(e) => {
+                                            console.error(
+                                              "Failed to load payment screenshot:",
+                                              e
+                                            );
+                                            e.target.src = "/fallback-image.png";
+                                          }}
+                                        />
+                                      </Zoom>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  href="#"
-                  onClick={() =>
-                    handlePageChange(currentPage > 1 ? currentPage - 1 : 1)
-                  }
-                  disabled={currentPage === 1}
-                />
-              </PaginationItem>
-              {[...Array(totalPages)]?.map((_, i) => (
-                <PaginationItem key={i}>
-                  <PaginationLink
+
+          {/* Pagination */}
+          {filteredPurchasedPlans?.length > 0 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
                     href="#"
-                    onClick={() => handlePageChange(i + 1)}
-                    isActive={currentPage === i + 1}
-                  >
-                    {i + 1}
-                  </PaginationLink>
+                    onClick={() =>
+                      handlePageChange(currentPage > 1 ? currentPage - 1 : 1)
+                    }
+                    disabled={currentPage === 1}
+                  />
                 </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext
-                  href="#"
-                  onClick={() =>
-                    handlePageChange(
-                      currentPage < totalPages ? currentPage + 1 : totalPages
-                    )
-                  }
-                  disabled={currentPage === totalPages}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+                {[...Array(totalPages)].map((_, i) => (
+                  <PaginationItem key={i}>
+                    <PaginationLink
+                      href="#"
+                      onClick={() => handlePageChange(i + 1)}
+                      isActive={currentPage === i + 1}
+                    >
+                      {i + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={() =>
+                      handlePageChange(
+                        currentPage < totalPages ? currentPage + 1 : totalPages
+                      )
+                    }
+                    disabled={currentPage === totalPages}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
         </CardContent>
       </Card>
     </div>
