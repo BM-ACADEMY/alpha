@@ -5,13 +5,27 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronUp, Image as ImageIcon } from 'lucide-react';
 import Zoom from "react-medium-image-zoom";
 import "react-medium-image-zoom/dist/styles.css";
-import { getImageUrl } from '@/utils/ImageHelper';
 
 function Blog() {
   const [blogs, setBlogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedCards, setExpandedCards] = useState({});
+
+  // INLINE getImageUrl - NO EXTERNAL FILE NEEDED
+  const getImageUrl = (imagePath) => {
+    if (!image) return "https://via.placeholder.com/600/1a1a2e/ffffff?text=No+Image";
+
+    // If it's already a full URL (like from Cloudinary, etc.)
+    if (image.startsWith('http://') || image.startsWith('https://')) {
+      return image;
+    }
+
+    const baseUrl = import.meta.env.VITE_BASE_URL || 'http://localhost:5000';
+    // Remove leading slash to prevent double slashes
+    const cleanPath = image.startsWith('/') ? image.slice(1) : image;
+    return `${baseUrl}/${cleanPath}`;
+  };
 
   useEffect(() => {
     const fetchBlogs = async () => {
@@ -34,12 +48,14 @@ function Blog() {
     setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // ... rest of your loading & error states remain exactly the same ...
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#121e52] px-4 py-12">
         <div className="container mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3, 4, 5, 6]?.map(i => (
+            {[1,2,3,4,5,6].map(i => (
               <Skeleton key={i} className="h-96 w-full rounded-2xl bg-white/10" />
             ))}
           </div>
@@ -70,7 +86,7 @@ function Blog() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {blogs?.map(blog => {
+            {blogs.map(blog => {
               const isExpanded = expandedCards[blog._id];
               const hasImages = blog.images && blog.images.length > 0;
               const imageCount = blog.images?.length || 0;
@@ -79,12 +95,11 @@ function Blog() {
                 <article key={blog._id} className="group">
                   <Card className={`
                     overflow-hidden bg-white/5 border border-white/10 backdrop-blur-sm
-                    shadow-xl rounded-2xl transition-all duration-500
-                    ${isExpanded ? 'ring-4 ring-[#d29c44]/30' : 'hover:bg-white/10 hover:shadow-2xl'}
-                    ${!isExpanded ? 'h-[480px]' : 'h-[680px]'}
-                    flex flex-col
+                    shadow-xl rounded-2xl transition-all duration-500 flex flex-col
+                    ${isExpanded ? 'ring-4 ring-[#d29c44]/30 h-[680px]' : 'h-[480px] hover:bg-white/10 hover:shadow-2xl'}
                   `}>
-                    {/* TITLE ABOVE IMAGE - Full Bleed */}
+
+                    {/* Title */}
                     <div className="px-6 pt-8 pb-4">
                       <div className="flex justify-between items-start mb-2">
                         <Badge className="bg-[#d29c44]/20 text-[#d29c44] border border-[#d29c44]/30 text-xs">
@@ -105,7 +120,6 @@ function Blog() {
                         className="flex flex-col h-full cursor-pointer"
                         onClick={(e) => toggleExpand(e, blog._id)}
                       >
-                        {/* Hero Image - Full width, no top gap */}
                         {hasImages ? (
                           <div className="relative flex-shrink-0">
                             <div className="aspect-square overflow-hidden bg-black/20">
@@ -114,6 +128,9 @@ function Blog() {
                                 alt={blog.title}
                                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                                 loading="lazy"
+                                onError={(e) => {
+                                  e.currentTarget.src = "https://via.placeholder.com/600/121e52/ffffff?text=No+Image";
+                                }}
                               />
                             </div>
                             {imageCount > 1 && (
@@ -129,7 +146,6 @@ function Blog() {
                           </div>
                         )}
 
-                        {/* Description + Read More */}
                         <div className="p-6 pt-5 flex flex-col flex-grow">
                           <p className="text-white/70 text-sm leading-relaxed line-clamp-3 flex-grow">
                             {blog.description}
@@ -145,7 +161,6 @@ function Blog() {
                     ) : (
                       /* EXPANDED VIEW */
                       <div className="flex flex-col h-full">
-                        {/* Close Button */}
                         <div className="px-6 pt-4 pb-2 flex justify-end">
                           <button
                             onClick={(e) => toggleExpand(e, blog._id)}
@@ -156,12 +171,10 @@ function Blog() {
                           </button>
                         </div>
 
-                        {/* Scrollable Content */}
                         <div className="flex-1 overflow-y-auto px-6 pb-6 scrollbar-thin scrollbar-thumb-white/20">
-                          {/* Image Gallery */}
                           {hasImages && (
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8 -mx-6 px-6">
-                              {blog.images?.map((img, i) => (
+                              {blog.images.map((img, i) => (
                                 <div
                                   key={i}
                                   className="relative group overflow-hidden rounded-xl bg-black/30 shadow-2xl aspect-square cursor-zoom-in"
@@ -172,6 +185,9 @@ function Blog() {
                                       alt={`${blog.title} - ${i + 1}`}
                                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                       loading="lazy"
+                                      onError={(e) => {
+                                        e.currentTarget.src = "https://via.placeholder.com/600/121e52/ffffff?text=Image+Not+Found";
+                                      }}
                                     />
                                   </Zoom>
                                   <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2.5 py-1 rounded-full backdrop-blur">
@@ -182,13 +198,11 @@ function Blog() {
                             </div>
                           )}
 
-                          {/* Full Content */}
                           <div className="text-white/90 text-base leading-8 whitespace-pre-wrap text-justify">
                             {blog.content || blog.description}
                           </div>
                         </div>
 
-                        {/* Footer */}
                         <div className="px-6 py-5 border-t border-white/10 flex justify-between items-center text-sm">
                           <span className="text-white/50">
                             {new Date(blog.createdAt).toLocaleDateString('en-US', {
