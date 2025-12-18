@@ -134,26 +134,75 @@ exports.getWalletByUserId = async (req, res) => {
 
 
 // Get All Redeem Requests
+// exports.getAllRedeemRequests = async (req, res) => {
+//   try {
+//     const { page = 1, limit = 10 } = req.query;
+//     const skip = (parseInt(page) - 1) * parseInt(limit);
+
+//     const redeemRequests = await Redeem.find()
+//       .populate('user_id', 'username email')
+//       .sort({ created_at: -1 })
+//       .skip(skip)
+//       .limit(parseInt(limit));
+
+//     const total = await Redeem.countDocuments();
+
+//     res.json({ redeemRequests, total, page, limit });
+//   } catch (err) {
+//     console.error('Error fetching redeem requests:', err);
+//     res.status(500).json({ message: 'Server Error', error: err.message });
+//   }
+// };
+
+// In redeemController.js
 exports.getAllRedeemRequests = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    // First get redeem requests with populated user
     const redeemRequests = await Redeem.find()
       .populate('user_id', 'username email')
-      .sort({ created_at: -1 }) 
+      .sort({ created_at: -1 })
       .skip(skip)
       .limit(parseInt(limit));
 
+    // Extract unique user_ids
+    const userIds = [...new Set(redeemRequests.map(r => r.user_id._id.toString()))];
+
+    // Fetch latest verified subscription per user
+    const latestSubscriptions = await UserPlanSubscription.aggregate([
+      { $match: {
+        user_id: { $in: userIds.map(id => new mongoose.Types.ObjectId(id)) },
+        status: 'verified'
+      }},
+      { $sort: { verified_at: -1 } },
+      { $group: {
+        _id: '$user_id',
+        transaction_id: { $first: '$transaction_id' }
+      }}
+    ]);
+
+    // Create a map: user_id -> transaction_id
+    const transactionMap = {};
+    latestSubscriptions.forEach(sub => {
+      transactionMap[sub._id.toString()] = sub.transaction_id || 'N/A';
+    });
+
+    // Attach transaction_id to each redeem request
+    const enrichedRequests = redeemRequests.map(request => ({
+      ...request.toObject(),
+      transaction_id: transactionMap[request.user_id._id.toString()] || 'N/A'
+    }));
+
     const total = await Redeem.countDocuments();
 
-    res.json({ redeemRequests, total, page, limit });
+    res.json({ redeemRequests: enrichedRequests, total, page, limit });
   } catch (err) {
     console.error('Error fetching redeem requests:', err);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };
-
 
 exports.updateRedeemStatus = async (req, res) => {
   try {
@@ -370,4 +419,3 @@ exports.getUserTransactions = async (req, res) => {
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 };
-

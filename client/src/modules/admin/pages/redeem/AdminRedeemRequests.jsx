@@ -8,13 +8,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, XCircle, AlertCircle, Loader2, Eye, Copy, Check, Filter } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, Loader2, Eye, Copy, Check } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import axiosInstance from '@/modules/common/lib/axios';
 import { showToast } from '@/modules/common/toast/customToast';
@@ -53,10 +52,10 @@ const AdminRedeemRequests = () => {
   const [accountLoading, setAccountLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // New state for filters and search
+  // Filters: removed amount filter, added transaction ID filter
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterAmount, setFilterAmount] = useState('');
+  const [filterTransactionId, setFilterTransactionId] = useState('');
   const [filterDate, setFilterDate] = useState('');
 
   // Fetch all redeem requests
@@ -66,7 +65,7 @@ const AdminRedeemRequests = () => {
       try {
         const response = await axiosInstance.get('/redeem/get-all-request', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-          params: { page: 1, limit: 20 },
+          params: { page: 1, limit: 50 }, // Increased limit for better coverage
         });
         setRedeemRequests(response.data.redeemRequests);
       } catch (error) {
@@ -120,29 +119,28 @@ const AdminRedeemRequests = () => {
     }
   };
 
-  // Filtering logic
+  // Filtering logic (updated with transaction ID filter)
   const filteredRequests = redeemRequests?.filter(request => {
-    // Filter by user search term (username or email)
     const matchesSearch = searchTerm === '' ||
       (request.user_id?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
        request.user_id?.email?.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    // Filter by status
     const matchesStatus = filterStatus === 'all' || request.status === filterStatus;
 
-    // Filter by amount
-    const matchesAmount = filterAmount === '' || request.redeem_amount.toFixed(2) === parseFloat(filterAmount).toFixed(2);
+    const matchesTransactionId = filterTransactionId === '' ||
+      (request.transaction_id &&
+       request.transaction_id.toLowerCase().includes(filterTransactionId.toLowerCase()));
 
-    // Filter by date
-    const matchesDate = filterDate === '' || new Date(request.created_at).toISOString().slice(0, 10) === filterDate;
+    const matchesDate = filterDate === '' ||
+      new Date(request.created_at).toISOString().slice(0, 10) === filterDate;
 
-    return matchesSearch && matchesStatus && matchesAmount && matchesDate;
+    return matchesSearch && matchesStatus && matchesTransactionId && matchesDate;
   });
 
   const handleResetFilters = () => {
     setSearchTerm('');
     setFilterStatus('all');
-    setFilterAmount('');
+    setFilterTransactionId('');
     setFilterDate('');
   };
 
@@ -193,15 +191,15 @@ const AdminRedeemRequests = () => {
           </select>
         </div>
 
-        {/* Amount Filter */}
+        {/* Transaction ID Filter (replaced Amount Filter) */}
         <div className="w-full sm:w-1/4">
-          <label htmlFor="amount-filter" className="block text-sm font-medium text-gray-700">Filter by Amount</label>
+          <label htmlFor="transaction-filter" className="block text-sm font-medium text-gray-700">Filter by Transaction ID</label>
           <input
-            type="number"
-            id="amount-filter"
-            value={filterAmount}
-            onChange={(e) => setFilterAmount(e.target.value)}
-            placeholder="e.g., 50.00"
+            type="text"
+            id="transaction-filter"
+            value={filterTransactionId}
+            onChange={(e) => setFilterTransactionId(e.target.value)}
+            placeholder="e.g., UTR123456"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
           />
         </div>
@@ -239,6 +237,7 @@ const AdminRedeemRequests = () => {
           <TableHeader>
             <TableRow>
               <TableHead>User</TableHead>
+              <TableHead>Transaction ID</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Account Type</TableHead>
               <TableHead>Status</TableHead>
@@ -251,6 +250,14 @@ const AdminRedeemRequests = () => {
               <TableRow key={request._id}>
                 <TableCell>
                   {request.user_id?.username || 'N/A'} ({request.user_id?.email || 'N/A'})
+                </TableCell>
+                <TableCell className="font-mono text-sm">
+                  <div className="flex items-center">
+                    <span>{request.transaction_id || 'N/A'}</span>
+                    {request.transaction_id && request.transaction_id !== 'N/A' && (
+                      <CopyField value={request.transaction_id} />
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>{request.redeem_amount.toFixed(2)} {request.account_type}</TableCell>
                 <TableCell>{request.account_type}</TableCell>
